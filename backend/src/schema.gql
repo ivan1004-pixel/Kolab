@@ -1,0 +1,654 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type ActionResponse {
+  message: String!
+  success: Boolean!
+}
+
+input AdminCreateUsuarioInput {
+  apellidos: String!
+  contrasena: String!
+  correo: String!
+  idCarrera: ID
+  nombre: String!
+  rol: RolUsuario!
+}
+
+input AdminUpdateUsuarioInput {
+  apellidos: String
+  isActive: Boolean
+  nombre: String
+  rol: RolUsuario
+}
+
+type AiConfig {
+  _id: ID!
+  limiteConsultasDiarias: Int!
+  modelo: String!
+  temperatura: Float!
+}
+
+type Asignatura {
+  _id: ID!
+  cuatrimestre: String
+  descripcion: String
+  idCarrera: ID!
+  nombre: String!
+}
+
+type AuditoriaLog {
+  _id: ID!
+  accion: String!
+  createdAt: DateTime!
+  detalles: String
+  entidad: String
+  idUsuario: ID
+}
+
+type AuthPayload {
+  accessToken: String!
+  refreshToken: String!
+  usuario: Usuario!
+}
+
+type CalendarioEvento {
+  _id: ID!
+  descripcion: String
+  fecha: DateTime!
+  idAsignatura: ID!
+  idDocente: ID!
+  idTema: ID
+  tipo: String!
+  titulo: String!
+}
+
+type Carrera {
+  _id: ID!
+  cuatrimestres: [String!]!
+  descripcion: String
+  nombre: String!
+}
+
+type ColeccionPersonal {
+  _id: ID!
+  esFavoritos: Boolean!
+  idUsuario: ID!
+  nombre: String!
+  recursos: [ID!]!
+}
+
+type ComentarioRecurso {
+  fecha: DateTime!
+  idUsuario: ID!
+  texto: String!
+}
+
+type ConsultaIa {
+  _id: ID!
+  calificacionUsuario: Boolean
+  correccionDocente: String
+  createdAt: DateTime!
+  esValida: Boolean!
+  fuentesCitadas: [FuenteCitada!]!
+  generadoPorIa: Boolean!
+  idTema: ID!
+  idUsuario: ID!
+  promptPregunta: String!
+  respuestaIa: String!
+}
+
+input CreateAsignaturaInput {
+  cuatrimestre: String
+  descripcion: String
+  idCarrera: ID!
+  nombre: String!
+}
+
+input CreateCalendarioEventoInput {
+  descripcion: String
+  fecha: String!
+  idAsignatura: ID!
+  idTema: ID
+  tipo: String!
+  titulo: String!
+}
+
+input CreateCarreraInput {
+  cuatrimestres: [String!]
+  descripcion: String
+  nombre: String!
+}
+
+input CreateRecursoInput {
+  archivoUrl: String!
+  contenidoTextoExtraido: String
+  descripcion: String
+  esMaterialOficial: Boolean
+  idAsignatura: ID
+  idTema: ID!
+  palabrasClave: [String!]
+  tamanoBytes: Int!
+  tipoArchivo: String!
+  titulo: String!
+}
+
+input CreateTemaInput {
+  descripcion: String
+  idAsignatura: ID!
+  titulo: String!
+}
+
+type Cuestionario {
+  _id: ID!
+  createdAt: DateTime!
+  dificultad: String
+  generadoPorIa: Boolean!
+  idTema: ID!
+  idUsuario: ID!
+  reactivos: [ReactivoCuestionario!]!
+  referenciaIa: String
+  titulo: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+enum EstadoReporte {
+  DESCARTADO
+  EN_REVISION
+  PENDIENTE
+  RESUELTO
+}
+
+enum EstadoTutoria {
+  ACEPTADA
+  CANCELADA
+  COMPLETADA
+  PENDIENTE
+}
+
+enum EstadoValidacionRecurso {
+  ARCHIVADO
+  PENDIENTE
+  REVISADO_DOCENTE
+}
+
+input FiltrarRecursosInput {
+  calificacionMinima: Float
+  estadoValidacion: EstadoValidacionRecurso
+  idAsignatura: ID
+  idAutor: ID
+  idTema: ID
+  ordenarPor: String = "RECIENTES"
+  palabrasClave: [String!]
+  texto: String
+}
+
+type FuenteCitada {
+  fragmento: String!
+  idRecurso: ID!
+  tituloRecurso: String!
+}
+
+type GrupoEstudio {
+  _id: ID!
+  descripcion: String
+  esPrivado: Boolean!
+  idCuestionario: ID
+  idTema: ID!
+  miembros: [MiembroGrupo!]!
+  nombre: String!
+}
+
+type IntentoCuestionario {
+  _id: ID!
+  aciertos: Int!
+  calificacion: Float!
+  conceptosPorReforzar: [String!]!
+  createdAt: DateTime!
+  idCuestionario: ID!
+  idTema: ID!
+  idUsuario: ID!
+  retroalimentacion: String!
+  totalReactivos: Int!
+}
+
+input LoginInput {
+  contrasena: String!
+  correo: String!
+}
+
+type MiembroGrupo {
+  fechaUnion: DateTime!
+  idUsuario: ID!
+  rolGrupo: String!
+}
+
+type Mutation {
+  """Aceptar tutoría entre pares o duelo"""
+  aceptarTutoriaODuelo(solicitudId: ID!): SolicitudTutoria!
+
+  """RF-51: Editar perfil del usuario"""
+  actualizarPerfil(input: UpdatePerfilInput!): Usuario!
+
+  """RF-53: Configurar preferencias de usuario"""
+  actualizarPreferencias(input: UpdatePreferenciasInput!): Usuario!
+
+  """RF-31: Editar o dar de baja usuario"""
+  adminActualizarUsuario(id: ID!, input: AdminUpdateUsuarioInput!): Usuario!
+
+  """RF-31: Crear usuario y asignar rol"""
+  adminCrearUsuario(input: AdminCreateUsuarioInput!): Usuario!
+
+  """RF-13/RF-66: Agregar nueva versión de un recurso"""
+  agregarVersionRecurso(archivoUrl: String!, notaCambio: String!, recursoId: ID!): Recurso!
+
+  """RF-89..91: Calificar recurso (1 a 5 estrellas)"""
+  calificarRecurso(estrellas: Int!, recursoId: ID!): Recurso!
+
+  """RF-73: Calificar respuesta de la IA como útil o no útil"""
+  calificarRespuestaIa(consultaId: ID!, util: Boolean!): ConsultaIa!
+
+  """RF-18: Cerrar duda como resuelta"""
+  cerrarPreguntaResuelta(preguntaId: ID!): Pregunta!
+
+  """RF-69: Comentar en un recurso de forma general"""
+  comentarRecurso(recursoId: ID!, texto: String!): Recurso!
+
+  """RF-33: Configurar parámetros del motor de IA (Admin)"""
+  configurarIa(limiteConsultasDiarias: Int, modelo: String, temperatura: Float): AiConfig!
+
+  """RF-38: Congela la racha usando un comodín mensual"""
+  congelarMiRacha: Usuario!
+
+  """
+  RF-23/RF-71/RF-72/RF-75: Consultar a Gemini AI usando solo material autorizado
+  """
+  consultarIa(idTema: ID!, promptPregunta: String!): ConsultaIa!
+
+  """RF-74: Corregir respuesta de IA marcada como incorrecta (Docente)"""
+  corregirRespuestaIa(consultaId: ID!, correccionDocente: String!): ConsultaIa!
+
+  """RF-32: Crear asignatura (Admin)"""
+  crearAsignatura(input: CreateAsignaturaInput!): Asignatura!
+
+  """RF-32: Crear carrera (Admin)"""
+  crearCarrera(input: CreateCarreraInput!): Carrera!
+
+  """RF-68: Crear grupo de estudio privado por tema/asignatura"""
+  crearGrupoEstudio(descripcion: String, esPrivado: Boolean! = true, idTema: ID!, nombre: String!): GrupoEstudio!
+
+  """RF-09/RF-15/RF-46: Crear pregunta o pregunta colaborativa"""
+  crearPregunta(esBancoColaborativo: Boolean! = false, etiquetas: [String!], fragmentoRecurso: String, idRecurso: ID, idTema: ID!, texto: String!): Pregunta!
+
+  """RF-49: Crear reto semanal comunitario"""
+  crearRetoComunitario(descripcion: String!, idGrupo: ID!, metaCantidad: Int!, titulo: String!, xpRecompensa: Int!): RetoComunitario!
+
+  """RF-32: Crear tema (Admin o Docente)"""
+  crearTema(input: CreateTemaInput!): Tema!
+
+  """RNF-18: Eliminar asignatura controlada"""
+  eliminarAsignatura(id: ID!): Boolean!
+
+  """RF-54: Eliminar cuenta y baja de datos personales"""
+  eliminarMiCuenta: Boolean!
+
+  """RF-05: Solicita enlace temporal de recuperación por Brevo"""
+  forgotPassword(correo: String!): ActionResponse!
+
+  """RF-24/RF-43..45: Generar cuestionario de práctica (1-15 reactivos)"""
+  generarCuestionarioIa(cantidadReactivos: Int! = 5, idTema: ID!, titulo: String): Cuestionario!
+
+  """RF-61/RF-62: Guardar en favoritos o colección personal"""
+  guardarRecursoEnColeccion(esFavoritos: Boolean! = false, nombreColeccion: String! = "Favoritos", recursoId: ID!): ColeccionPersonal!
+
+  """Inscribir asignatura en la tira de materias (RF-07)"""
+  inscribirAsignatura(asignaturaId: ID!): Usuario!
+
+  """RF-65: Invitar coautor a un recurso"""
+  invitarCoautor(coautorId: ID!, recursoId: ID!): Recurso!
+
+  """RF-04/RNF-10: Inicio de sesión seguro con límite de intentos"""
+  login(input: LoginInput!): AuthPayload!
+
+  """RF-06: Cierra la sesión actual e invalida el token"""
+  logout: ActionResponse!
+  marcarNotificacionLeida(notificacionId: ID!): Notificacion!
+
+  """RF-17: Marcar respuesta como relevante (Docente)"""
+  marcarRespuestaRelevante(respuestaId: ID!): Respuesta!
+
+  """RF-67: Enviar recurso a papelera de reciclaje (30 días)"""
+  moverRecursoAPapelera(recursoId: ID!): Recurso!
+
+  """Renueva accessToken y refreshToken"""
+  refreshToken(refreshToken: String!): AuthPayload!
+
+  """
+  RF-01/RF-02/RNF-22: Registro con validación de correo real (MX + Brevo) y contraseña segura
+  """
+  register(input: RegisterInput!): RegisterResponse!
+
+  """RF-77: Registrar fecha de examen o entrega (Docente)"""
+  registrarEventoCalendario(input: CreateCalendarioEventoInput!): CalendarioEvento!
+
+  """RF-29: Reportar contenido inapropiado o inexacto"""
+  reportarContenido(idObjetivo: ID!, motivo: String!, tipoObjetivo: String!): Reporte!
+
+  """Reenvía el correo de verificación por Brevo"""
+  resendVerificationEmail(correo: String!): ActionResponse!
+
+  """RF-05: Restablece la contraseña con el token temporal"""
+  resetPassword(input: ResetPasswordInput!): ActionResponse!
+
+  """RF-30: Resolver un reporte (Admin)"""
+  resolverReporte(estado: EstadoReporte!, reporteId: ID!, resolucionAdmin: String!): Reporte!
+
+  """RF-25/RF-26: Responder cuestionario y guardar resultados"""
+  responderCuestionario(cuestionarioId: ID!, respuestas: [String!]!): IntentoCuestionario!
+
+  """RF-16: Responder una pregunta"""
+  responderPregunta(idPregunta: ID!, texto: String!): Respuesta!
+
+  """RF-50/RF-70: Solicitar tutoría entre pares o iniciar modo duelo"""
+  solicitarTutoriaODuelo(esDuelo: Boolean! = false, idCuestionario: ID, idTema: ID!): SolicitudTutoria!
+
+  """RF-11/RF-92: Subir recurso (PDF o imagen <= 10 MB)"""
+  subirRecurso(input: CreateRecursoInput!): Recurso!
+
+  """Unirse a un grupo de estudio"""
+  unirseAGrupo(grupoId: ID!): GrupoEstudio!
+
+  """RF-47: Validar pregunta del banco colaborativo (Docente)"""
+  validarPreguntaBanco(preguntaId: ID!): Pregunta!
+
+  """RF-19..21: Validación y retroalimentación docente"""
+  validarRecurso(estado: EstadoValidacionRecurso!, recursoId: ID!, retroalimentacion: String): Recurso!
+
+  """
+  Verifica el correo electrónico y dispara el correo de bienvenida por Brevo
+  """
+  verifyEmail(token: String!): ActionResponse!
+
+  """RF-48: Votar utilidad de pregunta"""
+  votarPregunta(preguntaId: ID!): Pregunta!
+
+  """RF-48: Votar utilidad de respuesta"""
+  votarRespuesta(respuestaId: ID!): Respuesta!
+}
+
+type Notificacion {
+  _id: ID!
+  createdAt: DateTime!
+  idUsuario: ID!
+  leida: Boolean!
+  mensaje: String!
+  tipo: TipoNotificacion!
+  titulo: String!
+}
+
+type PreferenciasUsuario {
+  mostrarEnRanking: Boolean!
+  notificacionesCorreo: Boolean!
+  notificacionesPlataforma: Boolean!
+  temaOscuro: Boolean!
+}
+
+type Pregunta {
+  _id: ID!
+  createdAt: DateTime!
+  esBancoColaborativo: Boolean!
+  etiquetas: [String!]!
+  fragmentoRecurso: String
+  idRecurso: ID
+  idTema: ID!
+  idUsuario: ID!
+  resuelta: Boolean!
+  texto: String!
+  validadaPorDocente: Boolean!
+  votosUtilidad: Int!
+}
+
+type Query {
+  """RF-33: Ver configuración del motor de IA (Admin)"""
+  aiConfig: AiConfig!
+  asignaturas(idCarrera: ID): [Asignatura!]!
+
+  """RF-34 / RNF-17: Bitácora de auditoría (Admin)"""
+  auditoriaLogs: [AuditoriaLog!]!
+
+  """RF-78: Consultar calendario de exámenes y entregas"""
+  calendarioEventos(asignaturaIds: [ID!]): [CalendarioEvento!]!
+  carreras: [Carrera!]!
+  gruposEstudio(idTema: ID): [GrupoEstudio!]!
+
+  """RF-26/RF-81: Historial de autoevaluaciones del estudiante"""
+  miHistorialCuestionarios: [IntentoCuestionario!]!
+
+  """Obtiene el perfil del usuario autenticado"""
+  miPerfil: Usuario!
+  misColecciones: [ColeccionPersonal!]!
+
+  """RF-41: Lista las insignias obtenidas por el usuario"""
+  misInsignias: [UsuarioInsignia!]!
+
+  """RF-55..58: Mis notificaciones"""
+  misNotificaciones: [Notificacion!]!
+  preguntas(idTema: ID): [Pregunta!]!
+
+  """RF-27/RF-28: Radar de dificultades por tema"""
+  radarDificultades(idTema: ID): [RadarDificultadTema!]!
+
+  """RF-42: Ranking por grupo o asignatura"""
+  ranking(asignaturaId: ID, grupo: String): [Usuario!]!
+
+  """Ver detalle de un recurso"""
+  recurso(id: ID!): Recurso!
+
+  """RF-14/RF-59/RF-85..88: Buscar y filtrar recursos"""
+  recursos(filtros: FiltrarRecursosInput): [Recurso!]!
+
+  """RF-30: Listar reportes para moderación (Admin)"""
+  reportes(estado: EstadoReporte): [Reporte!]!
+  respuestas(idPregunta: ID!): [Respuesta!]!
+
+  """RF-49: Listar retos comunitarios"""
+  retosComunitarios(idGrupo: ID): [RetoComunitario!]!
+  solicitudesTutoria(esDuelo: Boolean): [SolicitudTutoria!]!
+  temas(idAsignatura: ID): [Tema!]!
+
+  """RF-31: Listar usuarios (Solo Administrador)"""
+  usuarios: [Usuario!]!
+}
+
+type RadarDificultadTema {
+  idTema: ID!
+  preguntaMasDebatidaSinSolucion: Pregunta
+  preguntasSinResolver: Int!
+  totalPreguntas: Int!
+}
+
+type ReactivoCuestionario {
+  explicacion: String!
+  numero: Int!
+  opciones: [String!]!
+  pregunta: String!
+  respuestaCorrecta: String!
+  tipo: String!
+}
+
+type Recurso {
+  _id: ID!
+  archivoUrl: String!
+  coautores: [ID!]!
+  comentarios: [ComentarioRecurso!]!
+  consultasCount: Int!
+  contenidoTextoExtraido: String
+  createdAt: DateTime!
+  descripcion: String
+  eliminadoEn: DateTime
+  esMaterialOficial: Boolean!
+  estadoValidacion: EstadoValidacionRecurso!
+  idAsignatura: ID
+  idTema: ID!
+  idUsuario: ID!
+  palabrasClave: [String!]!
+  promedioCalificacion: Float!
+  retroalimentacionDocente: String
+  tamanoBytes: Int!
+  tipoArchivo: String!
+  titulo: String!
+  totalCalificaciones: Int!
+  updatedAt: DateTime!
+  versiones: [VersionRecurso!]!
+}
+
+input RegisterInput {
+  aceptoPrivacidad: Boolean!
+  apellidos: String!
+  contrasena: String!
+  correo: String!
+  idCarrera: ID
+  nombre: String!
+}
+
+type RegisterResponse {
+  correo: String!
+  message: String!
+  requiereVerificacion: Boolean!
+}
+
+type Reporte {
+  _id: ID!
+  createdAt: DateTime!
+  estado: EstadoReporte!
+  idObjetivo: ID!
+  idUsuarioReporta: ID!
+  motivo: String!
+  resolucionAdmin: String
+  tipoObjetivo: String!
+}
+
+input ResetPasswordInput {
+  nuevaContrasena: String!
+  token: String!
+}
+
+type Respuesta {
+  _id: ID!
+  createdAt: DateTime!
+  esValida: Boolean!
+  idPregunta: ID!
+  idUsuario: ID!
+  texto: String!
+  votosUtilidad: Int!
+  xpGanada: Int!
+}
+
+type RetoComunitario {
+  _id: ID!
+  completado: Boolean!
+  descripcion: String
+  idGrupo: ID!
+  idRecurso: ID
+  metaCantidad: Int!
+  progresoActual: Int!
+  titulo: String!
+  xpRecompensa: Int!
+}
+
+enum RolUsuario {
+  ADMINISTRADOR
+  DOCENTE
+  ESTUDIANTE
+}
+
+type SolicitudTutoria {
+  _id: ID!
+  createdAt: DateTime!
+  esDuelo: Boolean!
+  estado: EstadoTutoria!
+  idCuestionario: ID
+  idEstudiante: ID!
+  idTema: ID!
+  idTutor: ID
+  puntajeEstudiante: Int
+  puntajeTutor: Int
+}
+
+type Tema {
+  _id: ID!
+  descripcion: String
+  idAsignatura: ID!
+  titulo: String!
+}
+
+enum TipoNotificacion {
+  RACHA_EN_RIESGO
+  RESPUESTA_PREGUNTA
+  REVISION_PENDIENTE
+  SISTEMA
+  VALIDACION_RECURSO
+}
+
+input UpdatePerfilInput {
+  apellidos: String
+  cuatrimestre: String
+  fotoUrl: String
+  grupo: String
+  idCarrera: ID
+  nombre: String
+}
+
+input UpdatePreferenciasInput {
+  mostrarEnRanking: Boolean
+  notificacionesCorreo: Boolean
+  notificacionesPlataforma: Boolean
+  temaOscuro: Boolean
+}
+
+type Usuario {
+  _id: ID!
+  aceptoPrivacidad: Boolean!
+  apellidos: String!
+  asignaturasInscritas: [ID!]!
+  comodinesMes: Int!
+  correo: String!
+  createdAt: DateTime!
+  cuatrimestre: String
+  deletedAt: DateTime
+  emailVerified: Boolean!
+  fotoUrl: String
+  grupo: String
+  idCarrera: ID
+  isActive: Boolean!
+  nombre: String!
+  preferencias: PreferenciasUsuario!
+  rachaActual: Int!
+  rachaCongeladaHasta: DateTime
+  rachaMasLarga: Int!
+  rol: RolUsuario!
+  ultimaActividad: DateTime
+  updatedAt: DateTime!
+  xpTotal: Int!
+}
+
+type UsuarioInsignia {
+  _id: ID!
+  fechaObtencion: DateTime!
+  idGrupo: ID
+  idInsignia: ID!
+  idUsuario: ID!
+}
+
+type VersionRecurso {
+  archivoUrl: String!
+  fecha: DateTime!
+  idAutorCambio: ID!
+  notaCambio: String
+  version: Int!
+}
