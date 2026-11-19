@@ -24,6 +24,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/verify-email" element={<Login />} />
+      <Route path="/reset-password" element={<Login />} />
       <Route element={<Protected><Layout /></Protected>}>
         <Route index element={<Dashboard />} />
         <Route path="perfil" element={<Perfil />} />

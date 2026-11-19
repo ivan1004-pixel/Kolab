@@ -1,10 +1,47 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { DEMO_USERS } from '../data/demoUsers.js';
-import { USE_MOCK, request } from '../services/api.js';
+import { USE_MOCK, gqlRequest } from '../services/api.js';
 
 const AuthContext = createContext(null);
 const KEY = 'kolab.session';
 const IDLE_MS = Number(import.meta.env.VITE_SESSION_INACTIVITY_MINUTES ?? 30) * 60 * 1000;
+
+const ROLE_MAP = {
+  ESTUDIANTE: 'estudiante',
+  DOCENTE: 'docente',
+  ADMINISTRADOR: 'admin',
+};
+
+const USER_FIELDS = `
+  _id
+  nombre
+  apellidos
+  correo
+  rol
+  fotoUrl
+  xpTotal
+  cuatrimestre
+  grupo
+`;
+
+function normalizeUser(u) {
+  if (!u) return null;
+  return {
+    id: u._id ?? u.id,
+    nombre: u.nombre ?? '',
+    apellidos: u.apellidos ?? '',
+    email: u.correo ?? u.email ?? '',
+    correo: u.correo ?? u.email ?? '',
+    rol: ROLE_MAP[u.rol] ?? u.rol ?? 'estudiante',
+    foto_url: u.fotoUrl ?? u.foto_url ?? '',
+    xp: u.xpTotal ?? u.xp ?? 0,
+    cuatrimestre: u.cuatrimestre ?? '',
+    grupo: u.grupo ?? '',
+    carrera: u.carrera ?? 'Carrera por definir',
+    insignias: u.insignias ?? 0,
+    retos: u.retos ?? 0,
+  };
+}
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; }
@@ -18,10 +55,13 @@ export function AuthProvider({ children }) {
     setSession(s);
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    if (!USE_MOCK && session?.token) {
+      gqlRequest(`mutation Logout { logout { success message } }`, {}, session.token).catch(() => {});
+    }
     localStorage.removeItem(KEY);
     setSession(null);
-  }, []);
+  }, [session?.token]);
 
   const login = useCallback(async (email, password) => {
     if (USE_MOCK) {
@@ -32,14 +72,104 @@ export function AuthProvider({ children }) {
       persist({ token: 'mock', user });
       return;
     }
-    // Ajustar a las rutas reales del backend cuando nos las pasen
-    const data = await request('/auth/login', { method: 'POST', body: { email, password } });
-    persist({ token: data.token, user: data.user });
+
+    const data = await gqlRequest(
+      `mutation Login($input: LoginInput!) {
+        login(input: $input) {
+          accessToken
+          refreshToken
+          usuario {
+            ${USER_FIELDS}
+          }
+        }
+      }`,
+      { input: { correo: email.trim(), contrasena: password } },
+    );
+
+    persist({
+      token: data.login.accessToken,
+      refreshToken: data.login.refreshToken,
+      user: normalizeUser(data.login.usuario),
+    });
   }, [persist]);
 
+  const register = useCallback(async ({ nombre, apellidos, correo, contrasena, idCarrera, aceptoPrivacidad = true }) => {
+    if (USE_MOCK) {
+      return {
+        message: 'Registro simulado en modo demo. Activa VITE_USE_MOCK=false para usar Brevo.',
+        correo,
+        requiereVerificacion: false,
+      };
+    }
+
+    const data = await gqlRequest(
+      `mutation Register($input: RegisterInput!) {
+        register(input: $input) {
+          message
+          correo
+          requiereVerificacion
+        }
+      }`,
+      {
+        input: {
+          nombre,
+          apellidos,
+          correo: correo.trim(),
+          contrasena,
+          ...(idCarrera ? { idCarrera } : {}),
+          aceptoPrivacidad,
+        },
+      },
+    );
+    return data.register;
+  }, []);
+
+  const verifyEmail = useCallback(async (token) => {
+    if (USE_MOCK) {
+      return { success: true, message: 'Correo verificado (modo demo).' };
+    }
+    const data = await gqlRequest(
+      `mutation VerifyEmail($token: String!) {
+        verifyEmail(token: $token) {
+          success
+          message
+        }
+      }`,
+      { token: token.trim() },
+    );
+    return data.verifyEmail;
+  }, []);
+
   const updateProfile = useCallback(async (changes) => {
-    if (!USE_MOCK) await request('/users/me', { method: 'PUT', body: changes, token: session?.token });
-    persist({ ...session, user: { ...session.user, ...changes } });
+    if (USE_MOCK) {
+      persist({ ...session, user: { ...session.user, ...changes } });
+      return;
+    }
+
+    const input = {};
+    if (changes.nombre !== undefined) input.nombre = changes.nombre;
+    if (changes.apellidos !== undefined) input.apellidos = changes.apellidos;
+    if (changes.foto_url !== undefined || changes.fotoUrl !== undefined) {
+      input.fotoUrl = changes.fotoUrl ?? changes.foto_url;
+    }
+    if (changes.idCarrera !== undefined) input.idCarrera = changes.idCarrera;
+    if (changes.cuatrimestre !== undefined) input.cuatrimestre = changes.cuatrimestre;
+    if (changes.grupo !== undefined) input.grupo = changes.grupo;
+
+    if (Object.keys(input).length > 0 && session?.token) {
+      const data = await gqlRequest(
+        `mutation ActualizarPerfil($input: UpdatePerfilInput!) {
+          actualizarPerfil(input: $input) {
+            ${USER_FIELDS}
+          }
+        }`,
+        { input },
+        session.token,
+      );
+      persist({ ...session, user: normalizeUser(data.actualizarPerfil) });
+    } else {
+      persist({ ...session, user: { ...session.user, ...changes } });
+    }
   }, [persist, session]);
 
   // Cierra la sesión tras N minutos sin actividad
@@ -54,8 +184,16 @@ export function AuthProvider({ children }) {
   }, [session, logout]);
 
   const value = useMemo(
-    () => ({ user: session?.user ?? null, token: session?.token ?? null, login, logout, updateProfile }),
-    [session, login, logout, updateProfile],
+    () => ({
+      user: session?.user ?? null,
+      token: session?.token ?? null,
+      login,
+      logout,
+      register,
+      verifyEmail,
+      updateProfile,
+    }),
+    [session, login, logout, register, verifyEmail, updateProfile],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

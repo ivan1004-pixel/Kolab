@@ -1419,3 +1419,67 @@
     align-items: flex-start;
   }
 }
+
+/* Login tabs y estados */
+.login-tabs {
+  display: inline-flex;
+  background: var(--kolab-mint-soft);
+  padding: 4px;
+  border-radius: var(--kolab-pill, 999px);
+  gap: 4px;
+  align-self: flex-start;
+}
+
+.login-tab {
+  border: none;
+  background: transparent;
+  color: var(--kolab-muted);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.login-tab.is-active {
+  background: var(--kolab-forest);
+  color: var(--kolab-white);
+}
+
+.login-name-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.login-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--kolab-ink);
+  font-weight: 600;
+}
+
+.form-success {
+  background: #dcfce7;
+  color: var(--kolab-forest);
+  border: 1px solid #86efac;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.login-link {
+  border: none;
+  background: transparent;
+  color: var(--kolab-green);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  align-self: flex-start;
+  padding: 0;
+  text-decoration: underline;
+}
