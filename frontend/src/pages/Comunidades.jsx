@@ -1,31 +1,7 @@
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { useAuth } from '../context/AuthContext.jsx';
 
-interface GroupMember {
-  id: string;
-  name: string;
-  role: 'Líder' | 'Colaborador' | 'Integrante';
-  xp: number;
-  avatarColor: string;
-}
-
-interface StudyGroup {
-  id: string;
-  initial: string;
-  name: string;
-  topic: string;
-  badgeColor: string;
-  members: GroupMember[];
-}
-
-interface CommunityChallenge {
-  id: string;
-  title: string;
-  resource: string;
-  xpReward: number;
-  completed?: boolean;
-}
-
-const INITIAL_GROUPS: StudyGroup[] = [
+const INITIAL_GROUPS = [
   {
     id: 'g1',
     initial: 'B',
@@ -64,7 +40,7 @@ const INITIAL_GROUPS: StudyGroup[] = [
   },
 ];
 
-const INITIAL_CHALLENGES: CommunityChallenge[] = [
+const INITIAL_CHALLENGES = [
   {
     id: 'c1',
     title: 'Resumen de Normalización 3FN',
@@ -79,17 +55,14 @@ const INITIAL_CHALLENGES: CommunityChallenge[] = [
   },
 ];
 
-interface Modulo6Props {
-  xp: number;
-  onEarnXp: (amount: number) => void;
-}
+export default function Comunidades() {
+  const { user, updateProfile } = useAuth();
+  const xp = user?.xp ?? 120;
 
-export function Modulo6Comunidades({ xp, onEarnXp }: Modulo6Props) {
-  const [groups, setGroups] = useState<StudyGroup[]>(INITIAL_GROUPS);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>(INITIAL_GROUPS[0].id);
-  const [challenges, setChallenges] = useState<CommunityChallenge[]>(INITIAL_CHALLENGES);
+  const [groups, setGroups] = useState(INITIAL_GROUPS);
+  const [selectedGroupId, setSelectedGroupId] = useState(INITIAL_GROUPS[0].id);
+  const [challenges, setChallenges] = useState(INITIAL_CHALLENGES);
 
-  // Formularios locales rápidos
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupTopic, setNewGroupTopic] = useState('');
@@ -98,22 +71,25 @@ export function Modulo6Comunidades({ xp, onEarnXp }: Modulo6Props) {
   const [newChallengeTitle, setNewChallengeTitle] = useState('');
   const [newChallengeResource, setNewChallengeResource] = useState('');
 
-  const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const [statusNotice, setStatusNotice] = useState(null);
 
   const selectedGroup =
     groups.find((g) => g.id === selectedGroupId) ?? groups[0];
 
-  // Progreso hacia el siguiente hito (base 62% con 120 XP)
   const xpProgress = Math.min(100, Math.max(10, Math.round(((xp % 200) / 200) * 100) || 62));
   const teamBadgeUnlocked = xp >= 150;
 
-  function handleCreateGroup(e: FormEvent) {
+  function addXp(amount) {
+    updateProfile({ xp: (user?.xp ?? 0) + amount });
+  }
+
+  function handleCreateGroup(e) {
     e.preventDefault();
     const name = newGroupName.trim();
     const topic = newGroupTopic.trim();
     if (!name || !topic) return;
 
-    const created: StudyGroup = {
+    const created = {
       id: `g-${Date.now()}`,
       initial: name[0].toUpperCase(),
       name,
@@ -122,7 +98,7 @@ export function Modulo6Comunidades({ xp, onEarnXp }: Modulo6Props) {
       members: [
         {
           id: `u-${Date.now()}`,
-          name: 'Tú (Estudiante)',
+          name: user?.nombre ?? 'Tú (Estudiante)',
           role: 'Líder',
           xp,
           avatarColor: '#FACC15',
@@ -135,14 +111,14 @@ export function Modulo6Comunidades({ xp, onEarnXp }: Modulo6Props) {
     setNewGroupName('');
     setNewGroupTopic('');
     setShowNewGroupForm(false);
-    onEarnXp(15);
+    addXp(15);
     setStatusNotice(`Grupo "${name}" creado. Ganaste +15 XP.`);
   }
 
   function handleInviteMember() {
     const sampleNames = ['Carlos Vega', 'Paola Méndez', 'Jorge Ríos', 'Elena Castro'];
     const nextName = sampleNames[selectedGroup.members.length % sampleNames.length];
-    const newMember: GroupMember = {
+    const newMember = {
       id: `m-${Date.now()}`,
       name: nextName,
       role: 'Integrante',
@@ -161,17 +137,17 @@ export function Modulo6Comunidades({ xp, onEarnXp }: Modulo6Props) {
   }
 
   function handleAcceptRequest() {
-    onEarnXp(10);
+    addXp(10);
     setStatusNotice(`Te uniste activamente a ${selectedGroup.name}. +10 XP.`);
   }
 
-  function handleCreateChallenge(e: FormEvent) {
+  function handleCreateChallenge(e) {
     e.preventDefault();
     const title = newChallengeTitle.trim();
     const resource = newChallengeResource.trim();
     if (!title) return;
 
-    const created: CommunityChallenge = {
+    const created = {
       id: `c-${Date.now()}`,
       title,
       resource: resource || 'Apunte de la comunidad',
@@ -182,24 +158,23 @@ export function Modulo6Comunidades({ xp, onEarnXp }: Modulo6Props) {
     setNewChallengeTitle('');
     setNewChallengeResource('');
     setShowNewChallengeForm(false);
-    onEarnXp(10);
+    addXp(10);
     setStatusNotice(`Reto "${title}" publicado. +10 XP.`);
   }
 
-  function handleCompleteChallenge(challengeId: string) {
+  function handleCompleteChallenge(challengeId) {
     const target = challenges.find((c) => c.id === challengeId);
     if (!target || target.completed) return;
 
     setChallenges((prev) =>
       prev.map((c) => (c.id === challengeId ? { ...c, completed: true } : c)),
     );
-    onEarnXp(target.xpReward);
+    addXp(target.xpReward);
     setStatusNotice(`¡Reto "${target.title}" completado! Ganaste +${target.xpReward} XP.`);
   }
 
   return (
     <div className="module6-wrap">
-      {/* Banner del Módulo 6 */}
       <section className="module-banner module-banner-orange" aria-label="Encabezado del Módulo 6">
         <div className="banner-deco-circle banner-deco-1" aria-hidden="true" />
         <div className="banner-deco-circle banner-deco-2" aria-hidden="true" />
@@ -268,9 +243,7 @@ export function Modulo6Comunidades({ xp, onEarnXp }: Modulo6Props) {
         </div>
       )}
 
-      {/* Grid de 3 columnas */}
       <div className="module6-grid">
-        {/* Columna 1: Grupos de estudio */}
         <section className="kolab-card" aria-label="Grupos de estudio">
           <header className="card-header-row">
             <h2 className="card-title">Grupos de estudio</h2>
@@ -300,7 +273,6 @@ export function Modulo6Comunidades({ xp, onEarnXp }: Modulo6Props) {
           </div>
         </section>
 
-        {/* Columna 2: Integrantes del grupo */}
         <section className="kolab-card members-card" aria-label="Integrantes del grupo">
           <header className="card-header-row">
             <h2 className="card-title">Integrantes del grupo</h2>
@@ -349,7 +321,6 @@ export function Modulo6Comunidades({ xp, onEarnXp }: Modulo6Props) {
           </div>
         </section>
 
-        {/* Columna 3: Retos comunitarios */}
         <section className="kolab-card challenges-card" aria-label="Retos comunitarios">
           <header className="card-header-row">
             <h2 className="card-title">Retos comunitarios</h2>
@@ -424,7 +395,6 @@ export function Modulo6Comunidades({ xp, onEarnXp }: Modulo6Props) {
         </section>
       </div>
 
-      {/* Tarjeta inferior: Mis insignias y progreso */}
       <section className="kolab-card badges-card" aria-label="Mis insignias y progreso">
         <header className="card-header-row">
           <h2 className="card-title">Mis insignias y progreso</h2>

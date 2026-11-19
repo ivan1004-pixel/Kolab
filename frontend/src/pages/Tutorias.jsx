@@ -1,27 +1,7 @@
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { useAuth } from '../context/AuthContext.jsx';
 
-type TutoringStatus = 'Pendiente' | 'En proceso' | 'Finalizada' | 'Rechazada';
-
-interface TutoringRequest {
-  id: string;
-  student: string;
-  avatarColor: string;
-  topic: string;
-  status: TutoringStatus;
-}
-
-type ReportAlert = 'Riesgo alto' | 'Sin alerta';
-type ReportStatus = 'Abierto' | 'En revisión' | 'Resuelto';
-
-interface ModerationReport {
-  id: string;
-  reason: string;
-  reporterColor: string;
-  aiAlert: ReportAlert;
-  status: ReportStatus;
-}
-
-const INITIAL_REQUESTS: TutoringRequest[] = [
+const INITIAL_REQUESTS = [
   {
     id: 't1',
     student: 'Sofía R.',
@@ -45,7 +25,7 @@ const INITIAL_REQUESTS: TutoringRequest[] = [
   },
 ];
 
-const INITIAL_REPORTS: ModerationReport[] = [
+const INITIAL_REPORTS = [
   {
     id: 'r1',
     reason: 'Contenido inapropiado',
@@ -69,24 +49,25 @@ const TOPIC_OPTIONS = [
   'Cálculo Integral',
 ];
 
-interface Modulo7Props {
-  onEarnXp: (amount: number) => void;
-}
+export default function Tutorias() {
+  const { user, updateProfile } = useAuth();
+  const [requests, setRequests] = useState(INITIAL_REQUESTS);
+  const [reports, setReports] = useState(INITIAL_REPORTS);
+  const [selectedTopic, setSelectedTopic] = useState(TOPIC_OPTIONS[0]);
+  const [requestMode, setRequestMode] = useState('Duelo');
+  const [notice, setNotice] = useState(null);
 
-export function Modulo7Tutorias({ onEarnXp }: Modulo7Props) {
-  const [requests, setRequests] = useState<TutoringRequest[]>(INITIAL_REQUESTS);
-  const [reports, setReports] = useState<ModerationReport[]>(INITIAL_REPORTS);
-  const [selectedTopic, setSelectedTopic] = useState<string>(TOPIC_OPTIONS[0]);
-  const [requestMode, setRequestMode] = useState<'Tutoría' | 'Duelo'>('Duelo');
-  const [notice, setNotice] = useState<string | null>(null);
+  function addXp(amount) {
+    if (amount > 0) {
+      updateProfile({ xp: (user?.xp ?? 0) + amount });
+    }
+  }
 
-  function handleUpdateRequest(id: string, nextStatus: TutoringStatus, xpBonus = 0) {
+  function handleUpdateRequest(id, nextStatus, xpBonus = 0) {
     setRequests((prev) =>
       prev.map((req) => (req.id === id ? { ...req, status: nextStatus } : req)),
     );
-    if (xpBonus > 0) {
-      onEarnXp(xpBonus);
-    }
+    addXp(xpBonus);
     setNotice(
       nextStatus === 'En proceso'
         ? `Tutoría aceptada y marcada "En proceso". +${xpBonus} XP.`
@@ -96,12 +77,12 @@ export function Modulo7Tutorias({ onEarnXp }: Modulo7Props) {
     );
   }
 
-  function handleSendChallengeOrTutoring(e: FormEvent) {
+  function handleSendChallengeOrTutoring(e) {
     e.preventDefault();
     if (requestMode === 'Tutoría') {
-      const created: TutoringRequest = {
+      const created = {
         id: `t-${Date.now()}`,
-        student: 'Tú (Estudiante)',
+        student: user?.nombre ?? 'Tú (Estudiante)',
         avatarColor: '#86EFAC',
         topic: selectedTopic,
         status: 'Pendiente',
@@ -109,29 +90,28 @@ export function Modulo7Tutorias({ onEarnXp }: Modulo7Props) {
       setRequests((prev) => [created, ...prev]);
       setNotice(`Solicitud de tutoría sobre "${selectedTopic}" enviada.`);
     } else {
-      onEarnXp(10);
+      addXp(10);
       setNotice(`¡Duelo académico 1 a 1 sobre "${selectedTopic}" enviado! +10 XP.`);
     }
   }
 
-  function handleReviewReport(id: string) {
+  function handleReviewReport(id) {
     setReports((prev) =>
       prev.map((rep) => (rep.id === id ? { ...rep, status: 'En revisión' } : rep)),
     );
     setNotice('Reporte abierto para revisión del moderador.');
   }
 
-  function handleResolveReport(id: string) {
+  function handleResolveReport(id) {
     setReports((prev) =>
       prev.map((rep) => (rep.id === id ? { ...rep, status: 'Resuelto' } : rep)),
     );
-    onEarnXp(10);
+    addXp(10);
     setNotice('Acción registrada por el moderador. Reporte resuelto (+10 XP).');
   }
 
   return (
     <div className="module7-wrap">
-      {/* Banner del Módulo 7 */}
       <section className="module-banner module-banner-crimson" aria-label="Encabezado del Módulo 7">
         <div className="banner-deco-circle banner-deco-1" aria-hidden="true" />
         <div className="banner-deco-circle banner-deco-2" aria-hidden="true" />
@@ -170,9 +150,7 @@ export function Modulo7Tutorias({ onEarnXp }: Modulo7Props) {
         </div>
       )}
 
-      {/* Fila media: Solicitudes de tutoría + Duelo académico */}
       <div className="module7-grid">
-        {/* Izquierda: Solicitudes de tutoría */}
         <section className="kolab-card" aria-label="Solicitudes de tutoría">
           <header className="card-header-row">
             <h2 className="card-title">Solicitudes de tutoría</h2>
@@ -263,7 +241,6 @@ export function Modulo7Tutorias({ onEarnXp }: Modulo7Props) {
           </div>
         </section>
 
-        {/* Derecha: Duelo académico */}
         <section className="kolab-card duel-card" aria-label="Duelo académico">
           <header className="card-header-row">
             <h2 className="card-title">Duelo académico</h2>
@@ -317,7 +294,6 @@ export function Modulo7Tutorias({ onEarnXp }: Modulo7Props) {
         </section>
       </div>
 
-      {/* Fila inferior: Moderación de reportes */}
       <section className="kolab-card" aria-label="Moderación de reportes">
         <header className="card-header-row">
           <h2 className="card-title">Moderación de reportes</h2>

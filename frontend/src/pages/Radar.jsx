@@ -1,24 +1,6 @@
 import { useState } from 'react';
 
-interface UnitDifficulty {
-  id: 'U1' | 'U2' | 'U3' | 'U4';
-  label: string;
-  topic: string;
-  heightPct: number;
-  color: string;
-  unvalidatedCount: number;
-  avgScore: string;
-}
-
-interface FrequentQuestion {
-  id: string;
-  unitId: 'U1' | 'U2' | 'U3' | 'U4';
-  question: string;
-  count: number;
-  severity: 'high' | 'mid' | 'low';
-}
-
-const UNITS: UnitDifficulty[] = [
+const UNITS = [
   {
     id: 'U1',
     label: 'U1',
@@ -57,7 +39,7 @@ const UNITS: UnitDifficulty[] = [
   },
 ];
 
-const FREQUENT_QUESTIONS: FrequentQuestion[] = [
+const FREQUENT_QUESTIONS = [
   {
     id: 'fq1',
     unitId: 'U2',
@@ -116,11 +98,11 @@ const DOUBT_CLUSTERS = [
   },
 ];
 
-export function Modulo8Radar() {
-  const [selectedUnitId, setSelectedUnitId] = useState<UnitDifficulty['id']>('U2');
-  const [selectedCluster, setSelectedCluster] = useState<string | null>(null);
+export default function Radar() {
+  const [selectedUnitId, setSelectedUnitId] = useState('U2');
+  const [selectedCluster, setSelectedCluster] = useState(null);
   const [pwaInstalled, setPwaInstalled] = useState(false);
-  const [installNotice, setInstallNotice] = useState<string | null>(null);
+  const [installNotice, setInstallNotice] = useState(null);
 
   const selectedUnit =
     UNITS.find((u) => u.id === selectedUnitId) ?? UNITS[1];
@@ -134,7 +116,6 @@ export function Modulo8Radar() {
 
   return (
     <div className="module8-wrap">
-      {/* Banner del Módulo 8 */}
       <section className="module-banner module-banner-teal" aria-label="Encabezado del Módulo 8">
         <div className="banner-deco-circle banner-deco-1" aria-hidden="true" />
         <div className="banner-deco-circle banner-deco-2" aria-hidden="true" />
@@ -170,7 +151,6 @@ export function Modulo8Radar() {
         </div>
       )}
 
-      {/* Fila superior: 3 KPIs */}
       <div className="kpi-grid">
         <article className="kpi-card kpi-red">
           <span className="kpi-label">Tema con más dudas</span>
@@ -190,9 +170,7 @@ export function Modulo8Radar() {
         </article>
       </div>
 
-      {/* Fila media: Dificultad por unidad + Clustering */}
       <div className="module8-grid">
-        {/* Izquierda: Dificultad por unidad */}
         <section className="kolab-card" aria-label="Dificultad por unidad">
           <header className="card-header-row quiz-header-row">
             <h2 className="card-title">Dificultad por unidad</h2>
@@ -226,7 +204,6 @@ export function Modulo8Radar() {
           </div>
         </section>
 
-        {/* Derecha: Grupos de dudas (clustering) */}
         <section className="kolab-card" aria-label="Grupos de dudas (clustering)">
           <header className="card-header-row quiz-header-row">
             <h2 className="card-title">Grupos de dudas (clustering)</h2>
@@ -257,9 +234,7 @@ export function Modulo8Radar() {
         </section>
       </div>
 
-      {/* Fila inferior: Preguntas frecuentes + PWA y almacenamiento */}
       <div className="module8-grid">
-        {/* Izquierda: Preguntas frecuentes */}
         <section className="kolab-card" aria-label="Preguntas frecuentes">
           <header className="card-header-row">
             <h2 className="card-title">Preguntas frecuentes</h2>
@@ -280,7 +255,6 @@ export function Modulo8Radar() {
           </div>
         </section>
 
-        {/* Derecha: PWA y almacenamiento */}
         <section className="kolab-card" aria-label="PWA y almacenamiento">
           <header className="card-header-row">
             <h2 className="card-title">PWA y almacenamiento</h2>

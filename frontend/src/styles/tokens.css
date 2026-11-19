@@ -1,0 +1,29 @@
+:root {
+  /* Manual de marca KOLAB 2026 */
+  --verde: #157f3c;
+  --verde-hover: #0f6a31;
+  --bosque: #0c3e21;
+  --lima: #a3e635;
+  --tinta: #123642;
+  --sol: #f9cb15;
+  --menta: #e8f3e6;
+  --blanco: #fff;
+
+  /* Colores de apoyo (uno por módulo) */
+  --teal: #0f766e;
+  --olivo: #4d7c0f;
+  --azul: #2563eb;
+  --indigo: #4338ca;
+  --naranja: #b45309;
+  --carmin: #9f1239;
+
+  --texto-suave: #4b6a62;
+  --borde: #cfe3d0;
+
+  --r-sm: 14px;
+  --r-md: 20px;
+  --r-lg: 28px;
+  --pill: 999px;
+  --shadow: 0 10px 30px rgb(12 62 33 / 0.08);
+  --font: 'Nunito Variable', 'Nunito', system-ui, sans-serif;
+}

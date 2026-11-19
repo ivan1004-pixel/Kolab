@@ -1,29 +1,7 @@
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { useAuth } from '../context/AuthContext.jsx';
 
-interface ChatMessage {
-  id: string;
-  sender: 'student' | 'ai';
-  text: string;
-  sourceLabel?: string;
-  isTeacherReviewed?: boolean;
-}
-
-interface QuizQuestionSet {
-  id: string;
-  topic: string;
-  stepIndex: number;
-  totalSteps: number;
-  mcNumber: number;
-  mcPrompt: string;
-  mcOptions: { id: string; label: string; text: string }[];
-  correctOptionId: string;
-  openNumber: number;
-  openPrompt: string;
-  expectedKeywords: string[];
-  sampleAnswerHint: string;
-}
-
-const QUIZ_PRESETS: QuizQuestionSet[] = [
+const QUIZ_PRESETS = [
   {
     id: 'db-relacional',
     topic: 'Bases de Datos Relacionales',
@@ -40,7 +18,6 @@ const QUIZ_PRESETS: QuizQuestionSet[] = [
     openNumber: 3,
     openPrompt: 'Explica con tus palabras para qué sirve una clave foránea.',
     expectedKeywords: ['relacion', 'tabla', 'referencia', 'primaria', 'integridad', 'conecta', 'vincula'],
-    sampleAnswerHint: 'Sirve para relacionar dos tablas haciendo referencia a la clave primaria de otra tabla y mantener la integridad referencial.',
   },
   {
     id: 'estructuras-datos',
@@ -58,7 +35,6 @@ const QUIZ_PRESETS: QuizQuestionSet[] = [
     openNumber: 2,
     openPrompt: 'Menciona un caso real donde usarías una Cola (Queue) en lugar de una Pila.',
     expectedKeywords: ['turno', 'impresora', 'orden', 'llegada', 'primero', 'fifo', 'solicitud', 'fila'],
-    sampleAnswerHint: 'En una fila de impresión o atención de solicitudes, donde se respeta el orden de llegada (FIFO).',
   },
   {
     id: 'redes-http',
@@ -76,11 +52,10 @@ const QUIZ_PRESETS: QuizQuestionSet[] = [
     openNumber: 4,
     openPrompt: '¿Cuál es la diferencia principal entre una petición GET y una POST?',
     expectedKeywords: ['consultar', 'obtener', 'leer', 'enviar', 'crear', 'cuerpo', 'body', 'datos'],
-    sampleAnswerHint: 'GET solicita y obtiene datos sin modificar el servidor, mientras que POST envía datos en el cuerpo para crear o procesar un recurso.',
   },
 ];
 
-const INITIAL_MESSAGES: ChatMessage[] = [
+const INITIAL_MESSAGES = [
   {
     id: 'm1',
     sender: 'student',
@@ -95,24 +70,22 @@ const INITIAL_MESSAGES: ChatMessage[] = [
   },
 ];
 
-interface Modulo5Props {
-  onEarnXp: (amount: number) => void;
-}
-
-export function Modulo5Asistente({ onEarnXp }: Modulo5Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
+export default function Asistente() {
+  const { user, updateProfile } = useAuth();
+  const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [questionInput, setQuestionInput] = useState('');
   const [quizIndex, setQuizIndex] = useState(0);
-  const [activeQuiz, setActiveQuiz] = useState<QuizQuestionSet>(QUIZ_PRESETS[0]);
-  const [selectedOption, setSelectedOption] = useState<string>('B');
+  const [activeQuiz, setActiveQuiz] = useState(QUIZ_PRESETS[0]);
+  const [selectedOption, setSelectedOption] = useState('B');
   const [openAnswer, setOpenAnswer] = useState('');
-  const [nliScore, setNliScore] = useState<number>(70);
-  const [evaluationFeedback, setEvaluationFeedback] = useState<{
-    isCorrectMc: boolean;
-    message: string;
-  } | null>(null);
+  const [nliScore, setNliScore] = useState(70);
+  const [evaluationFeedback, setEvaluationFeedback] = useState(null);
 
-  function buildMockAiReply(query: string): ChatMessage {
+  function addXp(amount) {
+    updateProfile({ xp: (user?.xp ?? 0) + amount });
+  }
+
+  function buildMockAiReply(query) {
     const q = query.toLowerCase();
     let text =
       'Con base en los materiales compartidos de tu carrera, este concepto se apoya en tres ideas clave: definir el problema con claridad, validar la estructura de datos o flujo y comprobar el resultado con casos de prueba.';
@@ -142,12 +115,12 @@ export function Modulo5Asistente({ onEarnXp }: Modulo5Props) {
     };
   }
 
-  function handleSendQuestion(e: FormEvent) {
+  function handleSendQuestion(e) {
     e.preventDefault();
     const trimmed = questionInput.trim();
     if (!trimmed) return;
 
-    const studentMsg: ChatMessage = {
+    const studentMsg = {
       id: `st-${Date.now()}`,
       sender: 'student',
       text: trimmed,
@@ -158,7 +131,7 @@ export function Modulo5Asistente({ onEarnXp }: Modulo5Props) {
     setQuestionInput('');
   }
 
-  function loadQuizPreset(nextIdx: number) {
+  function loadQuizPreset(nextIdx) {
     const preset = QUIZ_PRESETS[nextIdx % QUIZ_PRESETS.length];
     setQuizIndex(nextIdx % QUIZ_PRESETS.length);
     setActiveQuiz(preset);
@@ -207,7 +180,7 @@ export function Modulo5Asistente({ onEarnXp }: Modulo5Props) {
     setNliScore(computedNli);
 
     const earnedXp = (isCorrectMc ? 10 : 0) + (computedNli >= 60 ? 15 : 5);
-    onEarnXp(earnedXp);
+    addXp(earnedXp);
 
     setEvaluationFeedback({
       isCorrectMc,
@@ -219,7 +192,6 @@ export function Modulo5Asistente({ onEarnXp }: Modulo5Props) {
 
   return (
     <div className="module5-wrap">
-      {/* Banner del Módulo 5 */}
       <section className="module-banner" aria-label="Encabezado del Módulo 5">
         <div className="banner-deco-circle banner-deco-1" aria-hidden="true" />
         <div className="banner-deco-circle banner-deco-2" aria-hidden="true" />
@@ -241,9 +213,7 @@ export function Modulo5Asistente({ onEarnXp }: Modulo5Props) {
         </button>
       </section>
 
-      {/* Grid principal de 2 columnas */}
       <div className="module5-grid">
-        {/* Tarjeta izquierda: Asistente académico */}
         <section className="kolab-card assistant-card" aria-label="Asistente académico">
           <header className="card-header-row">
             <h2 className="card-title">Asistente académico</h2>
@@ -307,15 +277,19 @@ export function Modulo5Asistente({ onEarnXp }: Modulo5Props) {
           </form>
         </section>
 
-        {/* Tarjeta derecha: Autoevaluación */}
         <section className="kolab-card quiz-card" aria-label="Autoevaluación">
           <header className="card-header-row quiz-header-row">
             <h2 className="card-title">Autoevaluación</h2>
             <span className="quiz-topic-chip">{activeQuiz.topic}</span>
           </header>
 
-          {/* Barra segmentada de progreso */}
-          <div className="step-segments" role="progressbar" aria-valuenow={activeQuiz.stepIndex} aria-valuemin={1} aria-valuemax={activeQuiz.totalSteps}>
+          <div
+            className="step-segments"
+            role="progressbar"
+            aria-valuenow={activeQuiz.stepIndex}
+            aria-valuemin={1}
+            aria-valuemax={activeQuiz.totalSteps}
+          >
             {Array.from({ length: activeQuiz.totalSteps }).map((_, idx) => (
               <span
                 key={idx}
@@ -324,7 +298,6 @@ export function Modulo5Asistente({ onEarnXp }: Modulo5Props) {
             ))}
           </div>
 
-          {/* Pregunta de opción múltiple */}
           <div className="quiz-block">
             <h3 className="quiz-question-title">
               {activeQuiz.mcNumber} · Pregunta de opción múltiple
@@ -350,7 +323,6 @@ export function Modulo5Asistente({ onEarnXp }: Modulo5Props) {
             </div>
           </div>
 
-          {/* Pregunta abierta */}
           <div className="quiz-block">
             <h3 className="quiz-question-title">
               {activeQuiz.openNumber} · Pregunta abierta
@@ -366,17 +338,13 @@ export function Modulo5Asistente({ onEarnXp }: Modulo5Props) {
             />
           </div>
 
-          {/* Similitud semántica (NLI) */}
           <div className="nli-section">
             <div className="nli-header">
               <span className="nli-label">Similitud semántica (NLI)</span>
               <span className="nli-percent">{nliScore}%</span>
             </div>
             <div className="nli-track">
-              <div
-                className="nli-fill"
-                style={{ width: `${nliScore}%` }}
-              />
+              <div className="nli-fill" style={{ width: `${nliScore}%` }} />
             </div>
           </div>
 
