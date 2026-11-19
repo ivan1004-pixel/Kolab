@@ -1,0 +1,197 @@
+.kolab-module{display:flex;flex-direction:column;gap:1.25rem}
+.km-toolbar{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.km-toolbar h2,.km-topics h2,.km-upload h2{color:var(--tinta);margin:.45rem 0}
+.km-tabs{display:flex;gap:.5rem;flex-wrap:wrap}
+.km-tab{border:1px solid var(--borde);background:#fff;border-radius:999px;padding:.55rem 1rem;font-weight:800;cursor:pointer}
+.km-tab.active{background:var(--verde);color:#fff;border-color:var(--verde)}
+.km-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr);gap:1rem}
+.km-course-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.85rem;align-content:start}
+.km-course{background:#fff;border:2px solid transparent;border-radius:18px;padding:1rem;box-shadow:var(--shadow)}
+.km-course.selected{border-color:var(--teal)}
+.km-course-main{display:flex;align-items:center;gap:.8rem;width:100%;border:0;background:none;text-align:left;cursor:pointer;padding:0}
+.km-course-main strong,.km-course-main small{display:block}
+.km-course-main small{color:var(--texto-suave);margin-top:.2rem}
+.km-course-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:#ccfbf1;color:#115e59;font-weight:900}
+.km-course-foot,.km-actions,.km-resource-bottom{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap;margin-top:1rem}
+.km-topics{min-height:250px}
+.km-topic-list{list-style:none;padding:0;margin:0;display:grid;gap:.7rem}
+.km-topic-list li{display:flex;align-items:center;gap:.7rem;padding:.7rem;border-radius:12px;background:#f1f8f2;font-weight:700}
+.km-topic-list li span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--verde);color:#fff}
+.km-inline-form{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:auto}
+.km-inline-form input{flex:1;min-width:150px;border:1px solid var(--borde);border-radius:12px;padding:.65rem}
+.km-form{margin-bottom:.2rem}
+.km-admin-note{border-left:4px solid var(--teal)}
+.km-note{font-size:.88rem;color:var(--texto-suave);background:#f0f7ef;padding:.8rem 1rem;border-radius:12px}
+.km-upload form{display:grid;gap:1rem}
+.km-filter-panel{display:grid;gap:1rem;background:#fff;padding:1.2rem;border-radius:18px;box-shadow:var(--shadow)}
+.km-resource-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:1rem}
+.km-resource{min-width:0}
+.km-resource h3{font-size:1.05rem;color:var(--tinta)}
+.km-resource-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+.km-file-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:#e8f3e6;color:var(--verde);font-weight:900;font-size:.78rem}
+.km-resource-bottom{margin-top:auto;padding-top:.8rem;border-top:1px solid var(--menta)}
+@media(max-width:760px){.km-grid{grid-template-columns:1fr}.km-inline-form{flex-direction:column}.km-toolbar{align-items:flex-start}}
+
+
+/* Tarjeta de perfil más amplia */
+.profile-card {
+  min-height: 390px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+}
+
+/* Círculo de fotografía */
+.avatar-upload {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  min-width: 150px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Imagen dentro del círculo */
+.avatar-upload img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Capa que aparece al acercar el cursor */
+.avatar-upload__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: white;
+  background: rgba(12, 62, 33, 0.75);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Mostrar icono al pasar el cursor */
+.avatar-upload:hover .avatar-upload__overlay,
+.avatar-upload:focus-within .avatar-upload__overlay {
+  opacity: 1;
+}
+
+/* Ocultar el selector de archivos */
+.avatar-upload__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.profile-photo-hint {
+  color: #718096;
+  font-size: 12px;
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .profile-card {
+    min-height: 340px;
+    padding: 24px;
+  }
+
+  .avatar-upload {
+    width: 125px;
+    height: 125px;
+    min-width: 125px;
+  }
+}
+
+
+/* Tarjeta de perfil mucho más grande */
+.profile-card {
+  min-height: 520px;
+  padding: 50px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 18px;
+  border-radius: 24px;
+}
+
+/* Fotografía más grande */
+.avatar-upload {
+  position: relative;
+  width: 190px;
+  height: 190px;
+  min-width: 190px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Imagen dentro del círculo */
+.avatar-upload img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Efecto de subida */
+.avatar-upload__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: white;
+  background: rgba(12, 62, 33, 0.78);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.avatar-upload:hover .avatar-upload__overlay,
+.avatar-upload:focus-within .avatar-upload__overlay {
+  opacity: 1;
+}
+
+.profile-photo-hint {
+  color: #718096;
+  font-size: 13px;
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .profile-card {
+    min-height: 420px;
+    padding: 30px 20px;
+  }
+
+  .avatar-upload {
+    width: 150px;
+    height: 150px;
+    min-width: 150px;
+  }
+}
