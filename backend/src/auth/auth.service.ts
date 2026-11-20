@@ -60,7 +60,7 @@ export class AuthService {
     }
 
     const contrasenaHash = await bcrypt.hash(input.contrasena, 10);
-    const verificationToken = crypto.randomBytes(24).toString('hex');
+    const verificationToken = this.generateEightDigitToken();
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const newUser = new this.usuarioModel({
@@ -96,24 +96,33 @@ export class AuthService {
   }
 
   async verifyEmail(token: string): Promise<ActionResponse> {
+    const normalizedToken = token?.trim();
+    if (!normalizedToken) {
+      throw new BadRequestException(
+        'El token de verificación es inválido, ya fue utilizado o ha expirado.',
+      );
+    }
+
     const user = await this.usuarioModel
-      .findOne({
-        emailVerificationToken: token,
-        emailVerificationExpires: { $gt: new Date() },
-        deletedAt: { $exists: false },
-      })
+      .findOneAndUpdate(
+        {
+          emailVerificationToken: normalizedToken,
+          emailVerificationExpires: { $gt: new Date() },
+          deletedAt: { $exists: false },
+        },
+        {
+          $set: { emailVerified: true },
+          $unset: { emailVerificationToken: 1, emailVerificationExpires: 1 },
+        },
+        { new: true },
+      )
       .exec();
 
     if (!user) {
       throw new BadRequestException(
-        'El token de verificación es inválido o ha expirado.',
+        'El token de verificación es inválido, ya fue utilizado o ha expirado.',
       );
     }
-
-    user.emailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
-    await user.save();
 
     // Una vez comprobado que el correo existe, enviar correo de bienvenida con Brevo
     await this.brevoService.sendWelcomeEmail(user.correo, user.nombre);
@@ -142,7 +151,7 @@ export class AuthService {
       throw new BadRequestException('Este correo ya fue verificado.');
     }
 
-    const token = crypto.randomBytes(24).toString('hex');
+    const token = this.generateEightDigitToken();
     user.emailVerificationToken = token;
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await user.save();
@@ -252,7 +261,7 @@ export class AuthService {
       .exec();
 
     if (user && user.isActive) {
-      const token = crypto.randomBytes(24).toString('hex');
+      const token = this.generateEightDigitToken();
       user.resetPasswordToken = token;
       user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
       await user.save();
@@ -271,30 +280,44 @@ export class AuthService {
   }
 
   async resetPassword(input: ResetPasswordInput): Promise<ActionResponse> {
+    const normalizedToken = input.token?.trim();
+    if (!normalizedToken) {
+      throw new BadRequestException(
+        'El token de recuperación es inválido, ya fue utilizado o ha expirado.',
+      );
+    }
+
+    const contrasenaHash = await bcrypt.hash(input.nuevaContrasena, 10);
     const user = await this.usuarioModel
-      .findOne({
-        resetPasswordToken: input.token,
-        resetPasswordExpires: { $gt: new Date() },
-        deletedAt: { $exists: false },
-      })
+      .findOneAndUpdate(
+        {
+          resetPasswordToken: normalizedToken,
+          resetPasswordExpires: { $gt: new Date() },
+          deletedAt: { $exists: false },
+        },
+        {
+          $set: { contrasenaHash },
+          $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 },
+          $inc: { tokenVersion: 1 },
+        },
+        { new: true },
+      )
       .exec();
 
     if (!user) {
       throw new BadRequestException(
-        'El token de recuperación es inválido o ha expirado.',
+        'El token de recuperación es inválido, ya fue utilizado o ha expirado.',
       );
     }
-
-    user.contrasenaHash = await bcrypt.hash(input.nuevaContrasena, 10);
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    user.tokenVersion += 1;
-    await user.save();
 
     return {
       success: true,
       message: 'Contraseña restablecida correctamente.',
     };
+  }
+
+  private generateEightDigitToken(): string {
+    return crypto.randomInt(0, 100_000_000).toString().padStart(8, '0');
   }
 
   private async generateTokens(user: UsuarioDocument): Promise<AuthPayload> {

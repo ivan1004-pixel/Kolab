@@ -1483,3 +1483,34 @@
   padding: 0;
   text-decoration: underline;
 }
+
+.password-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field .password-input input {
+  width: 100%;
+  padding-right: 2.75rem;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  color: var(--kolab-muted, var(--texto-suave));
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible {
+  color: var(--kolab-forest, var(--verde));
+}

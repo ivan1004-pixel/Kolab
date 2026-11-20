@@ -7,6 +7,82 @@ import Logo from '../components/Logo';
 
 type AuthMode = 'login' | 'register' | 'verify' | 'forgot' | 'reset';
 
+const RESEND_LIMIT = 3;
+const RESEND_WINDOW_MS = 60 * 60 * 1000;
+
+function getRecentResendAttempts(email: string): number[] {
+  const key = `kolab_resend_verify_${email.trim().toLowerCase() || 'default'}`;
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    if (!Array.isArray(parsed)) return [];
+    const now = Date.now();
+    return parsed.filter((ts): ts is number => typeof ts === 'number' && now - ts < RESEND_WINDOW_MS);
+  } catch {
+    return [];
+  }
+}
+
+function recordResendAttempt(email: string): number[] {
+  const key = `kolab_resend_verify_${email.trim().toLowerCase() || 'default'}`;
+  const next = [...getRecentResendAttempts(email), Date.now()];
+  try {
+    localStorage.setItem(key, JSON.stringify(next));
+  } catch {
+    // Ignorar errores de almacenamiento
+  }
+  return next;
+}
+
+interface PasswordInputProps {
+  id: string;
+  name: string;
+  value: string;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  autoComplete?: string;
+  placeholder?: string;
+}
+
+function PasswordInput({ id, name, value, onChange, autoComplete, placeholder }: PasswordInputProps) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div className="password-input">
+      <input
+        id={id}
+        name={name}
+        type={visible ? 'text' : 'password'}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+      />
+      <button
+        type="button"
+        className="password-toggle"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        aria-pressed={visible}
+        title={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+      >
+        {visible ? (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+            <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+            <line x1="1" y1="1" x2="23" y2="23" />
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
 export default function Login() {
   const { user, login, register, verifyEmail } = useAuth();
   const navigate = useNavigate();
@@ -19,13 +95,22 @@ export default function Login() {
     apellidos: '',
     email: '',
     password: '',
+    confirmPassword: '',
     aceptoPrivacidad: true,
     token: '',
     nuevaContrasena: '',
+    confirmNuevaContrasena: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendAttempts, setResendAttempts] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (mode === 'verify') {
+      setResendAttempts(getRecentResendAttempts(form.email));
+    }
+  }, [mode, form.email]);
 
   useEffect(() => {
     const urlToken = searchParams.get('token');
@@ -70,6 +155,49 @@ export default function Login() {
     setSuccess('');
   }
 
+  async function handleResendVerification() {
+    setError('');
+    setSuccess('');
+
+    const recent = getRecentResendAttempts(form.email);
+    setResendAttempts(recent);
+    if (recent.length >= RESEND_LIMIT) {
+      const oldest = Math.min(...recent);
+      const minsLeft = Math.max(1, Math.ceil((RESEND_WINDOW_MS - (Date.now() - oldest)) / 60000));
+      setError(`Alcanzaste el límite de ${RESEND_LIMIT} reenvíos por hora. Intenta de nuevo en ${minsLeft} min.`);
+      return;
+    }
+
+    if (!form.email.trim()) {
+      setError('No encontramos tu correo. Vuelve a iniciar sesión o regístrate de nuevo.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      assertNoScriptInjection(form.email, 'correo');
+      if (USE_MOCK) {
+        const updated = recordResendAttempt(form.email);
+        setResendAttempts(updated);
+        setSuccess('En modo demo no se envían correos. Activa VITE_USE_MOCK=false para usar Brevo.');
+      } else {
+        const data = await gqlRequest(
+          `mutation ResendVerificationEmail($correo: String!) {
+            resendVerificationEmail(correo: $correo) { success message }
+          }`,
+          { correo: form.email.trim() },
+        );
+        const updated = recordResendAttempt(form.email);
+        setResendAttempts(updated);
+        setSuccess(data.resendVerificationEmail.message || 'Correo de verificación reenviado.');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
@@ -85,8 +213,11 @@ export default function Login() {
         await login(form.email, form.password);
         navigate((location.state as any)?.from?.pathname ?? '/', { replace: true });
       } else if (mode === 'register') {
-        if (!form.nombre.trim() || !form.apellidos.trim() || !form.email.trim() || !form.password) {
+        if (!form.nombre.trim() || !form.apellidos.trim() || !form.email.trim() || !form.password || !form.confirmPassword) {
           throw new Error('Completa todos tus datos para registrarte');
+        }
+        if (form.password !== form.confirmPassword) {
+          throw new Error('Las contraseñas no coinciden');
         }
         if (!form.aceptoPrivacidad) {
           throw new Error('Debes aceptar el aviso de privacidad');
@@ -128,12 +259,19 @@ export default function Login() {
           setSuccess(data.forgotPassword.message);
         }
       } else if (mode === 'reset') {
-        if (!form.token.trim() || !form.nuevaContrasena) {
-          throw new Error('Ingresa el token y tu nueva contraseña');
+        if (!form.token.trim() || !form.nuevaContrasena || !form.confirmNuevaContrasena) {
+          throw new Error('Ingresa el token y confirma tu nueva contraseña');
+        }
+        if (!/^\d{8}$/.test(form.token.trim())) {
+          throw new Error('El token de recuperación debe tener 8 dígitos');
+        }
+        if (form.nuevaContrasena !== form.confirmNuevaContrasena) {
+          throw new Error('Las contraseñas no coinciden');
         }
         assertNoScriptInjection(form.token, 'token');
         if (USE_MOCK) {
           setSuccess('Contraseña actualizada (modo demo).');
+          setForm((f) => ({ ...f, nuevaContrasena: '', confirmNuevaContrasena: '' }));
           setMode('login');
         } else {
           const data = await gqlRequest(
@@ -148,7 +286,14 @@ export default function Login() {
             },
           );
           setSuccess(data.resetPassword.message || 'Contraseña restablecida. Ya puedes iniciar sesión.');
-          setForm((f) => ({ ...f, password: '', nuevaContrasena: '', token: '' }));
+          setForm((f) => ({
+            ...f,
+            password: '',
+            confirmPassword: '',
+            nuevaContrasena: '',
+            confirmNuevaContrasena: '',
+            token: '',
+          }));
           setMode('login');
         }
       }
@@ -172,40 +317,10 @@ export default function Login() {
 
       <section className="login__panel">
         <form className="login__form" onSubmit={onSubmit} noValidate>
-          <div className="login-tabs" role="tablist" aria-label="Acceso">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'login'}
-              className={`login-tab ${mode === 'login' ? 'is-active' : ''}`}
-              onClick={() => switchMode('login')}
-            >
-              Entrar
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'register'}
-              className={`login-tab ${mode === 'register' ? 'is-active' : ''}`}
-              onClick={() => switchMode('register')}
-            >
-              Crear cuenta
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'verify'}
-              className={`login-tab ${mode === 'verify' ? 'is-active' : ''}`}
-              onClick={() => switchMode('verify')}
-            >
-              Verificar
-            </button>
-          </div>
-
           <h2 style={{ fontSize: '1.85rem', fontWeight: 800 }}>
             {mode === 'login' && 'Iniciar sesión'}
             {mode === 'register' && 'Únete a KOLAB'}
-            {mode === 'verify' && 'Verifica tu correo'}
+            {mode === 'verify' && 'Revisa tu correo'}
             {mode === 'forgot' && 'Recuperar contraseña'}
             {mode === 'reset' && 'Nueva contraseña'}
           </h2>
@@ -241,10 +356,10 @@ export default function Login() {
           {(mode === 'login' || mode === 'register') && (
             <div className="field">
               <label htmlFor="password">Contraseña</label>
-              <input
+              <PasswordInput
+                key={`${mode}-password`}
                 id="password"
                 name="password"
-                type="password"
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 value={form.password}
                 onChange={onChange}
@@ -254,27 +369,53 @@ export default function Login() {
           )}
 
           {mode === 'register' && (
-            <label className="login-check">
-              <input
-                type="checkbox"
-                name="aceptoPrivacidad"
-                checked={form.aceptoPrivacidad}
-                onChange={onChange}
-              />
-              <span>Acepto el aviso de privacidad</span>
-            </label>
+            <>
+              <div className="field">
+                <label htmlFor="confirmPassword">Confirmar contraseña</label>
+                <PasswordInput
+                  key="register-confirm-password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  autoComplete="new-password"
+                  value={form.confirmPassword}
+                  onChange={onChange}
+                  placeholder="Repite tu contraseña"
+                />
+              </div>
+              <label className="login-check">
+                <input
+                  type="checkbox"
+                  name="aceptoPrivacidad"
+                  checked={form.aceptoPrivacidad}
+                  onChange={onChange}
+                />
+                <span>Acepto el aviso de privacidad</span>
+              </label>
+            </>
           )}
 
           {mode === 'verify' && (
-            <div className="field">
-              <label htmlFor="token">Token de verificación</label>
-              <input
-                id="token"
-                name="token"
-                value={form.token}
-                onChange={onChange}
-                placeholder="Pega el código recibido por correo"
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <p style={{ margin: 0, lineHeight: 1.5 }}>
+                Enviamos un enlace de verificación a{' '}
+                <b>{form.email.trim() || 'tu correo institucional'}</b>. Haz clic en él para
+                activar tu cuenta.
+              </p>
+              <p className="muted" style={{ margin: 0, fontSize: '0.88rem' }}>
+                Si no lo ves en unos minutos, revisa tu carpeta de spam o correo no deseado.
+              </p>
+              <button
+                type="button"
+                className="btn btn--soft"
+                onClick={handleResendVerification}
+                disabled={loading || resendAttempts.length >= RESEND_LIMIT}
+              >
+                {loading
+                  ? 'Reenviando…'
+                  : resendAttempts.length >= RESEND_LIMIT
+                    ? `Límite alcanzado (${RESEND_LIMIT}/${RESEND_LIMIT} por hora)`
+                    : `Reenviar correo (${RESEND_LIMIT - resendAttempts.length} restantes)`}
+              </button>
             </div>
           )}
 
@@ -285,21 +426,35 @@ export default function Login() {
                 <input
                   id="reset-token"
                   name="token"
+                  inputMode="numeric"
+                  maxLength={8}
                   value={form.token}
                   onChange={onChange}
-                  placeholder="Pega el token recibido por correo"
+                  placeholder="Código de 8 dígitos"
                 />
               </div>
               <div className="field">
                 <label htmlFor="nuevaContrasena">Nueva contraseña</label>
-                <input
+                <PasswordInput
+                  key="reset-password"
                   id="nuevaContrasena"
                   name="nuevaContrasena"
-                  type="password"
                   autoComplete="new-password"
                   value={form.nuevaContrasena}
                   onChange={onChange}
                   placeholder="Mín. 8 chars, Mayús, Núm y Símbolo"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="confirmNuevaContrasena">Confirmar nueva contraseña</label>
+                <PasswordInput
+                  key="reset-confirm-password"
+                  id="confirmNuevaContrasena"
+                  name="confirmNuevaContrasena"
+                  autoComplete="new-password"
+                  value={form.confirmNuevaContrasena}
+                  onChange={onChange}
+                  placeholder="Repite tu nueva contraseña"
                 />
               </div>
             </>
@@ -308,28 +463,37 @@ export default function Login() {
           {error && <p className="form-error" role="alert">{error}</p>}
           {success && <p className="form-success" role="status">{success}</p>}
 
-          <button className="btn btn--action" disabled={loading}>
-            {loading
-              ? 'Procesando…'
-              : mode === 'login'
-                ? 'Entrar'
-                : mode === 'register'
-                  ? 'Registrarme'
-                  : mode === 'verify'
-                    ? 'Verificar correo'
+          {mode !== 'verify' && (
+            <button className="btn btn--action" disabled={loading}>
+              {loading
+                ? 'Procesando…'
+                : mode === 'login'
+                  ? 'Entrar'
+                  : mode === 'register'
+                    ? 'Registrarme'
                     : mode === 'reset'
                       ? 'Guardar nueva contraseña'
                       : 'Enviar enlace'}
-          </button>
+            </button>
+          )}
 
           {mode === 'login' && (
-            <button
-              type="button"
-              className="login-link"
-              onClick={() => switchMode('forgot')}
-            >
-              ¿Olvidaste tu contraseña?
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="login-link"
+                onClick={() => switchMode('forgot')}
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+              <button
+                type="button"
+                className="login-link"
+                onClick={() => switchMode('register')}
+              >
+                Crear cuenta
+              </button>
+            </div>
           )}
 
           {mode === 'forgot' && (
@@ -351,7 +515,7 @@ export default function Login() {
             </div>
           )}
 
-          {mode === 'reset' && (
+          {(mode === 'register' || mode === 'verify' || mode === 'reset') && (
             <button
               type="button"
               className="login-link"

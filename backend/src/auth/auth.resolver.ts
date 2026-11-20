@@ -41,6 +41,7 @@ export class AuthResolver {
   @Mutation(() => ActionResponse, {
     description: 'Reenvía el correo de verificación por Brevo',
   })
+  @Throttle({ default: { limit: 3, ttl: 3600000 } })
   async resendVerificationEmail(
     @Args('correo') correo: string,
   ): Promise<ActionResponse> {

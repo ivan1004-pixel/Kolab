@@ -31,6 +31,9 @@ describe('AuthService', () => {
     mockUsuarioModel.findOne = jest.fn().mockReturnValue({
       exec: jest.fn().mockResolvedValue(null),
     });
+    mockUsuarioModel.findOneAndUpdate = jest.fn().mockReturnValue({
+      exec: jest.fn().mockResolvedValue(null),
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -86,19 +89,64 @@ describe('AuthService', () => {
     const fakeUser = {
       correo: 'ana@gmail.com',
       nombre: 'Ana',
-      emailVerified: false,
-      save: jest.fn().mockResolvedValue(true),
+      emailVerified: true,
     };
-    mockUsuarioModel.findOne.mockReturnValue({
-      exec: jest.fn().mockResolvedValue(fakeUser),
-    });
+    mockUsuarioModel.findOneAndUpdate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue(fakeUser),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
-    const res = await service.verifyEmail('valid-token');
+    const res = await service.verifyEmail('12345678');
     expect(res.success).toBe(true);
-    expect(fakeUser.emailVerified).toBe(true);
+    expect(mockUsuarioModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ emailVerificationToken: '12345678' }),
+      expect.objectContaining({
+        $set: { emailVerified: true },
+        $unset: { emailVerificationToken: 1, emailVerificationExpires: 1 },
+      }),
+      { new: true },
+    );
     expect(brevoService.sendWelcomeEmail).toHaveBeenCalledWith(
       'ana@gmail.com',
       'Ana',
     );
+
+    await expect(service.verifyEmail('12345678')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('debe invalidar el token de recuperación tras usarse y rechazar su reutilización', async () => {
+    mockUsuarioModel.findOneAndUpdate
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue({ correo: 'ana@gmail.com' }),
+      })
+      .mockReturnValueOnce({
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+    const res = await service.resetPassword({
+      token: '87654321',
+      nuevaContrasena: 'NewPassword123!',
+    });
+    expect(res.success).toBe(true);
+    expect(mockUsuarioModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ resetPasswordToken: '87654321' }),
+      expect.objectContaining({
+        $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 },
+        $inc: { tokenVersion: 1 },
+      }),
+      { new: true },
+    );
+
+    await expect(
+      service.resetPassword({
+        token: '87654321',
+        nuevaContrasena: 'NewPassword123!',
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 });
