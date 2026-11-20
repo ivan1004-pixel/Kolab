@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { useAuth } from '../context/AuthContext.jsx';
+import { FormEvent, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { assertNoScriptInjection } from '../utils/inputSecurity';
 
 const INITIAL_GROUPS = [
   {
@@ -40,7 +41,15 @@ const INITIAL_GROUPS = [
   },
 ];
 
-const INITIAL_CHALLENGES = [
+interface ChallengeItem {
+  id: string;
+  title: string;
+  resource: string;
+  xpReward: number;
+  completed?: boolean;
+}
+
+const INITIAL_CHALLENGES: ChallengeItem[] = [
   {
     id: 'c1',
     title: 'Resumen de Normalización 3FN',
@@ -61,7 +70,7 @@ export default function Comunidades() {
 
   const [groups, setGroups] = useState(INITIAL_GROUPS);
   const [selectedGroupId, setSelectedGroupId] = useState(INITIAL_GROUPS[0].id);
-  const [challenges, setChallenges] = useState(INITIAL_CHALLENGES);
+  const [challenges, setChallenges] = useState<ChallengeItem[]>(INITIAL_CHALLENGES);
 
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -71,7 +80,7 @@ export default function Comunidades() {
   const [newChallengeTitle, setNewChallengeTitle] = useState('');
   const [newChallengeResource, setNewChallengeResource] = useState('');
 
-  const [statusNotice, setStatusNotice] = useState(null);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
   const selectedGroup =
     groups.find((g) => g.id === selectedGroupId) ?? groups[0];
@@ -79,15 +88,21 @@ export default function Comunidades() {
   const xpProgress = Math.min(100, Math.max(10, Math.round(((xp % 200) / 200) * 100) || 62));
   const teamBadgeUnlocked = xp >= 150;
 
-  function addXp(amount) {
+  function addXp(amount: number) {
     updateProfile({ xp: (user?.xp ?? 0) + amount });
   }
 
-  function handleCreateGroup(e) {
+  function handleCreateGroup(e: FormEvent) {
     e.preventDefault();
     const name = newGroupName.trim();
     const topic = newGroupTopic.trim();
     if (!name || !topic) return;
+    try {
+      assertNoScriptInjection({ name, topic }, 'grupo');
+    } catch (err: any) {
+      setStatusNotice(err.message);
+      return;
+    }
 
     const created = {
       id: `g-${Date.now()}`,
@@ -141,13 +156,19 @@ export default function Comunidades() {
     setStatusNotice(`Te uniste activamente a ${selectedGroup.name}. +10 XP.`);
   }
 
-  function handleCreateChallenge(e) {
+  function handleCreateChallenge(e: FormEvent) {
     e.preventDefault();
     const title = newChallengeTitle.trim();
     const resource = newChallengeResource.trim();
     if (!title) return;
+    try {
+      assertNoScriptInjection({ title, resource }, 'reto');
+    } catch (err: any) {
+      setStatusNotice(err.message);
+      return;
+    }
 
-    const created = {
+    const created: ChallengeItem = {
       id: `c-${Date.now()}`,
       title,
       resource: resource || 'Apunte de la comunidad',
@@ -162,7 +183,7 @@ export default function Comunidades() {
     setStatusNotice(`Reto "${title}" publicado. +10 XP.`);
   }
 
-  function handleCompleteChallenge(challengeId) {
+  function handleCompleteChallenge(challengeId: string) {
     const target = challenges.find((c) => c.id === challengeId);
     if (!target || target.completed) return;
 

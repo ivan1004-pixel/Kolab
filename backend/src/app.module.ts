@@ -1,7 +1,7 @@
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { GraphQLModule } from '@nestjs/graphql';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -12,6 +12,8 @@ import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { CollaborationModule } from './collaboration/collaboration.module';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
+import { ContentSecurityPipe } from './common/security/content-security.pipe';
+import { ContentSecurityService } from './common/security/content-security.service';
 import { GamificationModule } from './gamification/gamification.module';
 import { MailModule } from './mail/mail.module';
 import { ModerationModule } from './moderation/moderation.module';
@@ -57,9 +59,14 @@ import { UsersModule } from './users/users.module';
     CollaborationModule,
   ],
   providers: [
+    ContentSecurityService,
     {
       provide: APP_GUARD,
       useClass: GqlThrottlerGuard,
+    },
+    {
+      provide: APP_PIPE,
+      useClass: ContentSecurityPipe,
     },
   ],
 })

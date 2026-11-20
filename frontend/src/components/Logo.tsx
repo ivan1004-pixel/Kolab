@@ -1,6 +1,11 @@
 // PLACEHOLDER. Reemplazar por el logotipo oficial del manual (SVG/PNG):
 // el wordmark "Kolab" no se reescribe con tipografía.
-export default function Logo({ light = false, size = 40 }) {
+interface LogoProps {
+  light?: boolean;
+  size?: number;
+}
+
+export default function Logo({ light = false, size = 40 }: LogoProps) {
   return (
     <span className={`logo ${light ? 'logo--light' : ''}`}>
       <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true">

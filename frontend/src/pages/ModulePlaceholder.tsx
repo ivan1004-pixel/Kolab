@@ -1,6 +1,7 @@
-import ModuleBanner from '../components/ModuleBanner.jsx';
+import ModuleBanner from '../components/ModuleBanner';
+import { KolabModule } from '../data/modules';
 
-export default function ModulePlaceholder({ module }) {
+export default function ModulePlaceholder({ module }: { module: KolabModule }) {
   return (
     <>
       <ModuleBanner module={module} />

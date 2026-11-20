@@ -1,20 +1,26 @@
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
-import { MODULES } from '../data/modules.js';
-import Logo from './Logo.jsx';
+import { useAuth } from '../context/AuthContext';
+import { MODULES } from '../data/modules';
+import { assertNoScriptInjection } from '../utils/inputSecurity';
+import Logo from './Logo';
 
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
-  const nivel = Math.floor((user.xp ?? 0) / 200) + 1;
+  const nivel = Math.floor((user?.xp ?? 0) / 200) + 1;
   const close = () => setOpen(false);
 
-  function onSearch(e) {
+  function onSearch(e: FormEvent) {
     e.preventDefault();
-    navigate(`/foro?q=${encodeURIComponent(q.trim())}`);
+    try {
+      assertNoScriptInjection(q, 'búsqueda');
+      navigate(`/foro?q=${encodeURIComponent(q.trim())}`);
+    } catch {
+      setQ('');
+    }
   }
 
   return (
@@ -47,9 +53,9 @@ export default function Layout() {
             <input id="q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar recursos, dudas, grupos…" />
           </form>
           <span className="topbar__spacer" />
-          <span className="chip chip--xp xp-chip">Nivel {nivel} · {user.xp ?? 0} XP</span>
+          <span className="chip chip--xp xp-chip">Nivel {nivel} · {user?.xp ?? 0} XP</span>
           <NavLink to="/perfil" className="avatar" aria-label="Mi perfil">
-            {user.foto_url ? <img src={user.foto_url} alt="" /> : user.nombre[0]}
+            {user?.foto_url ? <img src={user.foto_url} alt="" /> : (user?.nombre?.[0] ?? 'K')}
           </NavLink>
           <button type="button" className="btn btn--ghost btn--sm" onClick={logout}>Salir</button>
         </div>

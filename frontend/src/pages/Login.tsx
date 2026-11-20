@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
-import { USE_MOCK, gqlRequest } from '../services/api.js';
-import Logo from '../components/Logo.jsx';
+import { useAuth } from '../context/AuthContext';
+import { USE_MOCK, gqlRequest } from '../services/api';
+import { assertNoScriptInjection } from '../utils/inputSecurity';
+import Logo from '../components/Logo';
+
+type AuthMode = 'login' | 'register' | 'verify' | 'forgot' | 'reset';
 
 export default function Login() {
   const { user, login, register, verifyEmail } = useAuth();
@@ -10,7 +13,7 @@ export default function Login() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'verify' | 'forgot'
+  const [mode, setMode] = useState<AuthMode>('login');
   const [form, setForm] = useState({
     nombre: '',
     apellidos: '',
@@ -46,7 +49,7 @@ export default function Login() {
         setSuccess(res.message || 'Correo verificado. Ya puedes iniciar sesión.');
         setMode('login');
       })
-      .catch((err) => {
+      .catch((err: any) => {
         setError(err.message);
       })
       .finally(() => {
@@ -56,18 +59,18 @@ export default function Login() {
 
   if (user) return <Navigate to="/" replace />;
 
-  const onChange = (e) => {
+  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, type, checked, value } = e.target;
     setForm((f) => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  function switchMode(nextMode) {
+  function switchMode(nextMode: AuthMode) {
     setMode(nextMode);
     setError('');
     setSuccess('');
   }
 
-  async function onSubmit(e) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setSuccess('');
@@ -78,8 +81,9 @@ export default function Login() {
         if (!form.email.trim() || !form.password) {
           throw new Error('Escribe tu correo y contraseña');
         }
+        assertNoScriptInjection(form.email, 'correo');
         await login(form.email, form.password);
-        navigate(location.state?.from?.pathname ?? '/', { replace: true });
+        navigate((location.state as any)?.from?.pathname ?? '/', { replace: true });
       } else if (mode === 'register') {
         if (!form.nombre.trim() || !form.apellidos.trim() || !form.email.trim() || !form.password) {
           throw new Error('Completa todos tus datos para registrarte');
@@ -87,6 +91,7 @@ export default function Login() {
         if (!form.aceptoPrivacidad) {
           throw new Error('Debes aceptar el aviso de privacidad');
         }
+        assertNoScriptInjection({ nombre: form.nombre, apellidos: form.apellidos, email: form.email }, 'registro');
         const res = await register({
           nombre: form.nombre.trim(),
           apellidos: form.apellidos.trim(),
@@ -102,6 +107,7 @@ export default function Login() {
         if (!form.token.trim()) {
           throw new Error('Pega el token de verificación enviado a tu correo');
         }
+        assertNoScriptInjection(form.token, 'token');
         const res = await verifyEmail(form.token);
         setSuccess(res.message || 'Correo verificado. Ya puedes iniciar sesión.');
         setMode('login');
@@ -109,6 +115,7 @@ export default function Login() {
         if (!form.email.trim()) {
           throw new Error('Escribe tu correo para enviarte el enlace');
         }
+        assertNoScriptInjection(form.email, 'correo');
         if (USE_MOCK) {
           setSuccess('En modo demo no se envían correos. Activa VITE_USE_MOCK=false para usar Brevo.');
         } else {
@@ -124,6 +131,7 @@ export default function Login() {
         if (!form.token.trim() || !form.nuevaContrasena) {
           throw new Error('Ingresa el token y tu nueva contraseña');
         }
+        assertNoScriptInjection(form.token, 'token');
         if (USE_MOCK) {
           setSuccess('Contraseña actualizada (modo demo).');
           setMode('login');
@@ -144,7 +152,7 @@ export default function Login() {
           setMode('login');
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);

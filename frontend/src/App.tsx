@@ -1,23 +1,24 @@
+import { ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { useAuth } from './context/AuthContext.jsx';
-import { MODULES } from './data/modules.js';
-import Layout from './components/Layout.jsx';
-import Login from './pages/Login.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Perfil from './pages/Perfil.jsx';
-import Foro from './pages/Foro.jsx';
-import ModulePlaceholder from './pages/ModulePlaceholder.jsx';
-import Curricular from './pages/Curricular.jsx';
-import Recursos from './pages/Recursos.jsx';
-import Asistente from './pages/Asistente.jsx';
-import Comunidades from './pages/Comunidades.jsx';
-import Tutorias from './pages/Tutorias.jsx';
-import Radar from './pages/Radar.jsx';
+import { useAuth } from './context/AuthContext';
+import { MODULES } from './data/modules';
+import Layout from './components/Layout';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Perfil from './pages/Perfil';
+import Foro from './pages/Foro';
+import ModulePlaceholder from './pages/ModulePlaceholder';
+import Curricular from './pages/Curricular';
+import Recursos from './pages/Recursos';
+import Asistente from './pages/Asistente';
+import Comunidades from './pages/Comunidades';
+import Tutorias from './pages/Tutorias';
+import Radar from './pages/Radar';
 
-function Protected({ children }) {
+function Protected({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const location = useLocation();
-  return user ? children : <Navigate to="/login" state={{ from: location }} replace />;
+  return user ? <>{children}</> : <Navigate to="/login" state={{ from: location }} replace />;
 }
 
 export default function App() {

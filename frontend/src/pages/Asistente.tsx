@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { useAuth } from '../context/AuthContext.jsx';
+import { FormEvent, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { assertNoScriptInjection } from '../utils/inputSecurity';
 
 const QUIZ_PRESETS = [
   {
@@ -55,7 +56,15 @@ const QUIZ_PRESETS = [
   },
 ];
 
-const INITIAL_MESSAGES = [
+interface ChatMsg {
+  id: string;
+  sender: 'student' | 'ai';
+  text: string;
+  sourceLabel?: string;
+  isTeacherReviewed?: boolean;
+}
+
+const INITIAL_MESSAGES: ChatMsg[] = [
   {
     id: 'm1',
     sender: 'student',
@@ -72,20 +81,21 @@ const INITIAL_MESSAGES = [
 
 export default function Asistente() {
   const { user, updateProfile } = useAuth();
-  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const [messages, setMessages] = useState<ChatMsg[]>(INITIAL_MESSAGES);
   const [questionInput, setQuestionInput] = useState('');
+  const [securityError, setSecurityError] = useState('');
   const [quizIndex, setQuizIndex] = useState(0);
   const [activeQuiz, setActiveQuiz] = useState(QUIZ_PRESETS[0]);
   const [selectedOption, setSelectedOption] = useState('B');
   const [openAnswer, setOpenAnswer] = useState('');
   const [nliScore, setNliScore] = useState(70);
-  const [evaluationFeedback, setEvaluationFeedback] = useState(null);
+  const [evaluationFeedback, setEvaluationFeedback] = useState<{ isCorrectMc: boolean; message: string } | null>(null);
 
-  function addXp(amount) {
+  function addXp(amount: number) {
     updateProfile({ xp: (user?.xp ?? 0) + amount });
   }
 
-  function buildMockAiReply(query) {
+  function buildMockAiReply(query: string): ChatMsg {
     const q = query.toLowerCase();
     let text =
       'Con base en los materiales compartidos de tu carrera, este concepto se apoya en tres ideas clave: definir el problema con claridad, validar la estructura de datos o flujo y comprobar el resultado con casos de prueba.';
@@ -115,12 +125,19 @@ export default function Asistente() {
     };
   }
 
-  function handleSendQuestion(e) {
+  function handleSendQuestion(e: FormEvent) {
     e.preventDefault();
     const trimmed = questionInput.trim();
     if (!trimmed) return;
+    try {
+      assertNoScriptInjection(trimmed, 'pregunta');
+      setSecurityError('');
+    } catch (err: any) {
+      setSecurityError(err.message);
+      return;
+    }
 
-    const studentMsg = {
+    const studentMsg: ChatMsg = {
       id: `st-${Date.now()}`,
       sender: 'student',
       text: trimmed,
@@ -131,7 +148,7 @@ export default function Asistente() {
     setQuestionInput('');
   }
 
-  function loadQuizPreset(nextIdx) {
+  function loadQuizPreset(nextIdx: number) {
     const preset = QUIZ_PRESETS[nextIdx % QUIZ_PRESETS.length];
     setQuizIndex(nextIdx % QUIZ_PRESETS.length);
     setActiveQuiz(preset);
@@ -161,6 +178,14 @@ export default function Asistente() {
   }
 
   function handleGradeQuiz() {
+    try {
+      assertNoScriptInjection(openAnswer, 'respuesta abierta');
+      setSecurityError('');
+    } catch (err: any) {
+      setSecurityError(err.message);
+      return;
+    }
+
     const isCorrectMc = selectedOption === activeQuiz.correctOptionId;
 
     const normalized = openAnswer
@@ -212,6 +237,8 @@ export default function Asistente() {
           Nuevo cuestionario
         </button>
       </section>
+
+      {securityError && <p className="form-error" role="alert">{securityError}</p>}
 
       <div className="module5-grid">
         <section className="kolab-card assistant-card" aria-label="Asistente académico">

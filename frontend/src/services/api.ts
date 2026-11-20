@@ -1,7 +1,15 @@
-export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/graphql';
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
+import { assertNoScriptInjection } from '../utils/inputSecurity';
 
-export async function gqlRequest(query, variables = {}, token) {
+export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/graphql';
+export const USE_MOCK: boolean = import.meta.env.VITE_USE_MOCK !== 'false';
+
+export async function gqlRequest<T = any>(
+  query: string,
+  variables: Record<string, any> = {},
+  token?: string,
+): Promise<T> {
+  assertNoScriptInjection(variables, 'formulario');
+
   const res = await fetch(API_URL, {
     method: 'POST',
     headers: {
@@ -21,10 +29,16 @@ export async function gqlRequest(query, variables = {}, token) {
     throw new Error(payload.errors[0].message || 'Error en la operación GraphQL');
   }
 
-  return payload.data;
+  return payload.data as T;
 }
 
-export async function request(path, { method = 'GET', body, token } = {}) {
+export async function request<T = any>(
+  path: string,
+  { method = 'GET', body, token }: { method?: string; body?: unknown; token?: string } = {},
+): Promise<T> {
+  if (body) {
+    assertNoScriptInjection(body, 'formulario');
+  }
   const baseUrl = API_URL.replace(/\/graphql\/?$/, '');
   const res = await fetch(`${baseUrl}${path}`, {
     method,
@@ -36,5 +50,5 @@ export async function request(path, { method = 'GET', body, token } = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || 'Ocurrió un error, intenta de nuevo');
-  return data;
+  return data as T;
 }

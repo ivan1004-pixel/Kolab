@@ -1,12 +1,54 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { DEMO_USERS } from '../data/demoUsers.js';
-import { USE_MOCK, gqlRequest } from '../services/api.js';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { DEMO_USERS } from '../data/demoUsers';
+import { USE_MOCK, gqlRequest } from '../services/api';
+import { assertNoScriptInjection } from '../utils/inputSecurity';
 
-const AuthContext = createContext(null);
+export interface AuthUser {
+  id: string | number;
+  nombre: string;
+  apellidos: string;
+  email: string;
+  correo: string;
+  rol: string;
+  foto_url: string;
+  xp: number;
+  cuatrimestre?: string;
+  grupo?: string;
+  carrera: string;
+  insignias: number;
+  retos: number;
+}
+
+interface SessionData {
+  token: string;
+  refreshToken?: string;
+  user: AuthUser | null;
+}
+
+interface RegisterPayload {
+  nombre: string;
+  apellidos: string;
+  correo: string;
+  contrasena: string;
+  idCarrera?: string;
+  aceptoPrivacidad?: boolean;
+}
+
+interface AuthContextValue {
+  user: AuthUser | null;
+  token: string | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  register: (payload: RegisterPayload) => Promise<{ message: string; correo: string; requiereVerificacion: boolean }>;
+  verifyEmail: (token: string) => Promise<{ success: boolean; message: string }>;
+  updateProfile: (changes: Record<string, any>) => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextValue | null>(null);
 const KEY = 'kolab.session';
 const IDLE_MS = Number(import.meta.env.VITE_SESSION_INACTIVITY_MINUTES ?? 30) * 60 * 1000;
 
-const ROLE_MAP = {
+const ROLE_MAP: Record<string, string> = {
   ESTUDIANTE: 'estudiante',
   DOCENTE: 'docente',
   ADMINISTRADOR: 'admin',
@@ -24,7 +66,7 @@ const USER_FIELDS = `
   grupo
 `;
 
-function normalizeUser(u) {
+function normalizeUser(u: any): AuthUser | null {
   if (!u) return null;
   return {
     id: u._id ?? u.id,
@@ -43,14 +85,19 @@ function normalizeUser(u) {
   };
 }
 
-function readSession() {
-  try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; }
+function readSession(): SessionData | null {
+  try {
+    const raw = localStorage.getItem(KEY);
+    return raw ? (JSON.parse(raw) as SessionData) : null;
+  } catch {
+    return null;
+  }
 }
 
-export function AuthProvider({ children }) {
-  const [session, setSession] = useState(readSession);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<SessionData | null>(readSession);
 
-  const persist = useCallback((s) => {
+  const persist = useCallback((s: SessionData) => {
     localStorage.setItem(KEY, JSON.stringify(s));
     setSession(s);
   }, []);
@@ -63,13 +110,15 @@ export function AuthProvider({ children }) {
     setSession(null);
   }, [session?.token]);
 
-  const login = useCallback(async (email, password) => {
+  const login = useCallback(async (email: string, password: string) => {
+    assertNoScriptInjection(email, 'correo');
+
     if (USE_MOCK) {
       const found = DEMO_USERS.find((u) => u.email === email.trim().toLowerCase() && u.password === password);
       if (!found) throw new Error('Correo o contraseña incorrectos');
       const user = { ...found };
       delete user.password;
-      persist({ token: 'mock', user });
+      persist({ token: 'mock', user: normalizeUser(user) });
       return;
     }
 
@@ -93,7 +142,9 @@ export function AuthProvider({ children }) {
     });
   }, [persist]);
 
-  const register = useCallback(async ({ nombre, apellidos, correo, contrasena, idCarrera, aceptoPrivacidad = true }) => {
+  const register = useCallback(async ({ nombre, apellidos, correo, contrasena, idCarrera, aceptoPrivacidad = true }: RegisterPayload) => {
+    assertNoScriptInjection({ nombre, apellidos, correo }, 'registro');
+
     if (USE_MOCK) {
       return {
         message: 'Registro simulado en modo demo. Activa VITE_USE_MOCK=false para usar Brevo.',
@@ -124,7 +175,7 @@ export function AuthProvider({ children }) {
     return data.register;
   }, []);
 
-  const verifyEmail = useCallback(async (token) => {
+  const verifyEmail = useCallback(async (token: string) => {
     if (USE_MOCK) {
       return { success: true, message: 'Correo verificado (modo demo).' };
     }
@@ -140,13 +191,17 @@ export function AuthProvider({ children }) {
     return data.verifyEmail;
   }, []);
 
-  const updateProfile = useCallback(async (changes) => {
+  const updateProfile = useCallback(async (changes: Record<string, any>) => {
+    assertNoScriptInjection(changes, 'perfil');
+
     if (USE_MOCK) {
-      persist({ ...session, user: { ...session.user, ...changes } });
+      if (session?.user) {
+        persist({ ...session, user: { ...session.user, ...changes } });
+      }
       return;
     }
 
-    const input = {};
+    const input: Record<string, any> = {};
     if (changes.nombre !== undefined) input.nombre = changes.nombre;
     if (changes.apellidos !== undefined) input.apellidos = changes.apellidos;
     if (changes.foto_url !== undefined || changes.fotoUrl !== undefined) {
@@ -167,20 +222,25 @@ export function AuthProvider({ children }) {
         session.token,
       );
       persist({ ...session, user: normalizeUser(data.actualizarPerfil) });
-    } else {
+    } else if (session?.user) {
       persist({ ...session, user: { ...session.user, ...changes } });
     }
   }, [persist, session]);
 
-  // Cierra la sesión tras N minutos sin actividad
   useEffect(() => {
     if (!session) return undefined;
-    let timer;
-    const reset = () => { clearTimeout(timer); timer = setTimeout(logout, IDLE_MS); };
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(logout, IDLE_MS);
+    };
     const events = ['mousemove', 'keydown', 'click', 'scroll'];
     events.forEach((e) => window.addEventListener(e, reset));
     reset();
-    return () => { clearTimeout(timer); events.forEach((e) => window.removeEventListener(e, reset)); };
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
   }, [session, logout]);
 
   const value = useMemo(
@@ -199,6 +259,8 @@ export function AuthProvider({ children }) {
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function useAuth() {
-  return useContext(AuthContext);
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider');
+  return ctx;
 }

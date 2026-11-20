@@ -1,5 +1,18 @@
+export interface KolabModule {
+  id: number;
+  path: string;
+  short: string;
+  name: string;
+  built?: boolean;
+  ink?: boolean;
+  desc: string;
+  c1: string;
+  c2: string;
+  features?: string[];
+}
+
 // c1 → c2 = degradado del banner. ink = texto oscuro (para fondos claros como el Sol).
-export const MODULES = [
+export const MODULES: KolabModule[] = [
   { id: 1, path: '/perfil', short: 'Perfil', name: 'Identidad y perfiles', built: true,
     desc: 'Tu perfil académico y acceso según tu rol', c1: '#157f3c', c2: '#22a559' },
   { id: 2, path: '/curricular', short: 'Curricular', name: 'Gestión curricular y carga académica',

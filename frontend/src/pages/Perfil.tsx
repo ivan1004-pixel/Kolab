@@ -1,110 +1,82 @@
-
-import { useState } from 'react';
-import { useAuth } from '../context/AuthContext.jsx';
-import { DEMO_USERS, ROLES } from '../data/demoUsers.js';
-import { MODULES } from '../data/modules.js';
-import ModuleBanner from '../components/ModuleBanner.jsx';
+import { ChangeEvent, FormEvent, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { DEMO_USERS, ROLES } from '../data/demoUsers';
+import { MODULES } from '../data/modules';
+import { assertNoScriptInjection } from '../utils/inputSecurity';
+import ModuleBanner from '../components/ModuleBanner';
 
 export default function Perfil() {
   const { user, updateProfile } = useAuth();
 
   const [form, setForm] = useState({
-    nombre: user.nombre,
-    apellidos: user.apellidos,
-    foto_url: user.foto_url ?? ''
+    nombre: user?.nombre ?? '',
+    apellidos: user?.apellidos ?? '',
+    foto_url: user?.foto_url ?? '',
   });
 
   const [msg, setMsg] = useState({ type: '', text: '' });
 
-  const onChange = (e) => {
+  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm((f) => ({
       ...f,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     }));
   };
 
-  // Seleccionar una fotografía desde la computadora
-  const onPhotoChange = (e) => {
+  const onPhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setMsg({
-        type: 'error',
-        text: 'Selecciona un archivo de imagen válido.'
-      });
+      setMsg({ type: 'error', text: 'Selecciona un archivo de imagen válido.' });
       e.target.value = '';
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setMsg({
-        type: 'error',
-        text: 'La imagen no debe pesar más de 5 MB.'
-      });
+      setMsg({ type: 'error', text: 'La imagen no debe pesar más de 5 MB.' });
       e.target.value = '';
       return;
     }
 
     const reader = new FileReader();
-
     reader.onload = () => {
-      setForm((f) => ({
-        ...f,
-        foto_url: reader.result
-      }));
-
+      setForm((f) => ({ ...f, foto_url: String(reader.result || '') }));
       setMsg({ type: '', text: '' });
     };
-
     reader.onerror = () => {
-      setMsg({
-        type: 'error',
-        text: 'No se pudo cargar la imagen.'
-      });
+      setMsg({ type: 'error', text: 'No se pudo cargar la imagen.' });
     };
-
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  async function onSubmit(e) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
 
     if (!form.nombre.trim() || !form.apellidos.trim()) {
-      return setMsg({
-        type: 'error',
-        text: 'Nombre y apellidos son obligatorios.'
-      });
+      return setMsg({ type: 'error', text: 'Nombre y apellidos son obligatorios.' });
     }
 
     try {
+      assertNoScriptInjection({ nombre: form.nombre, apellidos: form.apellidos }, 'perfil');
       await updateProfile({
         ...form,
         nombre: form.nombre.trim(),
-        apellidos: form.apellidos.trim()
+        apellidos: form.apellidos.trim(),
       });
-
-      setMsg({
-        type: 'ok',
-        text: 'Cambios guardados correctamente.'
-      });
-    } catch (err) {
-      setMsg({
-        type: 'error',
-        text: err.message
-      });
+      setMsg({ type: 'ok', text: 'Cambios guardados correctamente.' });
+    } catch (err: any) {
+      setMsg({ type: 'error', text: err.message });
     }
   }
 
   function onCancel() {
     setForm({
-      nombre: user.nombre,
-      apellidos: user.apellidos,
-      foto_url: user.foto_url ?? ''
+      nombre: user?.nombre ?? '',
+      apellidos: user?.apellidos ?? '',
+      foto_url: user?.foto_url ?? '',
     });
-
     setMsg({ type: '', text: '' });
   }
 
@@ -114,7 +86,6 @@ export default function Perfil() {
 
       <div className="split">
         <section className="card profile-card" aria-label="Perfil público">
-
           <label className="avatar avatar--lg avatar-upload" htmlFor="foto-perfil">
             {form.foto_url ? (
               <img src={form.foto_url} alt="Fotografía de perfil" />
@@ -123,17 +94,7 @@ export default function Perfil() {
             )}
 
             <span className="avatar-upload__overlay">
-              <svg
-                viewBox="0 0 24 24"
-                width="28"
-                height="28"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 16V4" />
                 <path d="m7 9 5-5 5 5" />
                 <path d="M20 16.5v2A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5v-2" />
@@ -151,26 +112,15 @@ export default function Perfil() {
             />
           </label>
 
-          <p className="profile-photo-hint">
-            Pasa el cursor sobre tu foto para cambiarla
-          </p>
+          <p className="profile-photo-hint">Pasa el cursor sobre tu foto para cambiarla</p>
 
-          <h2>{user.nombre} {user.apellidos}</h2>
-
-          <span className="chip chip--solid">
-            {ROLES[user.rol]}
-          </span>
-
-          <p className="muted">{user.carrera}</p>
+          <h2>{user?.nombre} {user?.apellidos}</h2>
+          <span className="chip chip--solid">{ROLES[user?.rol ?? 'estudiante']}</span>
+          <p className="muted">{user?.carrera}</p>
 
           <div className="row">
-            <span className="chip chip--xp">
-              {user.xp ?? 0} XP
-            </span>
-
-            <span className="chip chip--soft">
-              {user.insignias ?? 0} insignias
-            </span>
+            <span className="chip chip--xp">{user?.xp ?? 0} XP</span>
+            <span className="chip chip--soft">{user?.insignias ?? 0} insignias</span>
           </div>
         </section>
 
@@ -180,51 +130,29 @@ export default function Perfil() {
           <div className="form-grid">
             <div className="field">
               <label htmlFor="nombre">Nombre</label>
-              <input
-                id="nombre"
-                name="nombre"
-                value={form.nombre}
-                onChange={onChange}
-              />
+              <input id="nombre" name="nombre" value={form.nombre} onChange={onChange} />
             </div>
 
             <div className="field">
               <label htmlFor="apellidos">Apellidos</label>
-              <input
-                id="apellidos"
-                name="apellidos"
-                value={form.apellidos}
-                onChange={onChange}
-              />
+              <input id="apellidos" name="apellidos" value={form.apellidos} onChange={onChange} />
             </div>
           </div>
 
           {msg.text && (
-            <p
-              className={msg.type === 'ok' ? 'form-ok' : 'form-error'}
-              role="status"
-            >
+            <p className={msg.type === 'ok' ? 'form-ok' : 'form-error'} role="status">
               {msg.text}
             </p>
           )}
 
           <div className="row">
-            <button className="btn btn--primary" type="submit">
-              Guardar
-            </button>
-
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={onCancel}
-            >
-              Cancelar
-            </button>
+            <button className="btn btn--primary" type="submit">Guardar</button>
+            <button type="button" className="btn btn--ghost" onClick={onCancel}>Cancelar</button>
           </div>
         </form>
       </div>
 
-      {user.rol === 'admin' && <Cuentas />}
+      {user?.rol === 'admin' && <Cuentas />}
     </>
   );
 }
@@ -236,27 +164,26 @@ function Cuentas() {
       nombre,
       apellidos,
       email,
-      rol
-    }))
+      rol,
+    })),
   );
 
-  const [form, setForm] = useState({
-    nombre: '',
-    email: '',
-    rol: 'estudiante'
-  });
+  const [form, setForm] = useState({ nombre: '', email: '', rol: 'estudiante' });
+  const [secError, setSecError] = useState('');
 
-  const onChange = (e) => {
-    setForm((f) => ({
-      ...f,
-      [e.target.name]: e.target.value
-    }));
+  const onChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   };
 
-  function onSubmit(e) {
+  function onSubmit(e: FormEvent) {
     e.preventDefault();
-
     if (!form.nombre.trim() || !form.email.includes('@')) return;
+    try {
+      assertNoScriptInjection(form, 'cuentas');
+      setSecError('');
+    } catch (err: any) {
+      return setSecError(err.message);
+    }
 
     setCuentas((c) => [
       ...c,
@@ -265,22 +192,16 @@ function Cuentas() {
         nombre: form.nombre.trim(),
         apellidos: '',
         email: form.email.trim(),
-        rol: form.rol
-      }
+        rol: form.rol,
+      },
     ]);
 
-    setForm({
-      nombre: '',
-      email: '',
-      rol: 'estudiante'
-    });
+    setForm({ nombre: '', email: '', rol: 'estudiante' });
   }
 
   return (
     <section className="card">
-      <h2 className="card__title">
-        Cuentas y roles · solo Administrador
-      </h2>
+      <h2 className="card__title">Cuentas y roles · solo Administrador</h2>
 
       <div className="table-wrap">
         <table>
@@ -291,53 +212,34 @@ function Cuentas() {
               <th>Rol</th>
             </tr>
           </thead>
-
           <tbody>
             {cuentas.map((c) => (
               <tr key={c.id}>
                 <td>{c.nombre} {c.apellidos}</td>
                 <td>{c.email}</td>
-                <td>
-                  <span className="chip chip--soft">
-                    {ROLES[c.rol]}
-                  </span>
-                </td>
+                <td><span className="chip chip--soft">{ROLES[c.rol]}</span></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
+      {secError && <p className="form-error" role="alert">{secError}</p>}
+
       <form className="form-grid" onSubmit={onSubmit}>
         <div className="field">
           <label htmlFor="c-nombre">Nombre</label>
-          <input
-            id="c-nombre"
-            name="nombre"
-            value={form.nombre}
-            onChange={onChange}
-          />
+          <input id="c-nombre" name="nombre" value={form.nombre} onChange={onChange} />
         </div>
 
         <div className="field">
           <label htmlFor="c-email">Correo</label>
-          <input
-            id="c-email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={onChange}
-          />
+          <input id="c-email" name="email" type="email" value={form.email} onChange={onChange} />
         </div>
 
         <div className="field">
           <label htmlFor="c-rol">Rol</label>
-          <select
-            id="c-rol"
-            name="rol"
-            value={form.rol}
-            onChange={onChange}
-          >
+          <select id="c-rol" name="rol" value={form.rol} onChange={onChange}>
             {Object.entries(ROLES).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
@@ -345,9 +247,7 @@ function Cuentas() {
         </div>
 
         <div className="field" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn btn--primary" type="submit">
-            + Registrar cuenta
-          </button>
+          <button className="btn btn--primary" type="submit">+ Registrar cuenta</button>
         </div>
       </form>
     </section>

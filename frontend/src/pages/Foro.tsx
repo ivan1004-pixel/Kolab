@@ -1,11 +1,27 @@
-import { useState } from 'react';
+import { ChangeEvent, FormEvent, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.jsx';
-import { MODULES } from '../data/modules.js';
-import ModuleBanner from '../components/ModuleBanner.jsx';
+import { useAuth } from '../context/AuthContext';
+import { MODULES } from '../data/modules';
+import { assertNoScriptInjection } from '../utils/inputSecurity';
+import ModuleBanner from '../components/ModuleBanner';
 
-// Datos de ejemplo mientras no exista el API
-const SEED = [
+interface RespuestaItem {
+  id: number;
+  autor: string;
+  texto: string;
+  validada: boolean;
+}
+
+interface PreguntaItem {
+  id: number;
+  titulo: string;
+  detalle: string;
+  asignatura: string;
+  autor: string;
+  respuestas: RespuestaItem[];
+}
+
+const SEED: PreguntaItem[] = [
   { id: 1, titulo: '¿Cuál es la diferencia entre clave primaria y foránea?', detalle: 'No me queda claro cuándo usar cada una.', asignatura: 'Bases de datos', autor: 'Estudiante', respuestas: [
     { id: 1, autor: 'Compañero', texto: 'La primaria identifica un registro de forma única; la foránea apunta a la primaria de otra tabla.', validada: false },
   ] },
@@ -16,31 +32,37 @@ export default function Foro() {
   const { user } = useAuth();
   const [params] = useSearchParams();
   const q = (params.get('q') ?? '').toLowerCase();
-  const [preguntas, setPreguntas] = useState(SEED);
+  const [preguntas, setPreguntas] = useState<PreguntaItem[]>(SEED);
   const [form, setForm] = useState({ titulo: '', detalle: '', asignatura: '' });
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
 
-  const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const onChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  function onSubmit(e) {
+  function onSubmit(e: FormEvent) {
     e.preventDefault();
+    try {
+      assertNoScriptInjection(form, 'foro');
+    } catch (err: any) {
+      return setError(err.message);
+    }
     if (form.titulo.trim().length < 8) return setError('Escribe tu pregunta con un poco más de detalle');
-    setPreguntas((p) => [{ id: Date.now(), ...form, titulo: form.titulo.trim(), autor: user.nombre, respuestas: [] }, ...p]);
+    setPreguntas((p) => [{ id: Date.now(), ...form, titulo: form.titulo.trim(), autor: user?.nombre ?? 'Estudiante', respuestas: [] }, ...p]);
     setForm({ titulo: '', detalle: '', asignatura: '' });
     setError('');
     setShowForm(false);
   }
 
-  const responder = (id, texto) =>
+  const responder = (id: number, texto: string) =>
     setPreguntas((p) => p.map((x) => x.id === id
-      ? { ...x, respuestas: [...x.respuestas, { id: Date.now(), autor: user.nombre, texto, validada: false }] } : x));
+      ? { ...x, respuestas: [...x.respuestas, { id: Date.now(), autor: user?.nombre ?? 'Estudiante', texto, validada: false }] } : x));
 
-  const validar = (qid, rid) =>
+  const validar = (qid: number, rid: number) =>
     setPreguntas((p) => p.map((x) => x.id === qid
       ? { ...x, respuestas: x.respuestas.map((r) => (r.id === rid ? { ...r, validada: true } : r)) } : x));
 
-  const puedeValidar = user.rol === 'docente' || user.rol === 'admin';
+  const puedeValidar = user?.rol === 'docente' || user?.rol === 'admin';
   const lista = preguntas.filter((x) => `${x.titulo} ${x.detalle} ${x.asignatura}`.toLowerCase().includes(q));
 
   return (
@@ -78,13 +100,30 @@ export default function Foro() {
   );
 }
 
-function Pregunta({ p, puedeValidar, onResponder, onValidar }) {
+function Pregunta({
+  p,
+  puedeValidar,
+  onResponder,
+  onValidar,
+}: {
+  p: PreguntaItem;
+  puedeValidar: boolean;
+  onResponder: (id: number, texto: string) => void;
+  onValidar: (qid: number, rid: number) => void;
+}) {
   const [texto, setTexto] = useState('');
+  const [respError, setRespError] = useState('');
   const resuelta = p.respuestas.some((r) => r.validada);
 
-  function enviar(e) {
+  function enviar(e: FormEvent) {
     e.preventDefault();
     if (!texto.trim()) return;
+    try {
+      assertNoScriptInjection(texto, 'respuesta');
+      setRespError('');
+    } catch (err: any) {
+      return setRespError(err.message);
+    }
     onResponder(p.id, texto.trim());
     setTexto('');
   }
@@ -119,6 +158,7 @@ function Pregunta({ p, puedeValidar, onResponder, onValidar }) {
           </div>
           <button className="btn btn--primary btn--sm">Responder</button>
         </form>
+        {respError && <p className="form-error" role="alert">{respError}</p>}
       </div>
     </article>
   );
