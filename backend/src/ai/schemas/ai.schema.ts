@@ -186,7 +186,7 @@ export class AiConfig {
   temperatura: number;
 
   @Field(() => Int)
-  @Prop({ default: 20 })
+  @Prop({ default: 10 })
   limiteConsultasDiarias: number;
 }
 

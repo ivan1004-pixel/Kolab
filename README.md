@@ -92,7 +92,7 @@ BREVO_SENDER_NAME=Kolab Plataforma Académica
 
 GEMINI_API_KEY=tu-api-key-de-gemini
 GEMINI_MODEL=gemini-3.1-flash-lite
-AI_DAILY_LIMIT_PER_USER=20
+AI_DAILY_LIMIT_PER_USER=10
 ```
 
 > **Tip para generar secretos JWT rápidamente:**

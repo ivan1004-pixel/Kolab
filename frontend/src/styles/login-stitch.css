@@ -1,0 +1,464 @@
+/* ---------- Stitch Branded Login Design (Desktop & Mobile) ---------- */
+.stitch-login-page {
+  min-height: 100dvh;
+  background: #f3fbff;
+  color: #001f28;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow-x: hidden;
+  font-family: var(--font, 'Nunito Sans', system-ui, sans-serif);
+}
+
+.stitch-topbar {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #3f493f;
+}
+
+.stitch-topbar__help {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stitch-topbar__link {
+  color: #00642b;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.stitch-topbar__link:hover {
+  color: #157f3c;
+  text-decoration: underline;
+}
+
+.stitch-main {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+}
+
+.stitch-card {
+  width: 100%;
+  max-width: min(1060px, 100%);
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 20px 50px -12px rgba(16, 53, 64, 0.16);
+}
+
+/* Panel Izquierdo (Verde Bosque / Tinta #103540) */
+.stitch-hero {
+  position: relative;
+  background: radial-gradient(circle at 85% 90%, rgba(21, 127, 60, 0.28), transparent 55%),
+    radial-gradient(circle at 10% 10%, rgba(21, 127, 60, 0.22), transparent 50%),
+    #103540;
+  color: #def4ff;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.stitch-hero__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  width: fit-content;
+}
+
+.stitch-hero__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: #b2f746;
+  box-shadow: 0 0 10px rgba(178, 247, 70, 0.7);
+}
+
+.stitch-hero__brand {
+  margin-top: 2.25rem;
+}
+
+.stitch-hero__title {
+  margin-top: 1.5rem;
+  font-size: clamp(1.85rem, 2.5vw, 2.3rem);
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  color: #ffffff;
+}
+
+.stitch-hero__desc {
+  margin-top: 1rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #bbefc5;
+  opacity: 0.92;
+}
+
+.stitch-hero__foot {
+  font-size: 0.78rem;
+  color: rgba(222, 244, 255, 0.65);
+}
+
+/* Panel Derecho (Formulario) */
+.stitch-form-panel {
+  background: #ffffff;
+  padding: 1.75rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.stitch-form-wrap {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.stitch-mobile-brand {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.stitch-form-brand {
+  margin-bottom: 0.75rem;
+}
+
+.stitch-heading {
+  font-size: clamp(1.5rem, 2.2vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: #001f28;
+  margin: 0;
+}
+
+.stitch-subheading {
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+  font-size: 0.86rem;
+  color: #3f493f;
+}
+
+.stitch-google-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 0.8rem 1.25rem;
+  border-radius: 9999px;
+  border: none;
+  background: #e5f6ff;
+  color: #001f28;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 31, 40, 0.06);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.stitch-google-btn:hover {
+  background: #d6f2ff;
+}
+
+.stitch-divider {
+  position: relative;
+  margin: 0.9rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stitch-divider::before {
+  content: '';
+  width: 100%;
+  height: 1px;
+  background: rgba(190, 202, 187, 0.45);
+}
+
+.stitch-divider span {
+  position: absolute;
+  padding: 0 0.85rem;
+  background: #ffffff;
+  font-size: 0.78rem;
+  color: #3f493f;
+  font-weight: 600;
+}
+
+.stitch-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.stitch-name-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.stitch-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.stitch-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #001f28;
+  margin-bottom: 0.4rem;
+}
+
+.stitch-label-row .stitch-label {
+  margin-bottom: 0;
+}
+
+.stitch-link-sm {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #00642b;
+  cursor: pointer;
+}
+
+.stitch-link-sm:hover {
+  color: #157f3c;
+  text-decoration: underline;
+}
+
+.stitch-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.stitch-input-icon {
+  position: absolute;
+  left: 1rem;
+  color: #3f493f;
+  display: inline-flex;
+  pointer-events: none;
+}
+
+.stitch-input {
+  width: 100%;
+  padding: 0.8rem 1rem 0.8rem 2.85rem;
+  border-radius: 9999px;
+  border: none;
+  background: #e5f6ff;
+  color: #001f28;
+  font-size: 0.92rem;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stitch-input--no-icon {
+  padding-left: 1.15rem;
+}
+
+.stitch-input--pwd {
+  padding-right: 2.85rem;
+}
+
+.stitch-input::placeholder {
+  color: rgba(63, 73, 63, 0.6);
+}
+
+.stitch-input:focus {
+  outline: none;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(21, 127, 60, 0.25);
+}
+
+.stitch-eye-btn {
+  position: absolute;
+  right: 0.85rem;
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  color: #3f493f;
+  cursor: pointer;
+  display: inline-flex;
+  border-radius: 9999px;
+}
+
+.stitch-eye-btn:hover {
+  color: #001f28;
+}
+
+.stitch-check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.88rem;
+  color: #3f493f;
+  cursor: pointer;
+  user-select: none;
+}
+
+.stitch-check-row input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: #157f3c;
+  cursor: pointer;
+}
+
+.stitch-submit-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.5rem;
+  border-radius: 9999px;
+  border: none;
+  background: #157f3c;
+  color: #ffffff;
+  font-size: 0.96rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(21, 127, 60, 0.3);
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stitch-submit-btn:hover:not(:disabled) {
+  background: #00642b;
+  box-shadow: 0 6px 20px rgba(21, 127, 60, 0.38);
+}
+
+.stitch-submit-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.stitch-signup-prompt {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #3f493f;
+}
+
+.stitch-signup-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.35rem;
+  color: #00642b;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.stitch-signup-btn:hover {
+  color: #157f3c;
+  text-decoration: underline;
+}
+
+.stitch-trust-bar {
+  margin-top: 1.25rem;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  background: rgba(229, 246, 255, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: #3f493f;
+}
+
+.stitch-trust-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #00642b;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.stitch-footer {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0.65rem 1.5rem 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: #3f493f;
+}
+
+.stitch-footer__links {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.stitch-footer__links a {
+  color: #3f493f;
+  text-decoration: none;
+}
+
+.stitch-footer__links a:hover {
+  color: #001f28;
+}
+
+@media (max-width: 960px) {
+  .stitch-card {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+    min-height: auto;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .stitch-hero {
+    display: none;
+  }
+
+  .stitch-form-brand {
+    display: none;
+  }
+
+  .stitch-mobile-brand {
+    display: flex;
+  }
+
+  .stitch-form-panel {
+    border-radius: 20px;
+    padding: 1.35rem 1.15rem;
+    box-shadow: 0 12px 32px rgba(16, 53, 64, 0.08);
+  }
+
+  .stitch-name-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -115,12 +115,18 @@ export class ContentSecurityService {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
 
-    // Consumo de API externa (PurgoMalum) con lista adicional en español
+    const words = normalized.split(/\W+/).filter(Boolean);
+    if (words.some((w) => SPANISH_PROFANITY_LIST.includes(w))) {
+      throw new BadRequestException(
+        'Tu mensaje contiene palabras altisonantes no permitidas en Kolab.',
+      );
+    }
+
+    // Consumo de API externa (PurgoMalum) para palabras altisonantes adicionales
     try {
-      const addParam = encodeURIComponent(SPANISH_PROFANITY_LIST.join(','));
       const url = `https://www.purgomalum.com/service/containsprofanity?text=${encodeURIComponent(
         normalized,
-      )}&add=${addParam}`;
+      )}`;
 
       const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
@@ -130,20 +136,11 @@ export class ContentSecurityService {
             'Tu mensaje contiene palabras altisonantes no permitidas en Kolab.',
           );
         }
-        return;
       }
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
       this.logger.warn(
         'API de filtrado de palabras altisonantes no disponible, aplicando filtro local de respaldo.',
-      );
-    }
-
-    // Respaldo local si la API externa falla o hay timeout
-    const words = normalized.split(/\W+/).filter(Boolean);
-    if (words.some((w) => SPANISH_PROFANITY_LIST.includes(w))) {
-      throw new BadRequestException(
-        'Tu mensaje contiene palabras altisonantes no permitidas en Kolab.',
       );
     }
   }

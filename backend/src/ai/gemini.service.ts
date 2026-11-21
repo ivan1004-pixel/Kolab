@@ -101,7 +101,7 @@ export class GeminiService {
           'gemini-3.1-flash-lite',
         temperatura: 0.3,
         limiteConsultasDiarias: Number(
-          this.configService.get<number>('AI_DAILY_LIMIT_PER_USER') || 20,
+          this.configService.get<number>('AI_DAILY_LIMIT_PER_USER') || 10,
         ),
       }).save();
     }
@@ -125,13 +125,15 @@ export class GeminiService {
   private async checkDailyLimit(userId: string, limit: number): Promise<void> {
     const hoyInicio = new Date();
     hoyInicio.setHours(0, 0, 0, 0);
-    const count = await this.consultaModel
-      .countDocuments({
-        idUsuario: new Types.ObjectId(userId),
-        createdAt: { $gte: hoyInicio },
-      })
-      .exec();
-    if (count >= limit) {
+    const filter = {
+      idUsuario: new Types.ObjectId(userId),
+      createdAt: { $gte: hoyInicio },
+    };
+    const [consultasCount, cuestionariosCount] = await Promise.all([
+      this.consultaModel.countDocuments(filter).exec(),
+      this.cuestionarioModel.countDocuments(filter).exec(),
+    ]);
+    if (consultasCount + cuestionariosCount >= limit) {
       throw new BadRequestException(
         `Has alcanzado tu límite diario de ${limit} consultas a la IA (RF-75).`,
       );
@@ -278,6 +280,7 @@ ${contexto}`;
     }
 
     const cfg = await this.getOrCreateConfig();
+    await this.checkDailyLimit(userId, cfg.limiteConsultasDiarias);
     const materiales = await this.getAuthorizedMaterials(idTema);
     if (materiales.length === 0) {
       throw new BadRequestException(
