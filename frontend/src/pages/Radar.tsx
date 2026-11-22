@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
+import {
+  clearPwaCache,
+  PwaState,
+  refreshCacheCount,
+  subscribePwa,
+  triggerPwaInstall,
+} from '../utils/pwa';
 
 interface RadarItem {
   idTema: string;
@@ -30,7 +37,14 @@ export default function Radar() {
   const [intentos, setIntentos] = useState<IntentoItem[]>([]);
   const [selectedTemaId, setSelectedTemaId] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [pwaInstalled, setPwaInstalled] = useState(false);
+  const [pwa, setPwa] = useState<PwaState>({
+    supported: true,
+    swActive: false,
+    canInstall: false,
+    isInstalled: false,
+    isOnline: true,
+    cachedCount: 0,
+  });
   const [installNotice, setInstallNotice] = useState<string | null>(null);
 
   const loadRadar = useCallback(async () => {
@@ -76,6 +90,12 @@ export default function Radar() {
     loadRadar();
   }, [loadRadar]);
 
+  useEffect(() => {
+    const unsub = subscribePwa(setPwa);
+    refreshCacheCount();
+    return unsub;
+  }, []);
+
   const temaMap = useMemo(() => new Map(temas.map((t) => [t._id, t.titulo])), [temas]);
   const selectedUnit = radar.find((r) => r.idTema === selectedTemaId) ?? radar[0] ?? null;
 
@@ -87,11 +107,26 @@ export default function Radar() {
 
   const maxQuestions = Math.max(1, ...radar.map((r) => r.totalPreguntas));
 
-  function handleInstallClick() {
-    setPwaInstalled(true);
-    setInstallNotice(
-      'KOLAB está listo para instalarse como PWA y consultar tus apuntes en caché sin conexión.',
-    );
+  async function handleInstallClick() {
+    if (pwa.isInstalled) {
+      setInstallNotice('KOLAB ya está instalado y funcionando en modo aplicación.');
+      return;
+    }
+    const outcome = await triggerPwaInstall();
+    if (outcome === 'accepted') {
+      setInstallNotice('¡KOLAB se instaló correctamente en tu dispositivo!');
+    } else if (outcome === 'dismissed') {
+      setInstallNotice('Instalación cancelada. Puedes volver a intentarlo cuando quieras.');
+    } else {
+      setInstallNotice(
+        'Para instalar KOLAB, usa la opción «Instalar aplicación» en la barra de direcciones (Chrome/Edge) o «Añadir a pantalla de inicio» en Safari iOS.',
+      );
+    }
+  }
+
+  async function handleClearCache() {
+    await clearPwaCache();
+    setInstallNotice('Caché sin conexión limpiada correctamente.');
   }
 
   return (
@@ -107,7 +142,7 @@ export default function Radar() {
         </div>
 
         <button type="button" className="btn-banner-action" onClick={handleInstallClick}>
-          {pwaInstalled ? 'KOLAB instalado ✓' : 'Instalar KOLAB'}
+          {pwa.isInstalled ? 'KOLAB instalado ✓' : pwa.canInstall ? 'Instalar KOLAB' : 'Cómo instalar PWA'}
         </button>
       </section>
 
@@ -201,15 +236,35 @@ export default function Radar() {
       <section className="kolab-card" aria-label="PWA y almacenamiento">
         <header className="card-header-row">
           <h2 className="card-title">PWA y almacenamiento</h2>
+          <span className={`chip ${pwa.isOnline ? 'chip--soft' : 'chip--xp'}`}>
+            {pwa.isOnline ? 'En línea' : 'Sin conexión'}
+          </span>
         </header>
         <div className="pwa-box">
-          <div className="pwa-ring" aria-label="Estado PWA"><div className="pwa-ring-inner">PWA</div></div>
+          <div className="pwa-ring" aria-label="Estado PWA">
+            <div className="pwa-ring-inner">{pwa.cachedCount}</div>
+          </div>
           <div className="pwa-info">
-            <span className="pwa-status-pill">Modo aplicación disponible</span>
-            <p className="pwa-desc">Instala KOLAB en tu dispositivo para acceder rápidamente.</p>
-            <button type="button" className="btn-outline-green" onClick={handleInstallClick}>
-              {pwaInstalled ? 'Instalado en dispositivo ✓' : 'Instalar en mi móvil'}
-            </button>
+            <span className="pwa-status-pill">
+              {!pwa.supported
+                ? 'Navegador sin Service Worker'
+                : pwa.swActive
+                  ? 'Service Worker activo'
+                  : 'Registrando Service Worker…'}
+            </span>
+            <p className="pwa-desc">
+              {pwa.cachedCount} recursos en caché para carga rápida y soporte sin conexión.
+            </p>
+            <div className="row">
+              <button type="button" className="btn-outline-green" onClick={handleInstallClick}>
+                {pwa.isInstalled ? 'Instalado en dispositivo ✓' : pwa.canInstall ? 'Instalar en mi dispositivo' : 'Cómo instalar'}
+              </button>
+              {pwa.cachedCount > 0 && (
+                <button type="button" className="btn btn--ghost btn--sm" onClick={handleClearCache}>
+                  Limpiar caché
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </section>

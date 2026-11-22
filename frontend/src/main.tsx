@@ -6,6 +6,9 @@ import '@fontsource-variable/nunito';
 import './styles/index.css';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
+import { initPwa } from './utils/pwa';
+
+initPwa();
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || '';
 

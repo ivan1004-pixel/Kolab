@@ -1,0 +1,25 @@
+{
+  "name": "KOLAB · Plataforma Académica Colaborativa",
+  "short_name": "KOLAB",
+  "description": "Comparte, busca y confía en materiales revisados.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#e8f3e6",
+  "theme_color": "#157f3c",
+  "icons": [
+    {
+      "src": "/assets/kolab-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/kolab-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
