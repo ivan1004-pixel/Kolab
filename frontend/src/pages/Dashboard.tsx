@@ -46,7 +46,7 @@ export default function Dashboard() {
   const pct = Math.round(((xp % 200) / 200) * 100);
 
   return (
-    <>
+        <div className="dashboard">
       <section className="hero">
         <span className="chip chip--solid" style={{ alignSelf: 'flex-start' }}>
           {ROLE_LABELS[user?.rol ?? 'estudiante'] ?? 'Estudiante'}
@@ -85,8 +85,12 @@ export default function Dashboard() {
               <p className="muted">{m.desc}</p>
             </Link>
           ))}
-        </div>
+                </div>
       </section>
-    </>
+
+      <footer className="kolab-footer">
+        © {new Date().getFullYear()} Kolab. Todos los derechos reservados.
+      </footer>
+        </div>
   );
 }

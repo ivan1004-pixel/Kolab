@@ -5,6 +5,7 @@ import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import ImageCropModal from '../components/ImageCropModal';
 import ModuleBanner from '../components/ModuleBanner';
+import Skeleton from '../components/Skeleton';
 
 const ROLE_LABELS: Record<string, string> = {
   estudiante: 'Estudiante',
@@ -40,6 +41,7 @@ export default function Perfil() {
   const [badgesCount, setBadgesCount] = useState(user?.insignias ?? 0);
   const [pendingCropSrc, setPendingCropSrc] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isPhotoLoading, setIsPhotoLoading] = useState(false);
   const [photoMsg, setPhotoMsg] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
   const [dataMsg, setDataMsg] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
 
@@ -94,16 +96,20 @@ export default function Perfil() {
     }
 
     const reader = new FileReader();
+    setIsPhotoLoading(true);
     reader.onload = () => {
+      setIsPhotoLoading(false);
       setPendingCropSrc(String(reader.result || ''));
       setPhotoMsg(null);
     };
     reader.onerror = () => {
+      setIsPhotoLoading(false);
       setPhotoMsg({ type: 'error', text: 'No se pudo leer la imagen seleccionada.' });
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
+
 
   async function handleCropConfirm(resultDataUrl: string) {
     setForm((f) => ({ ...f, foto_url: resultDataUrl }));
@@ -167,11 +173,23 @@ export default function Perfil() {
       <div className="split">
         <section className="card profile-card" aria-label="Perfil público">
           <label className="avatar avatar--lg avatar-upload" htmlFor="foto-perfil">
-            {form.foto_url ? (
-              <img src={form.foto_url} alt="Fotografía de perfil" />
-            ) : (
-              <span>{form.nombre?.[0]?.toUpperCase() || '?'}</span>
-            )}
+
+{isPhotoLoading ? (
+  <Skeleton
+    variant="circle"
+    width="190px"
+    height="190px"
+    className="profile-photo-skeleton"
+  />
+) : form.foto_url ? (
+  <img
+    src={form.foto_url}
+    alt="Fotografía de perfil"
+  />
+) : (
+  <span>{form.nombre?.[0]?.toUpperCase() || '?'}</span>
+)}
+
 
             <span className="avatar-upload__overlay">
               <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -241,6 +259,65 @@ export default function Perfil() {
           </div>
         </form>
       </div>
+
+      {isCropOpen && imageToCrop && (
+        <div className="crop-modal">
+          <div
+            className="crop-modal__content"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="crop-title"
+          >
+            <h2 id="crop-title">Ajustar fotografía</h2>
+            <p>Arrastra la imagen y ajusta el zoom a tu gusto.</p>
+
+            <div className="crop-container">
+              <Cropper
+                image={imageToCrop}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+
+            <div className="crop-zoom">
+              <label htmlFor="crop-zoom">Zoom</label>
+              <input
+                id="crop-zoom"
+                type="range"
+                min={1}
+                max={3}
+                step={0.1}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+              />
+            </div>
+
+            <div className="crop-actions">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={cancelCrop}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={confirmCrop}
+              >
+                Confirmar fotografía
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {user?.rol === 'admin' && <Cuentas />}
 

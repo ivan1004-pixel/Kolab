@@ -1,0 +1,394 @@
+
+/* =========================================
+   KOLAB - MODO OSCURO
+   Verde institucional: #0c3d20
+   ========================================= */
+
+.theme-toggle {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--borde);
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--bosque);
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.08);
+}
+
+/* Variables generales */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bosque: #0c3d20;
+  --verde: #36a461;
+  --verde-hover: #28834d;
+  --menta: #0c3d20;
+  --tinta: #e8f3e6;
+  --blanco: #153f29;
+  --texto-suave: #b5c9ba;
+  --borde: #315b40;
+
+  --shadow: 0 10px 30px rgb(0 0 0 / 0.25);
+}
+
+/* Fondo general */
+:root[data-theme="dark"] body {
+  background: #0c3d20;
+  color: #e8f3e6;
+}
+
+/* Barra superior */
+:root[data-theme="dark"] .topbar {
+  background: rgb(12 61 32 / 0.96);
+  border-bottom: 1px solid #315b40;
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .theme-toggle {
+  background: #174a2c;
+  color: #f9cb15;
+  border-color: #477451;
+}
+
+/* Barra de búsqueda */
+:root[data-theme="dark"] .search input {
+  background: #174a2c;
+  border-color: #315b40;
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .search input::placeholder {
+  color: #b5c9ba;
+}
+
+/* Contenido y tarjetas */
+:root[data-theme="dark"] .content {
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .module-card {
+  background: #153f29;
+  color: #e8f3e6;
+  border: 1px solid #315b40;
+}
+
+:root[data-theme="dark"] .card__title,
+:root[data-theme="dark"] .module-card h3,
+:root[data-theme="dark"] .hero h1 {
+  color: #e8f3e6;
+}
+
+/* Textos secundarios */
+:root[data-theme="dark"] .muted {
+  color: #b5c9ba;
+}
+
+/* Estadísticas */
+:root[data-theme="dark"] .stat--xp {
+  background: #574719;
+  color: #fff0b5;
+}
+
+:root[data-theme="dark"] .stat--badges {
+  background: #30345d;
+  color: #e0e7ff;
+}
+
+:root[data-theme="dark"] .stat--retos {
+  background: #174a2c;
+  color: #d1fae5;
+}
+
+/* Formularios */
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+  background: #174a2c;
+  color: #ffffff;
+  border-color: #477451;
+}
+
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+  color: #b5c9ba;
+}
+
+/* Botones */
+:root[data-theme="dark"] .btn--ghost {
+  background: #174a2c;
+  color: #e8f3e6;
+  border-color: #477451;
+}
+
+:root[data-theme="dark"] .btn--ghost:hover {
+  background: #205b36;
+}
+
+/* Tablas */
+:root[data-theme="dark"] th,
+:root[data-theme="dark"] td {
+  color: #e8f3e6;
+  border-color: #315b40;
+}
+
+/* Elementos generales */
+:root[data-theme="dark"] .answer {
+  background: #174a2c;
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .empty {
+  color: #b5c9ba;
+  border-color: #477451;
+}
+
+/* Progreso */
+:root[data-theme="dark"] .progress {
+  background: #315b40;
+}
+
+/* Adaptación de transición */
+body,
+.topbar,
+.card,
+.module-card,
+.search input {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+/* Switch de modo claro y oscuro */
+.theme-switch {
+  position: relative;
+  width: 66px;
+  height: 36px;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border: 1px solid #cbd5d0;
+  border-radius: 50px;
+  background: #e5e7eb;
+  cursor: pointer;
+  transition: background .3s ease, border-color .3s ease;
+  flex-shrink: 0;
+}
+
+.theme-switch__icon {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  transition: transform .3s ease, opacity .3s ease;
+}
+
+.theme-switch__icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.theme-switch__sun {
+  left: 4px;
+  color: #d69e18;
+  background: #fff;
+  transform: translateX(0);
+}
+
+.theme-switch__moon {
+  left: 4px;
+  color: #0c3d20;
+  background: #fff;
+  opacity: 0;
+  transform: translateX(0);
+}
+
+.theme-switch--dark {
+  background: #174a2c;
+  border-color: #477451;
+}
+
+.theme-switch--dark .theme-switch__sun {
+  opacity: 0;
+  transform: translateX(28px);
+}
+
+.theme-switch--dark .theme-switch__moon {
+  opacity: 1;
+  transform: translateX(28px);
+}
+
+.theme-switch:focus-visible {
+  outline: 3px solid #36a461;
+  outline-offset: 3px;
+}
+
+/* =========================================
+   CURRICULAR - AJUSTES PARA MODO OSCURO
+   ========================================= */
+
+:root[data-theme="dark"] .km-tab {
+  background: #174a2c;
+  color: #e8f3e6;
+  border-color: #477451;
+}
+
+:root[data-theme="dark"] .km-tab.active {
+  background: #36a461;
+  color: #ffffff;
+  border-color: #36a461;
+}
+
+:root[data-theme="dark"] .km-course {
+  background: #153f29;
+  border-color: #315b40;
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .km-course.selected {
+  border-color: #36a461;
+}
+
+:root[data-theme="dark"] .km-course-main,
+:root[data-theme="dark"] .km-course-main strong {
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .km-course-main small {
+  color: #b5c9ba;
+}
+
+:root[data-theme="dark"] .km-course-icon {
+  background: #205b36;
+  color: #b7f7ce;
+}
+
+:root[data-theme="dark"] .km-topic-list li {
+  background: #174a2c;
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .km-topic-list li span {
+  background: #36a461;
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .km-filter-panel {
+  background: #153f29;
+  color: #e8f3e6;
+  border: 1px solid #315b40;
+}
+
+:root[data-theme="dark"] .km-note {
+  background: #174a2c;
+  color: #d5e9d9;
+}
+
+:root[data-theme="dark"] .km-resource h3 {
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .km-file-icon {
+  background: #205b36;
+  color: #b7f7ce;
+}
+
+:root[data-theme="dark"] .profile-photo-hint {
+  color: #b5c9ba;
+}
+
+/* =========================================
+   KOLAB - ADAPTACION GLOBAL DE MODULOS
+   MODO OSCURO
+   ========================================= */
+
+:root[data-theme="dark"] {
+  /* Colores compartidos entre los módulos */
+  --kolab-white: #153f29;
+  --kolab-ink: #e8f3e6;
+  --kolab-muted: #b5c9ba;
+  --kolab-mint: #174a2c;
+  --kolab-mint-soft: #205b36;
+  --kolab-border: #315b40;
+
+  --kolab-indigo-soft: #30345d;
+  --kolab-indigo-border: #51598a;
+}
+
+/* Tarjetas generales de los módulos */
+:root[data-theme="dark"] .kolab-card {
+  background: #153f29;
+  color: #e8f3e6;
+  border-color: #315b40;
+}
+
+/* Títulos y textos */
+:root[data-theme="dark"] .kolab-card h1,
+:root[data-theme="dark"] .kolab-card h2,
+:root[data-theme="dark"] .kolab-card h3,
+:root[data-theme="dark"] .card-title {
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .kolab-muted,
+:root[data-theme="dark"] .bubble-ai-text,
+:root[data-theme="dark"] .member-name,
+:root[data-theme="dark"] .m7-student-name,
+:root[data-theme="dark"] .faq-question,
+:root[data-theme="dark"] .pwa-desc {
+  color: #b5c9ba;
+}
+
+/* Elementos de Asistente IA */
+:root[data-theme="dark"] .bubble-ai,
+:root[data-theme="dark"] .mc-option {
+  background: #174a2c;
+  color: #e8f3e6;
+  border-color: #315b40;
+}
+
+/* Comunidades y grupos */
+:root[data-theme="dark"] .group-item,
+:root[data-theme="dark"] .member-row,
+:root[data-theme="dark"] .m7-tutor-row,
+:root[data-theme="dark"] .m7-mod-row {
+  background: #153f29;
+  color: #e8f3e6;
+  border-color: #315b40;
+}
+
+/* Preguntas frecuentes y elementos seleccionables */
+:root[data-theme="dark"] .faq-row,
+:root[data-theme="dark"] .duel-select {
+  background: #174a2c;
+  color: #e8f3e6;
+  border-color: #315b40;
+}
+
+/* Campos de formularios de los módulos */
+:root[data-theme="dark"] .kolab-module input,
+:root[data-theme="dark"] .kolab-module select,
+:root[data-theme="dark"] .kolab-module textarea {
+  background: #174a2c;
+  color: #e8f3e6;
+  border-color: #477451;
+}
+
+/* Encabezados de tablas */
+:root[data-theme="dark"] .m7-table-head {
+  background: #174a2c;
+  color: #e8f3e6;
+}
+
+/* Bordes de separación */
+:root[data-theme="dark"] .kolab-module hr,
+:root[data-theme="dark"] .kolab-card hr {
+  border-color: #315b40;
+}
