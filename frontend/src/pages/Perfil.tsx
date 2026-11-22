@@ -260,65 +260,6 @@ export default function Perfil() {
         </form>
       </div>
 
-      {isCropOpen && imageToCrop && (
-        <div className="crop-modal">
-          <div
-            className="crop-modal__content"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="crop-title"
-          >
-            <h2 id="crop-title">Ajustar fotografía</h2>
-            <p>Arrastra la imagen y ajusta el zoom a tu gusto.</p>
-
-            <div className="crop-container">
-              <Cropper
-                image={imageToCrop}
-                crop={crop}
-                zoom={zoom}
-                aspect={1}
-                cropShape="round"
-                showGrid={false}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={onCropComplete}
-              />
-            </div>
-
-            <div className="crop-zoom">
-              <label htmlFor="crop-zoom">Zoom</label>
-              <input
-                id="crop-zoom"
-                type="range"
-                min={1}
-                max={3}
-                step={0.1}
-                value={zoom}
-                onChange={(e) => setZoom(Number(e.target.value))}
-              />
-            </div>
-
-            <div className="crop-actions">
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={cancelCrop}
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                className="btn btn--primary"
-                onClick={confirmCrop}
-              >
-                Confirmar fotografía
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {user?.rol === 'admin' && <Cuentas />}
 
       {pendingCropSrc && (

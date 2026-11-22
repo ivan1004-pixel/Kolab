@@ -218,46 +218,20 @@
 
 /* ================= Sidebar contraible ================= */
 
-.sidebar {
-  overflow: hidden;
-}
-
 .sidebar__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.5rem;
   position: relative;
   z-index: 1;
-}
-
-.sidebar__toggle {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  border: 1px solid rgb(255 255 255 / 0.2);
-  border-radius: 50%;
-  background: rgb(255 255 255 / 0.1);
-  color: #fff;
-  cursor: pointer;
-}
-
-.sidebar__toggle svg {
-  width: 19px;
-  height: 19px;
-}
-
-.sidebar__toggle:hover {
-  background: rgb(255 255 255 / 0.2);
 }
 
 .sidebar__footer {
   position: relative;
   z-index: 1;
   margin-top: auto;
-  padding-top: 1rem;
+  padding-top: 0.75rem;
   border-top: 1px solid rgb(255 255 255 / 0.2);
 }
 
@@ -271,174 +245,7 @@
   object-fit: cover;
 }
 
-/* Menú contraído en computadora */
-
-.shell.sidebar-collapsed {
-  grid-template-columns: 84px 1fr;
-}
-
-.sidebar-collapsed .sidebar {
-  padding-left: 0.65rem;
-  padding-right: 0.65rem;
-  align-items: center;
-}
-
-.sidebar-collapsed .sidebar__header {
-  flex-direction: column;
-}
-
-.sidebar-collapsed .logo > span:not(.logo__badge) {
-  display: none;
-}
-
-.sidebar-collapsed .nav {
-  width: 100%;
-}
-
-.sidebar-collapsed .nav__link {
-  justify-content: center;
-  padding: 0.55rem 0.25rem;
-}
-
-.sidebar-collapsed .nav__label {
-  display: none;
-}
-
-.sidebar-collapsed .sidebar__footer {
-  width: 100%;
-}
-
-.sidebar-collapsed .sidebar__footer .nav__link {
-  justify-content: center;
-}
-
-/* En celular se conserva el menú desplegable */
-
-@media (max-width: 900px) {
-  .shell.sidebar-collapsed {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar-collapsed .sidebar {
-    align-items: stretch;
-    padding: 1.5rem 1rem;
-  }
-
-  .sidebar-collapsed .sidebar__header {
-    flex-direction: row;
-  }
-
-  .sidebar-collapsed .logo > span:not(.logo__badge) {
-    display: inline;
-  }
-
-  .sidebar-collapsed .nav__link {
-    justify-content: flex-start;
-    padding: 0.55rem 0.75rem;
-  }
-
-  .sidebar-collapsed .nav__label {
-    display: inline;
-  }
-}
-
-/* ==========================================
-   KOLAB - Sidebar automático con hover
-========================================== */
-
-
-@media (min-width: 901px) {
-
-  .shell.sidebar-collapsed {
-    grid-template-columns: 84px minmax(0, 1fr);
-    transition: grid-template-columns 0.32s cubic-bezier(.22, 1, .36, 1);
-  }
-
-  /* Expandir toda la barra únicamente al pasar el cursor */
-  .shell.sidebar-collapsed:has(.sidebar:hover) {
-    grid-template-columns: 270px minmax(0, 1fr);
-  }
-
-  .sidebar {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    overflow: hidden;
-    transition: padding 0.32s ease;
-  }
-
-  .sidebar__header {
-    min-height: 44px;
-    justify-content: center;
-    overflow: hidden;
-  }
-
-  .sidebar .logo {
-    justify-content: center;
-    white-space: nowrap;
-  }
-
-  .sidebar .logo > span:not(.logo__badge),
-  .sidebar .nav__label {
-    display: inline-block;
-    opacity: 0;
-    max-width: 0;
-    overflow: hidden;
-    pointer-events: none;
-    white-space: nowrap;
-    transition: opacity 0.22s ease, max-width 0.32s ease;
-  }
-
-  /* Mostrar nombres al expandirse */
-  .sidebar:hover .logo > span:not(.logo__badge),
-  .sidebar:hover .nav__label {
-    opacity: 1;
-    max-width: 180px;
-    pointer-events: auto;
-  }
-
-  .sidebar .nav {
-    width: 100%;
-  }
-
-  .sidebar .nav__link {
-    min-height: 44px;
-    justify-content: flex-start;
-    gap: 0.75rem;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  .sidebar .nav__num {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    flex-shrink: 0;
-  }
-
-  .sidebar__footer {
-    margin-top: auto;
-    width: 100%;
-    border-top: 1px solid rgb(255 255 255 / 0.2);
-    padding-top: 1rem;
-  }
-
-  .sidebar__header {
-    justify-content: center;
-  }
-
-  .sidebar:hover .sidebar__header {
-    justify-content: flex-start;
-  }
-
-  .sidebar:hover .nav__link {
-    justify-content: flex-start;
-  }
-}
-
-
 /* Icono de inicio y perfil */
-
 .nav__num--home {
   background: #157f3c;
   color: white;
@@ -447,32 +254,6 @@
 .nav__num--profile {
   background: #ffffff;
   color: #157f3c;
-}
-
-/* ==========================================
-   Versión móvil
-========================================== */
-
-@media (max-width: 900px) {
-
-  .shell.sidebar-collapsed {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar__header {
-    justify-content: flex-start;
-  }
-
-  .sidebar .logo > span:not(.logo__badge),
-.sidebar .nav__label {
-  opacity: 1;
-  max-width: 180px;
-  pointer-events: auto;
-}
-
-  .sidebar .nav__link {
-    justify-content: flex-start;
-  }
 }
 
 /* =========================================
