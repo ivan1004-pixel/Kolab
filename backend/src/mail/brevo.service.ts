@@ -430,20 +430,98 @@ export class BrevoService {
   ): Promise<boolean> {
     const resetUrl = `${this.frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
     const html = `
-      <div style="font-family: 'Nunito Sans', Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; background: #ffffff; border-radius: 16px; border: 1px solid #d6f2ff;">
-        <h2 style="color: #001f28;">Recuperación de contraseña - Kolab</h2>
-        <p style="color: #3f493f;">Hola ${nombre}, recibimos una solicitud para restablecer tu contraseña.</p>
-        <p style="color: #001f28;">Token de recuperación: <strong>${token}</strong></p>
-        <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#157f3c;color:#fff;text-decoration:none;border-radius:9999px;font-weight:700;">
-          Restablecer contraseña
-        </a>
-        <p style="margin-top:20px;font-size:12px;color:#666;">Si no fuiste tú, ignora este mensaje. Expira en 1 hora.</p>
-      </div>
-    `;
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f3fbff;font-family:'Nunito Sans',Arial,sans-serif;color:#001f28;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3fbff;padding:28px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 12px 32px rgba(16,53,64,0.08);border:1px solid #d6f2ff;">
+          <!-- Barra de espectro superior -->
+          <tr>
+            <td>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td width="25%" height="6" style="background:#006d30;font-size:0;line-height:0;">&nbsp;</td>
+                  <td width="25%" height="6" style="background:#157f3c;font-size:0;line-height:0;">&nbsp;</td>
+                  <td width="25%" height="6" style="background:#98da27;font-size:0;line-height:0;">&nbsp;</td>
+                  <td width="25%" height="6" style="background:#bbefc5;font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:36px 28px 28px 28px;text-align:center;">
+              ${this.buildKolabLogoHeader('SEGURIDAD')}
+
+              <div style="display:inline-block;padding:6px 14px;border-radius:9999px;background:#e5f6ff;color:#00642b;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px;">
+                Recuperación de Acceso
+              </div>
+
+              <h1 style="margin:0 0 12px 0;font-size:28px;line-height:1.2;font-weight:800;color:#001f28;">
+                Restablece tu contraseña
+              </h1>
+
+              <p style="margin:0 0 6px 0;font-size:15px;color:#3f493f;">
+                Hola <strong style="color:#001f28;">${nombre}</strong>,
+              </p>
+              <p style="margin:0 auto 26px auto;max-width:450px;font-size:14px;line-height:1.6;color:#3f493f;">
+                Recibimos una solicitud para crear una nueva contraseña en tu cuenta de <strong style="color:#001f28;">Kolab</strong>. Haz clic en el botón de abajo para abrir directamente la pantalla de restablecimiento:
+              </p>
+
+              <!-- Botón principal -->
+              <div style="margin:0 0 12px 0;">
+                <a href="${resetUrl}" style="display:inline-block;padding:15px 34px;border-radius:9999px;background:#157f3c;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(21,127,60,0.3);">
+                  Restablecer mi contraseña →
+                </a>
+              </div>
+              <div style="font-size:12px;color:#396847;font-weight:600;margin-bottom:24px;">
+                Este enlace seguro es de un solo uso y expira en <strong>1 hora</strong>
+              </div>
+
+              <!-- Enlace alternativo -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;margin:0 auto 18px auto;background:#ffffff;border:1px solid #e5f6ff;border-radius:12px;text-align:left;">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <div style="font-size:13px;font-weight:700;color:#001f28;margin-bottom:4px;">¿Tienes problemas con el botón superior?</div>
+                    <div style="font-size:12px;color:#3f493f;margin-bottom:8px;">Copia y pega este enlace directo en tu navegador:</div>
+                    <div style="background:#e5f6ff;padding:10px;border-radius:8px;font-family:monospace;font-size:11px;color:#00642b;word-break:break-all;">
+                      ${resetUrl}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Aviso de seguridad -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;margin:0 auto 24px auto;background:#caeefd;border-radius:12px;text-align:left;">
+                <tr>
+                  <td style="padding:14px 16px;">
+                    <div style="font-size:12px;font-weight:700;color:#001f28;margin-bottom:2px;">Espacio Kolab Protegido</div>
+                    <div style="font-size:12px;line-height:1.5;color:#3f493f;">
+                      Esta solicitud corresponde a <strong>${toEmail}</strong>. Si no solicitaste cambiar tu contraseña, puedes ignorar este mensaje; tu contraseña actual seguirá segura.
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="border-top:1px solid #d6f2ff;padding-top:16px;font-size:12px;color:#6f7a6e;">
+                <div>Kolab Plataforma Académica • UTVT</div>
+                <div style="margin-top:4px;font-size:11px;">Centro de Ayuda • Términos de Servicio • Privacidad</div>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
     return this.sendEmail(
       toEmail,
       nombre,
-      'Kolab - Recuperación de contraseña',
+      'Kolab - Restablece tu contraseña',
       html,
     );
   }

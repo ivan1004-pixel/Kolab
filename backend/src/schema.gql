@@ -228,6 +228,7 @@ input LoginInput {
 type MiembroGrupo {
   fechaUnion: DateTime!
   idUsuario: ID!
+  nombreUsuario: String
   rolGrupo: String!
 }
 
@@ -246,6 +247,9 @@ type Mutation {
 
   """RF-31: Crear usuario y asignar rol"""
   adminCrearUsuario(input: AdminCreateUsuarioInput!): Usuario!
+
+  """RF-31: Dar de baja definitiva (soft delete) a un usuario"""
+  adminEliminarUsuario(id: ID!): Boolean!
 
   """RF-13/RF-66: Agregar nueva versión de un recurso"""
   agregarVersionRecurso(archivoUrl: String!, notaCambio: String!, recursoId: ID!): Recurso!
@@ -360,6 +364,9 @@ type Mutation {
   """RF-16: Responder una pregunta"""
   responderPregunta(idPregunta: ID!, texto: String!): Respuesta!
 
+  """RF-67: Restaurar recurso desde la papelera de reciclaje"""
+  restaurarRecurso(recursoId: ID!): Recurso!
+
   """RF-50/RF-70: Solicitar tutoría entre pares o iniciar modo duelo"""
   solicitarTutoriaODuelo(esDuelo: Boolean! = false, idCuestionario: ID, idTema: ID!): SolicitudTutoria!
 
@@ -397,6 +404,17 @@ type Notificacion {
   titulo: String!
 }
 
+type PlanRepasoItem {
+  conceptosClave: [String!]!
+  fechaEvento: DateTime!
+  idAsignatura: ID!
+  idEvento: ID!
+  idTema: ID
+  prioridad: String!
+  recomendacion: String!
+  tituloEvento: String!
+}
+
 type PreferenciasUsuario {
   mostrarEnRanking: Boolean!
   notificacionesCorreo: Boolean!
@@ -419,6 +437,15 @@ type Pregunta {
   votosUtilidad: Int!
 }
 
+type PreguntaDelDia {
+  dificultad: String!
+  fuenteTitulo: String
+  idTema: ID!
+  motivoPrioridad: String!
+  pregunta: String!
+  tituloTema: String!
+}
+
 type Query {
   """RF-33: Ver configuración del motor de IA (Admin)"""
   aiConfig: AiConfig!
@@ -430,10 +457,16 @@ type Query {
   """RF-78: Consultar calendario de exámenes y entregas"""
   calendarioEventos(asignaturaIds: [ID!]): [CalendarioEvento!]!
   carreras: [Carrera!]!
+
+  """RF-74: Consultas de IA marcadas como incorrectas para revisión docente"""
+  consultasIaPorRevisar: [ConsultaIa!]!
   gruposEstudio(idTema: ID): [GrupoEstudio!]!
 
   """RF-26/RF-81: Historial de autoevaluaciones del estudiante"""
   miHistorialCuestionarios: [IntentoCuestionario!]!
+
+  """RF-67: Ver papelera de reciclaje personal (últimos 30 días)"""
+  miPapelera: [Recurso!]!
 
   """Obtiene el perfil del usuario autenticado"""
   miPerfil: Usuario!
@@ -444,6 +477,12 @@ type Query {
 
   """RF-55..58: Mis notificaciones"""
   misNotificaciones: [Notificacion!]!
+
+  """RF-79: Plan de repaso recomendado antes de exámenes"""
+  planDeRepaso: [PlanRepasoItem!]!
+
+  """RF-43/RF-45: Pregunta del día priorizando temas con más errores"""
+  preguntaDelDia: PreguntaDelDia
   preguntas(idTema: ID): [Pregunta!]!
 
   """RF-27/RF-28: Radar de dificultades por tema"""
@@ -457,6 +496,9 @@ type Query {
 
   """RF-14/RF-59/RF-85..88: Buscar y filtrar recursos"""
   recursos(filtros: FiltrarRecursosInput): [Recurso!]!
+
+  """RF-63: Sugerir recursos relacionados por tema"""
+  recursosRelacionados(recursoId: ID!): [Recurso!]!
 
   """RF-30: Listar reportes para moderación (Admin)"""
   reportes(estado: EstadoReporte): [Reporte!]!
@@ -472,6 +514,8 @@ type Query {
 }
 
 type RadarDificultadTema {
+  conceptosDebiles: [String!]!
+  erroresAutoevaluacion: Int!
   idTema: ID!
   preguntaMasDebatidaSinSolucion: Pregunta
   preguntasSinResolver: Int!
@@ -502,6 +546,7 @@ type Recurso {
   idAsignatura: ID
   idTema: ID!
   idUsuario: ID!
+  nombreAutor: String
   palabrasClave: [String!]!
   promedioCalificacion: Float!
   retroalimentacionDocente: String
@@ -645,10 +690,12 @@ type Usuario {
 
 type UsuarioInsignia {
   _id: ID!
+  descripcionInsignia: String
   fechaObtencion: DateTime!
   idGrupo: ID
   idInsignia: ID!
   idUsuario: ID!
+  nombreInsignia: String
 }
 
 type VersionRecurso {

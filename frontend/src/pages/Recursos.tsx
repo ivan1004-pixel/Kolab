@@ -1,4 +1,28 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Archive,
+  Bookmark,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  FileDown,
+  FileText,
+  Flag,
+  FolderHeart,
+  FolderOpen,
+  History,
+  MessageSquare,
+  RotateCcw,
+  Search,
+  Sparkles,
+  Star,
+  Trash2,
+  Upload,
+  UploadCloud,
+  Users,
+} from 'lucide-react';
 import ModuleBanner from '../components/ModuleBanner';
 import { CardListSkeleton } from '../components/Skeleton';
 import { useAuth } from '../context/AuthContext';
@@ -73,6 +97,8 @@ interface TemaItem {
   idAsignatura: string;
 }
 
+type ResourceSection = 'compartir' | 'aportaciones' | 'repositorio';
+
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB (RF-92 / RNF-14)
 const ALLOWED_MIME = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/webp']);
 
@@ -87,14 +113,16 @@ function detectAllowedFileType(file: File): string | null {
 
 export default function Recursos() {
   const { user, token } = useAuth();
+  const [section, setSection] = useState<ResourceSection>('compartir');
   const [items, setItems] = useState<RecursoItem[]>([]);
   const [colecciones, setColecciones] = useState<ColeccionItem[]>([]);
   const [papelera, setPapelera] = useState<RecursoItem[]>([]);
   const [asignaturas, setAsignaturas] = useState<AsignaturaItem[]>([]);
   const [temas, setTemas] = useState<TemaItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Filtros combinados (RF-14, RF-64, RF-85..88)
+  // Filtros combinados del Repositorio de conocimientos (RF-14, RF-64, RF-85..88)
   const [query, setQuery] = useState('');
   const [keywordFilter, setKeywordFilter] = useState('');
   const [authorFilter, setAuthorFilter] = useState('');
@@ -109,7 +137,8 @@ export default function Recursos() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  // Formulario de subida (RF-11, RF-22, RF-83, RF-84, RF-92)
+  // Formulario de subida (6 campos uniformes)
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [keywords, setKeywords] = useState('');
@@ -118,7 +147,7 @@ export default function Recursos() {
   const [formSubjectId, setFormSubjectId] = useState('');
   const [formTopicId, setFormTopicId] = useState('');
 
-  // Detalle expandido (comentarios RF-69, versiones RF-13, coautores RF-65, relacionados RF-63)
+  // Detalle expandido
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [relatedMap, setRelatedMap] = useState<Record<string, RecursoItem[]>>({});
   const [commentById, setCommentById] = useState<Record<string, string>>({});
@@ -185,13 +214,18 @@ export default function Recursos() {
   const subjectMap = useMemo(() => new Map(asignaturas.map((a) => [a._id, a.nombre])), [asignaturas]);
   const topicMap = useMemo(() => new Map(temas.map((t) => [t._id, t.titulo])), [temas]);
 
+  const myContributions = useMemo(
+    () => items.filter((x) => String(x.idUsuario) === String(user?.id)),
+    [items, user?.id],
+  );
+
   const activeCollectionIds = useMemo(() => {
     if (!selectedCollectionId) return null;
     const col = colecciones.find((c) => c._id === selectedCollectionId);
     return col ? new Set(col.recursos) : null;
   }, [colecciones, selectedCollectionId]);
 
-  const filtered = useMemo(() => {
+  const filteredRepo = useMemo(() => {
     const q = query.trim().toLowerCase();
     const kw = keywordFilter.trim().toLowerCase();
     const aut = authorFilter.trim().toLowerCase();
@@ -239,9 +273,22 @@ export default function Recursos() {
 
   async function upload(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const formEl = e.currentTarget;
     setError('');
     setMessage('');
-    if (!file || !formTopicId || !token) return;
+
+    if (!token) {
+      setError('Tu sesión expiró. Inicia sesión nuevamente.');
+      return;
+    }
+    if (!file) {
+      setError('Selecciona un archivo PDF o imagen para publicar.');
+      return;
+    }
+    if (!formTopicId) {
+      setError('Selecciona un tema antes de publicar.');
+      return;
+    }
 
     // RF-92 / RNF-14: Validar tamaño <= 10 MB y formato sin perder datos del formulario
     if (/\.(sql|py|js)$/i.test(file.name)) {
@@ -254,10 +301,11 @@ export default function Recursos() {
     }
     const validType = detectAllowedFileType(file);
     if (!validType) {
-      setError('Formato no permitido (RNF-14). Solo se aceptan archivos PDF e imágenes (PNG, JPG, WEBP). Tus datos del formulario se conservan.');
+      setError('Formato no permitido. Solo se aceptan archivos PDF e imágenes (PNG, JPG, WEBP). Tus datos del formulario se conservan.');
       return;
     }
 
+    setSubmitting(true);
     try {
       assertNoScriptInjection({ title, description, keywords, fileName: file.name }, 'recurso');
       const palabrasClave = keywords
@@ -291,20 +339,24 @@ export default function Recursos() {
         },
         token,
       );
+
       setItems((prev) => [res.subirRecurso, ...prev]);
       setTitle('');
       setDescription('');
       setKeywords('');
       setEsOficial(false);
       setFile(null);
-      e.currentTarget.reset();
+      formEl?.reset();
+      if (fileInputRef.current) fileInputRef.current.value = '';
       setMessage(
         res.subirRecurso.esMaterialOficial
           ? 'Material oficial publicado y validado automáticamente.'
-          : 'Recurso publicado correctamente. Se notificó a los docentes para su validación.',
+          : 'Recurso publicado correctamente. Puedes verlo en «Mis aportaciones» y «Repositorio de conocimientos».',
       );
     } catch (err: any) {
-      setError(err.message || 'No se pudo publicar el recurso.');
+      setError(err.message || 'No se pudo publicar el recurso. Verifica que el backend esté reiniciado y activo.');
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -358,7 +410,7 @@ export default function Recursos() {
             : x,
         ),
       );
-      setMessage(`Calificación de ${estrellas} ★ registrada.`);
+      setMessage(`Calificación de ${estrellas} estrella(s) registrada.`);
     } catch (err: any) {
       setError(err.message || 'No se pudo calificar el recurso.');
     }
@@ -517,7 +569,7 @@ export default function Recursos() {
       `<div class="card">
         <p><span class="badge">${x.estadoValidacion === 'REVISADO_DOCENTE' ? 'Revisado por docente' : 'Pendiente'}</span></p>
         <p><strong>Asignatura / Tema:</strong> ${escapeHtml(subName)} · ${escapeHtml(topName)}</p>
-        <p><strong>Autor:</strong> ${escapeHtml(x.nombreAutor || 'Estudiante')} &nbsp;|&nbsp; <strong>Formato:</strong> ${escapeHtml(x.tipoArchivo.toUpperCase())} &nbsp;|&nbsp; <strong>Calificación:</strong> ★ ${x.promedioCalificacion.toFixed(1)} (${x.totalCalificaciones})</p>
+        <p><strong>Autor:</strong> ${escapeHtml(x.nombreAutor || 'Estudiante')} &nbsp;|&nbsp; <strong>Formato:</strong> ${escapeHtml(x.tipoArchivo.toUpperCase())} &nbsp;|&nbsp; <strong>Calificación:</strong> ${x.promedioCalificacion.toFixed(1)} (${x.totalCalificaciones})</p>
         ${x.descripcion ? `<p><strong>Descripción:</strong> ${escapeHtml(x.descripcion)}</p>` : ''}
         ${x.palabrasClave?.length ? `<p><strong>Palabras clave:</strong> ${escapeHtml(x.palabrasClave.join(', '))}</p>` : ''}
         ${x.retroalimentacionDocente ? `<p><strong>Retroalimentación docente:</strong> ${escapeHtml(x.retroalimentacionDocente)}</p>` : ''}
@@ -525,404 +577,529 @@ export default function Recursos() {
     );
   }
 
+  function renderResourceCard(x: RecursoItem) {
+    const reviewed = x.estadoValidacion === 'REVISADO_DOCENTE';
+    const subName = x.idAsignatura ? (subjectMap.get(x.idAsignatura) || 'Asignatura') : 'General';
+    const topName = topicMap.get(x.idTema) || 'Tema';
+    const isOwn = String(x.idUsuario) === String(user?.id);
+    const canEdit = isOwn || (x.coautores || []).includes(String(user?.id));
+    const isExpanded = expandedId === x._id;
+
+    return (
+      <article className="card km-resource" key={x._id}>
+        <div className="km-resource-top">
+          <span className="km-file-icon">
+            <FileText size={15} style={{ marginRight: 4 }} aria-hidden="true" />
+            {x.tipoArchivo?.replace('application/', '').replace('image/', '').slice(0, 4).toUpperCase() || 'PDF'}
+          </span>
+          <span className={`chip ${reviewed ? 'chip--soft' : 'chip--xp'}`}>
+            {x.esMaterialOficial ? (
+              <><Sparkles size={12} aria-hidden="true" /> Oficial</>
+            ) : reviewed ? (
+              <><CheckCircle2 size={12} aria-hidden="true" /> Revisado por docente</>
+            ) : (
+              'Sin revisar'
+            )}
+          </span>
+        </div>
+        <h3>{x.titulo}</h3>
+        <p className="muted" style={{ fontSize: '0.84rem' }}>
+          {subName} · {topName} · Por <strong>{x.nombreAutor || 'Estudiante'}</strong>
+        </p>
+        {x.descripcion && <p className="muted">{x.descripcion}</p>}
+        {x.palabrasClave?.length > 0 && (
+          <div className="td-tags">
+            {x.palabrasClave.map((k) => <span key={k} className="td-tag">#{k}</span>)}
+          </div>
+        )}
+
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <span className="muted" style={{ fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Star size={13} fill="#eab308" color="#eab308" aria-hidden="true" />
+            {x.promedioCalificacion.toFixed(1)} ({x.totalCalificaciones}) · v{x.versiones?.length || 1} · {x.consultasCount} vistas
+          </span>
+          {!isOwn && (
+            <div className="star-rating" aria-label="Calificar recurso">
+              {[1, 2, 3, 4, 5].map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  className={`star-btn ${st <= Math.round(x.promedioCalificacion) ? 'is-on' : ''}`}
+                  onClick={() => handleRate(x._id, st)}
+                  title={`Calificar con ${st} estrella(s)`}
+                >
+                  <Star size={16} fill={st <= Math.round(x.promedioCalificacion) ? 'currentColor' : 'none'} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {x.retroalimentacionDocente && (
+          <p className="muted" style={{ fontSize: '0.82rem' }}>
+            <strong>Nota docente:</strong> {x.retroalimentacionDocente}
+          </p>
+        )}
+
+        <div className="row">
+          {x.archivoUrl && !x.archivoUrl.includes('kolab.local') && (
+            <a
+              href={x.archivoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn--primary btn--sm"
+            >
+              <ExternalLink size={14} aria-hidden="true" />
+              <span>Abrir</span>
+            </a>
+          )}
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleSaveCollection(x._id, 'Favoritos', true)}>
+            <Bookmark size={14} aria-hidden="true" />
+            <span>Favorito</span>
+          </button>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleExportPdf(x)}>
+            <FileDown size={14} aria-hidden="true" />
+            <span>PDF</span>
+          </button>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => toggleExpand(x)}>
+            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            <span>{isExpanded ? 'Ocultar' : 'Detalle'}</span>
+          </button>
+          {isTeacher && !reviewed && (
+            <>
+              <button type="button" className="btn btn--primary btn--sm" onClick={() => review(x._id, 'REVISADO_DOCENTE')}>
+                <CheckCircle2 size={14} aria-hidden="true" />
+                <span>Validar</span>
+              </button>
+              <button type="button" className="btn btn--danger btn--sm" onClick={() => review(x._id, 'ARCHIVADO')}>
+                <Archive size={14} aria-hidden="true" />
+                <span>Archivar</span>
+              </button>
+            </>
+          )}
+        </div>
+
+        {isExpanded && (
+          <div className="skeleton-stack" style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px dashed var(--borde)' }}>
+            <div className="row">
+              <input
+                value={collectionName}
+                onChange={(e) => setCollectionName(e.target.value)}
+                placeholder="Nombre de colección (ej. Examen BD)"
+                style={{ flex: 1, minHeight: 38, padding: '0 0.75rem', borderRadius: 10, border: '1px solid var(--borde)' }}
+              />
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => handleSaveCollection(x._id, collectionName, false)}
+              >
+                <FolderHeart size={14} aria-hidden="true" />
+                <span>Guardar</span>
+              </button>
+            </div>
+
+            <div>
+              <strong style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <MessageSquare size={14} aria-hidden="true" /> Comentarios ({x.comentarios?.length || 0})
+              </strong>
+              {x.comentarios?.map((c, idx) => (
+                <p key={idx} className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
+                  • {c.texto} ({new Date(c.fecha).toLocaleDateString('es-MX')})
+                </p>
+              ))}
+              <div className="row" style={{ marginTop: 6 }}>
+                <input
+                  value={commentById[x._id] ?? ''}
+                  onChange={(e) => setCommentById((p) => ({ ...p, [x._id]: e.target.value }))}
+                  placeholder="Agregar comentario…"
+                  style={{ flex: 1, minHeight: 38, padding: '0 0.75rem', borderRadius: 10, border: '1px solid var(--borde)' }}
+                />
+                <button type="button" className="btn btn--primary btn--sm" onClick={() => handleComment(x._id)}>
+                  Comentar
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <strong style={{ fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <History size={14} aria-hidden="true" /> Historial de versiones ({x.versiones?.length || 1})
+              </strong>
+              {x.versiones?.map((v) => (
+                <p key={v.version} className="muted" style={{ fontSize: '0.8rem' }}>
+                  v{v.version} — {v.notaCambio || 'Actualización'} ({new Date(v.fecha).toLocaleDateString('es-MX')})
+                </p>
+              ))}
+              {canEdit && (
+                <div className="row" style={{ marginTop: 6 }}>
+                  <input
+                    value={versionNoteById[x._id] ?? ''}
+                    onChange={(e) => setVersionNoteById((p) => ({ ...p, [x._id]: e.target.value }))}
+                    placeholder="Nota de nueva versión…"
+                    style={{ flex: 1, minHeight: 38, padding: '0 0.75rem', borderRadius: 10, border: '1px solid var(--borde)' }}
+                  />
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleNewVersion(x)}>
+                    + Versión
+                  </button>
+                </div>
+              )}
+              {isOwn && (
+                <div className="row" style={{ marginTop: 6 }}>
+                  <input
+                    value={coauthorById[x._id] ?? ''}
+                    onChange={(e) => setCoauthorById((p) => ({ ...p, [x._id]: e.target.value }))}
+                    placeholder="ID de usuario coautor…"
+                    style={{ flex: 1, minHeight: 38, padding: '0 0.75rem', borderRadius: 10, border: '1px solid var(--borde)' }}
+                  />
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleInviteCoauthor(x._id)}>
+                    <Users size={14} aria-hidden="true" />
+                    <span>Coautor</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {(relatedMap[x._id]?.length ?? 0) > 0 && (
+              <div>
+                <strong style={{ fontSize: '0.85rem' }}>Relacionados del tema</strong>
+                <div className="td-tags" style={{ marginTop: 4 }}>
+                  {relatedMap[x._id].map((rel) => (
+                    <span key={rel._id} className="td-tag">{rel.titulo} ({rel.promedioCalificacion.toFixed(1)} ★)</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="row">
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleReport(x._id)}>
+                <Flag size={14} aria-hidden="true" />
+                <span>Reportar</span>
+              </button>
+              {isOwn && (
+                <button type="button" className="btn btn--danger btn--sm" onClick={() => handleMoveToTrash(x._id)}>
+                  <Trash2 size={14} aria-hidden="true" />
+                  <span>Enviar a papelera</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </article>
+    );
+  }
+
   return (
     <>
       <ModuleBanner module={moduleInfo}><span className="chip chip--soft">Módulo 3</span></ModuleBanner>
       <div className="kolab-module">
-        <section className="km-toolbar">
-          <div>
-            <h2>Repositorio de recursos</h2>
-            <p className="muted">Materiales compartidos por la comunidad académica (PDF e imágenes hasta 10 MB).</p>
-          </div>
-          <div className="row">
-            <span className="chip chip--soft">{items.length} recursos</span>
-            <button type="button" className="btn btn--ghost btn--sm" onClick={() => setShowTrash((v) => !v)}>
-              🗑️ Papelera ({papelera.length})
-            </button>
-          </div>
-        </section>
+        {/* Navegación de los 3 submódulos */}
+        <nav className="td-tabs" aria-label="Submódulos de recursos">
+          <button
+            type="button"
+            className={`td-tab ${section === 'compartir' ? 'is-active' : ''}`}
+            onClick={() => setSection('compartir')}
+          >
+            <UploadCloud size={16} aria-hidden="true" />
+            <span>Compartir un recurso</span>
+          </button>
+          <button
+            type="button"
+            className={`td-tab ${section === 'aportaciones' ? 'is-active' : ''}`}
+            onClick={() => setSection('aportaciones')}
+          >
+            <FolderOpen size={16} aria-hidden="true" />
+            <span>Mis aportaciones</span>
+            <span className="td-tab__badge">{myContributions.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`td-tab ${section === 'repositorio' ? 'is-active' : ''}`}
+            onClick={() => setSection('repositorio')}
+          >
+            <BookOpen size={16} aria-hidden="true" />
+            <span>Repositorio de conocimientos</span>
+            <span className="td-tab__badge">{items.length}</span>
+          </button>
+        </nav>
 
-        {showTrash && (
-          <section className="card">
-            <h2 className="card__title">Papelera de reciclaje · vencimiento 30 días (RF-67)</h2>
-            {papelera.length === 0 ? (
-              <p className="empty">Tu papelera está vacía.</p>
-            ) : (
-              <div className="skeleton-stack">
-                {papelera.map((r) => (
-                  <div key={r._id} className="td-item">
-                    <div className="td-item__head">
-                      <strong>{r.titulo}</strong>
-                      <button type="button" className="btn btn--primary btn--sm" onClick={() => handleRestoreFromTrash(r._id)}>
-                        Restaurar
-                      </button>
-                    </div>
-                    <span className="muted">
-                      Eliminado el {r.eliminadoEn ? new Date(r.eliminadoEn).toLocaleDateString('es-MX') : '—'}
+        {error && (
+          <div className="td-notice td-notice--err" role="alert">
+            <span>{error}</span>
+            <button type="button" className="notice-close" onClick={() => setError('')} aria-label="Cerrar">×</button>
+          </div>
+        )}
+        {message && (
+          <div className="td-notice td-notice--ok" role="status">
+            <span>{message}</span>
+            <button type="button" className="notice-close" onClick={() => setMessage('')} aria-label="Cerrar">×</button>
+          </div>
+        )}
+
+        {/* ==================== SUBMÓDULO 1: COMPARTIR UN RECURSO ==================== */}
+        {section === 'compartir' && (
+          <section className="card km-upload">
+            <div>
+              <h2 className="card__title">Compartir un recurso</h2>
+              <p className="muted">Sube apuntes y materiales (PDF, PNG, JPG o WEBP hasta 10 MB) con los 6 campos distribuidos uniformemente.</p>
+            </div>
+            <form onSubmit={upload} noValidate>
+              <div className="km-upload-grid">
+                <div className="field">
+                  <label htmlFor="res-title">Nombre del recurso</label>
+                  <input
+                    id="res-title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Ej. Apuntes de unidad 1"
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="res-file">Archivo (PDF o imagen · máx. 10 MB)</label>
+                  <label htmlFor="res-file" className={`km-file-picker ${file ? 'has-file' : ''}`}>
+                    <Upload size={16} style={{ flexShrink: 0 }} aria-hidden="true" />
+                    <span className="km-file-picker__name">
+                      {file ? `${file.name} (${(file.size / 1024).toFixed(0)} KB)` : 'Seleccionar PDF o imagen…'}
                     </span>
-                  </div>
-                ))}
+                    <input
+                      ref={fileInputRef}
+                      id="res-file"
+                      className="km-file-picker__input"
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.webp"
+                      onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    />
+                  </label>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="res-subj">Asignatura</label>
+                  <select id="res-subj" value={formSubjectId} onChange={(e) => setFormSubjectId(e.target.value)}>
+                    {asignaturas.length === 0 && <option value="">Sin asignaturas</option>}
+                    {asignaturas.map((a) => (
+                      <option key={a._id} value={a._id}>{a.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="res-topic">Tema</label>
+                  <select id="res-topic" value={formTopicId} onChange={(e) => setFormTopicId(e.target.value)} required>
+                    {temas.length === 0 && <option value="">Sin temas registrados</option>}
+                    {temas.map((t) => (
+                      <option key={t._id} value={t._id}>{t.titulo}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="res-desc">Descripción breve</label>
+                  <input
+                    id="res-desc"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Resume qué contiene este material…"
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="res-kw">Palabras clave (separadas por coma)</label>
+                  <input
+                    id="res-kw"
+                    value={keywords}
+                    onChange={(e) => setKeywords(e.target.value)}
+                    placeholder="SQL, normalización, examen"
+                  />
+                </div>
               </div>
-            )}
+
+              {isTeacher && (
+                <div className="pref-row" style={{ marginTop: '0.85rem', borderBottom: 0 }}>
+                  <span className="pref-label-group">
+                    <span className="pref-icon-badge"><Sparkles size={16} aria-hidden="true" /></span>
+                    <span>Publicar como <strong>Material Oficial de clase</strong> (auto-validado)</span>
+                  </span>
+                  <label className="kolab-toggle">
+                    <input type="checkbox" checked={esOficial} onChange={(e) => setEsOficial(e.target.checked)} />
+                    <span className="kolab-toggle__track"><span className="kolab-toggle__thumb" /></span>
+                  </label>
+                </div>
+              )}
+
+              <div className="km-actions" style={{ marginTop: '1rem' }}>
+                <button type="submit" className="btn btn--primary" disabled={submitting || !file || !formTopicId}>
+                  <UploadCloud size={17} aria-hidden="true" />
+                  <span>{submitting ? 'Publicando recurso…' : 'Publicar recurso'}</span>
+                </button>
+              </div>
+            </form>
           </section>
         )}
 
-        {/* Formulario de subida */}
-        <section className="card km-upload">
-          <div>
-            <h2>Compartir un recurso</h2>
-            <p className="muted">Sube apuntes (PDF, PNG, JPG o WEBP máx. 10 MB) con descripción y palabras clave.</p>
-          </div>
-          <form onSubmit={upload}>
-            <div className="form-grid">
-              <div className="field">
-                <label>Nombre del recurso</label>
-                <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej. Apuntes de unidad 1" />
+        {/* ==================== SUBMÓDULO 2: MIS APORTACIONES ==================== */}
+        {section === 'aportaciones' && (
+          <div className="skeleton-stack">
+            <section className="km-toolbar">
+              <div>
+                <h2>Mis aportaciones</h2>
+                <p className="muted">Aquí aparecen únicamente los recursos y apuntes que tú has publicado.</p>
               </div>
-              <div className="field">
-                <label>Archivo (PDF o imagen · máx. 10 MB)</label>
+              <div className="row">
+                <button type="button" className="btn btn--ghost btn--sm" onClick={() => setShowTrash((v) => !v)}>
+                  <Trash2 size={15} aria-hidden="true" />
+                  <span>Papelera ({papelera.length})</span>
+                </button>
+                <button type="button" className="btn btn--primary btn--sm" onClick={() => setSection('compartir')}>
+                  <UploadCloud size={15} aria-hidden="true" />
+                  <span>Subir nuevo</span>
+                </button>
+              </div>
+            </section>
+
+            {showTrash && (
+              <section className="card">
+                <h3 className="card__title">Papelera de reciclaje · vencimiento 30 días</h3>
+                {papelera.length === 0 ? (
+                  <p className="empty">Tu papelera está vacía.</p>
+                ) : (
+                  <div className="skeleton-stack">
+                    {papelera.map((r) => (
+                      <div key={r._id} className="td-item">
+                        <div className="td-item__head">
+                          <strong>{r.titulo}</strong>
+                          <button type="button" className="btn btn--primary btn--sm" onClick={() => handleRestoreFromTrash(r._id)}>
+                            <RotateCcw size={14} aria-hidden="true" />
+                            <span>Restaurar</span>
+                          </button>
+                        </div>
+                        <span className="muted">
+                          Eliminado el {r.eliminadoEn ? new Date(r.eliminadoEn).toLocaleDateString('es-MX') : '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            <section className="km-resource-grid">
+              {loading ? (
+                <CardListSkeleton count={3} bare />
+              ) : myContributions.length === 0 ? (
+                <div className="card">
+                  <p className="empty">Todavía no has publicado aportaciones. Usa «Compartir un recurso» para subir tu primer apunte.</p>
+                </div>
+              ) : (
+                myContributions.map((x) => renderResourceCard(x))
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* ==================== SUBMÓDULO 3: REPOSITORIO DE CONOCIMIENTOS ==================== */}
+        {section === 'repositorio' && (
+          <div className="skeleton-stack">
+            {/* Buscador superior + filtros combinados */}
+            <section className="km-filter-panel">
+              <div className="row" style={{ justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <div>
+                  <h2 style={{ fontSize: '1.15rem' }}>Repositorio de conocimientos</h2>
+                  <p className="muted" style={{ fontSize: '0.86rem' }}>Explora todos los recursos y temas publicados por la comunidad.</p>
+                </div>
+                <button type="button" className="btn btn--ghost btn--sm" onClick={clearFilters}>
+                  <RotateCcw size={14} aria-hidden="true" />
+                  <span>Limpiar filtros</span>
+                </button>
+              </div>
+
+              <div className="km-repo-searchbar">
+                <Search size={18} aria-hidden="true" />
                 <input
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg,.webp"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  required
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar por título, tema, descripción, palabras clave o autor…"
+                  aria-label="Buscar en el repositorio de conocimientos"
                 />
               </div>
-              <div className="field">
-                <label>Asignatura</label>
-                <select value={formSubjectId} onChange={(e) => setFormSubjectId(e.target.value)}>
-                  {asignaturas.length === 0 && <option value="">Sin asignaturas</option>}
-                  {asignaturas.map((a) => (
-                    <option key={a._id} value={a._id}>{a.nombre}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>Tema</label>
-                <select value={formTopicId} onChange={(e) => setFormTopicId(e.target.value)} required>
-                  {temas.length === 0 && <option value="">Sin temas registrados</option>}
-                  {temas.map((t) => (
-                    <option key={t._id} value={t._id}>{t.titulo}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label>Descripción breve (RF-83)</label>
-                <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Resume qué contiene este material…" />
-              </div>
-              <div className="field">
-                <label>Palabras clave separadas por coma (RF-84)</label>
-                <input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="SQL, normalización, examen parcial" />
-              </div>
-            </div>
-            {isTeacher && (
-              <label className="row" style={{ marginTop: '0.65rem', cursor: 'pointer' }}>
-                <input type="checkbox" checked={esOficial} onChange={(e) => setEsOficial(e.target.checked)} />
-                <span>Publicar como <strong>Material Oficial de clase</strong> (auto-validado · RF-22)</span>
-              </label>
-            )}
-            <div className="km-actions">
-              <button className="btn btn--primary" disabled={!file || !formTopicId}>＋ Publicar recurso</button>
-              {file && <span className="muted">{file.name} ({(file.size / 1024).toFixed(0)} KB)</span>}
-            </div>
-            {error && <p className="form-error" role="alert">{error}</p>}
-            {message && <p className="form-ok" role="status">{message}</p>}
-          </form>
-        </section>
 
-        {/* Colecciones personales y favoritos (RF-61 / RF-62) */}
-        {colecciones.length > 0 && (
-          <section className="card">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <strong>Mis colecciones y favoritos (RF-61 / RF-62)</strong>
-              {selectedCollectionId && (
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => setSelectedCollectionId('')}>
-                  Ver todo el repositorio
-                </button>
-              )}
-            </div>
-            <div className="row">
-              {colecciones.map((col) => (
-                <button
-                  key={col._id}
-                  type="button"
-                  className={`btn btn--sm ${selectedCollectionId === col._id ? 'btn--primary' : 'btn--ghost'}`}
-                  onClick={() => setSelectedCollectionId((prev) => (prev === col._id ? '' : col._id))}
-                >
-                  {col.esFavoritos ? '★' : '📁'} {col.nombre} ({col.recursos.length})
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+              <div className="km-filter-grid">
+                <div className="field">
+                  <label>Palabra clave</label>
+                  <input value={keywordFilter} onChange={(e) => setKeywordFilter(e.target.value)} placeholder="Ej. Examen" />
+                </div>
+                <div className="field">
+                  <label>Autor</label>
+                  <input value={authorFilter} onChange={(e) => setAuthorFilter(e.target.value)} placeholder="Nombre del autor…" />
+                </div>
+                <div className="field">
+                  <label>Asignatura</label>
+                  <select value={subject} onChange={(e) => setSubject(e.target.value)}>
+                    <option value="Todas">Todas</option>
+                    {asignaturas.map((a) => <option key={a._id} value={a._id}>{a.nombre}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Tema</label>
+                  <select value={topic} onChange={(e) => setTopic(e.target.value)}>
+                    <option value="Todas">Todas</option>
+                    {temas.map((t) => <option key={t._id} value={t._id}>{t.titulo}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Validación</label>
+                  <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                    <option>Todos</option>
+                    <option>Revisados</option>
+                    <option>Sin revisar</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Calificación mínima</label>
+                  <select value={minRating} onChange={(e) => setMinRating(Number(e.target.value))}>
+                    <option value={0}>Todas</option>
+                    <option value={3}>3 ★ o más</option>
+                    <option value={4}>4 ★ o más</option>
+                    <option value={5}>Solo 5 ★</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Ordenar por</label>
+                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}>
+                    <option value="RECIENTES">Más recientes</option>
+                    <option value="MEJOR_CALIFICADOS">Mejor calificados</option>
+                    <option value="MAS_CONSULTADOS">Más consultados</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Colección</label>
+                  <select value={selectedCollectionId} onChange={(e) => setSelectedCollectionId(e.target.value)}>
+                    <option value="">Todas las colecciones</option>
+                    {colecciones.map((col) => (
+                      <option key={col._id} value={col._id}>
+                        {col.nombre} ({col.recursos.length})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </section>
 
-        {/* Panel de búsqueda y filtros combinados (RF-14, RF-64, RF-85..88) */}
-        <section className="km-filter-panel">
-          <div className="row" style={{ justifyContent: 'space-between', marginBottom: '0.6rem' }}>
-            <strong>Filtros avanzados y ordenamiento</strong>
-            <button type="button" className="btn btn--ghost btn--sm" onClick={clearFilters}>
-              Limpiar filtros
-            </button>
-          </div>
-          <div className="form-grid">
-            <div className="field">
-              <label>Buscar (título, descripción, etiquetas, autor)</label>
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar…" />
-            </div>
-            <div className="field">
-              <label>Palabra clave</label>
-              <input value={keywordFilter} onChange={(e) => setKeywordFilter(e.target.value)} placeholder="Ej. SQL" />
-            </div>
-            <div className="field">
-              <label>Autor</label>
-              <input value={authorFilter} onChange={(e) => setAuthorFilter(e.target.value)} placeholder="Nombre del autor…" />
-            </div>
-            <div className="field">
-              <label>Asignatura</label>
-              <select value={subject} onChange={(e) => setSubject(e.target.value)}>
-                <option value="Todas">Todas</option>
-                {asignaturas.map((a) => <option key={a._id} value={a._id}>{a.nombre}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label>Tema</label>
-              <select value={topic} onChange={(e) => setTopic(e.target.value)}>
-                <option value="Todas">Todas</option>
-                {temas.map((t) => <option key={t._id} value={t._id}>{t.titulo}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label>Validación</label>
-              <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option>Todos</option>
-                <option>Revisados</option>
-                <option>Sin revisar</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Calificación mínima</label>
-              <select value={minRating} onChange={(e) => setMinRating(Number(e.target.value))}>
-                <option value={0}>Todas</option>
-                <option value={3}>3 ★ o más</option>
-                <option value={4}>4 ★ o más</option>
-                <option value={5}>Solo 5 ★</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Ordenar por (RF-64)</label>
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}>
-                <option value="RECIENTES">Más recientes</option>
-                <option value="MEJOR_CALIFICADOS">Mejor calificados</option>
-                <option value="MAS_CONSULTADOS">Más consultados</option>
-              </select>
-            </div>
-          </div>
-        </section>
-
-        <section className="km-resource-grid">
-          {loading ? (
-            <CardListSkeleton count={3} bare />
-          ) : filtered.length === 0 ? (
-            <div className="card">
-              <p className="empty">
-                {items.length === 0
-                  ? 'Aún no hay recursos publicados en la plataforma. ¡Sé el primero en compartir un apunte!'
-                  : 'No se encontraron recursos con esos filtros.'}
-              </p>
-            </div>
-          ) : (
-            filtered.map((x) => {
-              const reviewed = x.estadoValidacion === 'REVISADO_DOCENTE';
-              const subName = x.idAsignatura ? (subjectMap.get(x.idAsignatura) || 'Asignatura') : 'General';
-              const topName = topicMap.get(x.idTema) || 'Tema';
-              const isOwn = String(x.idUsuario) === String(user?.id);
-              const canEdit = isOwn || (x.coautores || []).includes(String(user?.id));
-              const isExpanded = expandedId === x._id;
-
-              return (
-                <article className="card km-resource" key={x._id}>
-                  <div className="km-resource-top">
-                    <span className="km-file-icon">{x.tipoArchivo?.replace('application/', '').replace('image/', '').slice(0, 4).toUpperCase() || 'PDF'}</span>
-                    <span className={`chip ${reviewed ? 'chip--soft' : 'chip--xp'}`}>
-                      {x.esMaterialOficial ? '★ Oficial' : reviewed ? '✓ Revisado por docente' : 'Sin revisar'}
-                    </span>
-                  </div>
-                  <h3>{x.titulo}</h3>
-                  <p className="muted" style={{ fontSize: '0.84rem' }}>
-                    {subName} · {topName} · Por <strong>{x.nombreAutor || 'Estudiante'}</strong>
+            <section className="km-resource-grid">
+              {loading ? (
+                <CardListSkeleton count={3} bare />
+              ) : filteredRepo.length === 0 ? (
+                <div className="card">
+                  <p className="empty">
+                    {items.length === 0
+                      ? 'Aún no hay recursos publicados en la plataforma.'
+                      : 'No se encontraron recursos con esos filtros.'}
                   </p>
-                  {x.descripcion && <p className="muted">{x.descripcion}</p>}
-                  {x.palabrasClave?.length > 0 && (
-                    <div className="td-tags">
-                      {x.palabrasClave.map((k) => <span key={k} className="td-tag">#{k}</span>)}
-                    </div>
-                  )}
-
-                  {/* Calificación promedio y votación (RF-89..91) */}
-                  <div className="row" style={{ justifyContent: 'space-between' }}>
-                    <span className="muted" style={{ fontSize: '0.82rem' }}>
-                      ★ {x.promedioCalificacion.toFixed(1)} ({x.totalCalificaciones}) · v{x.versiones?.length || 1} · {x.consultasCount} vistas
-                    </span>
-                    {!isOwn && (
-                      <div className="star-rating" aria-label="Calificar recurso">
-                        {[1, 2, 3, 4, 5].map((st) => (
-                          <button
-                            key={st}
-                            type="button"
-                            className={`star-btn ${st <= Math.round(x.promedioCalificacion) ? 'is-on' : ''}`}
-                            onClick={() => handleRate(x._id, st)}
-                            title={`Calificar con ${st} estrella(s)`}
-                          >
-                            ★
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {x.retroalimentacionDocente && (
-                    <p className="muted" style={{ fontSize: '0.82rem' }}>
-                      <strong>Nota docente:</strong> {x.retroalimentacionDocente}
-                    </p>
-                  )}
-
-                  <div className="row">
-                    {x.archivoUrl && !x.archivoUrl.includes('kolab.local') && (
-                      <a
-                        href={x.archivoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn--primary btn--sm"
-                      >
-                        Abrir archivo
-                      </a>
-                    )}
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleSaveCollection(x._id, 'Favoritos', true)}>
-                      ★ Favorito
-                    </button>
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleExportPdf(x)}>
-                      PDF
-                    </button>
-                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => toggleExpand(x)}>
-                      {isExpanded ? 'Ocultar' : 'Detalle'}
-                    </button>
-                    {isTeacher && !reviewed && (
-                      <>
-                        <button type="button" className="btn btn--primary btn--sm" onClick={() => review(x._id, 'REVISADO_DOCENTE')}>
-                          Validar
-                        </button>
-                        <button type="button" className="btn btn--danger btn--sm" onClick={() => review(x._id, 'ARCHIVADO')}>
-                          Archivar
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  {isExpanded && (
-                    <div className="skeleton-stack" style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px dashed var(--borde)' }}>
-                      {/* Guardar en colección personalizada (RF-62) */}
-                      <div className="row">
-                        <input
-                          value={collectionName}
-                          onChange={(e) => setCollectionName(e.target.value)}
-                          placeholder="Nombre de colección (ej. Examen BD)"
-                          style={{ flex: 1, minHeight: 36, padding: '0 0.7rem', borderRadius: 10, border: '1px solid var(--borde)' }}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn--ghost btn--sm"
-                          onClick={() => handleSaveCollection(x._id, collectionName, false)}
-                        >
-                          + Colección
-                        </button>
-                      </div>
-
-                      {/* Comentarios generales (RF-69) */}
-                      <div>
-                        <strong style={{ fontSize: '0.85rem' }}>Comentarios ({x.comentarios?.length || 0})</strong>
-                        {x.comentarios?.map((c, idx) => (
-                          <p key={idx} className="muted" style={{ fontSize: '0.82rem', marginTop: 4 }}>
-                            • {c.texto} ({new Date(c.fecha).toLocaleDateString('es-MX')})
-                          </p>
-                        ))}
-                        <div className="row" style={{ marginTop: 6 }}>
-                          <input
-                            value={commentById[x._id] ?? ''}
-                            onChange={(e) => setCommentById((p) => ({ ...p, [x._id]: e.target.value }))}
-                            placeholder="Agregar comentario…"
-                            style={{ flex: 1, minHeight: 36, padding: '0 0.7rem', borderRadius: 10, border: '1px solid var(--borde)' }}
-                          />
-                          <button type="button" className="btn btn--primary btn--sm" onClick={() => handleComment(x._id)}>
-                            Comentar
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Historial de versiones (RF-13 / RF-66) y Coautoría (RF-65) */}
-                      <div>
-                        <strong style={{ fontSize: '0.85rem' }}>Historial de versiones ({x.versiones?.length || 1})</strong>
-                        {x.versiones?.map((v) => (
-                          <p key={v.version} className="muted" style={{ fontSize: '0.8rem' }}>
-                            v{v.version} — {v.notaCambio || 'Actualización'} ({new Date(v.fecha).toLocaleDateString('es-MX')})
-                          </p>
-                        ))}
-                        {canEdit && (
-                          <div className="row" style={{ marginTop: 6 }}>
-                            <input
-                              value={versionNoteById[x._id] ?? ''}
-                              onChange={(e) => setVersionNoteById((p) => ({ ...p, [x._id]: e.target.value }))}
-                              placeholder="Nota de nueva versión…"
-                              style={{ flex: 1, minHeight: 36, padding: '0 0.7rem', borderRadius: 10, border: '1px solid var(--borde)' }}
-                            />
-                            <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleNewVersion(x)}>
-                              + Versión
-                            </button>
-                          </div>
-                        )}
-                        {isOwn && (
-                          <div className="row" style={{ marginTop: 6 }}>
-                            <input
-                              value={coauthorById[x._id] ?? ''}
-                              onChange={(e) => setCoauthorById((p) => ({ ...p, [x._id]: e.target.value }))}
-                              placeholder="ID de usuario coautor (RF-65)…"
-                              style={{ flex: 1, minHeight: 36, padding: '0 0.7rem', borderRadius: 10, border: '1px solid var(--borde)' }}
-                            />
-                            <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleInviteCoauthor(x._id)}>
-                              Invitar coautor
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Recursos relacionados (RF-63) */}
-                      {(relatedMap[x._id]?.length ?? 0) > 0 && (
-                        <div>
-                          <strong style={{ fontSize: '0.85rem' }}>Relacionados del tema (RF-63)</strong>
-                          <div className="td-tags" style={{ marginTop: 4 }}>
-                            {relatedMap[x._id].map((rel) => (
-                              <span key={rel._id} className="td-tag">{rel.titulo} (★ {rel.promedioCalificacion.toFixed(1)})</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="row">
-                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleReport(x._id)}>
-                          🚩 Reportar
-                        </button>
-                        {isOwn && (
-                          <button type="button" className="btn btn--danger btn--sm" onClick={() => handleMoveToTrash(x._id)}>
-                            🗑️ Enviar a papelera
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </article>
-              );
-            })
-          )}
-        </section>
+                </div>
+              ) : (
+                filteredRepo.map((x) => renderResourceCard(x))
+              )}
+            </section>
+          </div>
+        )}
       </div>
     </>
   );

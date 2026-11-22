@@ -411,7 +411,7 @@ export class AuthService {
       .exec();
 
     if (user && user.isActive) {
-      const token = this.generateEightDigitToken();
+      const token = crypto.randomBytes(32).toString('hex');
       user.resetPasswordToken = token;
       user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
       await user.save();

@@ -1,10 +1,23 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import {
+  Award,
+  Bell,
+  BookOpen,
+  CheckCircle2,
+  Flame,
+  Mail,
+  ShieldCheck,
+  Sliders,
+  Trash2,
+  Trophy,
+  Upload,
+  UserPlus,
+  Zap,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { MODULES } from '../data/modules';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import ImageCropModal from '../components/ImageCropModal';
-import ModuleBanner from '../components/ModuleBanner';
 import Skeleton, { RowListSkeleton } from '../components/Skeleton';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -266,7 +279,7 @@ export default function Perfil() {
 
   return (
     <>
-      <ModuleBanner module={MODULES[0]} />
+      <h1 className="perfil-page-title">Perfil</h1>
 
       <div className="split">
         <section className="card profile-card" aria-label="Perfil público">
@@ -290,11 +303,7 @@ export default function Perfil() {
 
 
             <span className="avatar-upload__overlay">
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 16V4" />
-                <path d="m7 9 5-5 5 5" />
-                <path d="M20 16.5v2A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5v-2" />
-              </svg>
+              <Upload size={26} aria-hidden="true" />
               <span>Subir foto</span>
             </span>
 
@@ -310,7 +319,8 @@ export default function Perfil() {
 
           <p className="profile-photo-hint">Pasa el cursor sobre tu foto o usa el botón para subirla</p>
           <label className="btn btn--ghost btn--sm" htmlFor="foto-perfil" style={{ cursor: 'pointer' }}>
-            Subir imagen
+            <Upload size={15} aria-hidden="true" />
+            <span>Subir imagen</span>
           </label>
           {photoMsg && (
             <p className={photoMsg.type === 'ok' ? 'form-ok' : 'form-error'} role="status">
@@ -327,17 +337,17 @@ export default function Perfil() {
           </p>
 
           <div className="row" style={{ justifyContent: 'center' }}>
-            <span className="chip chip--xp">{user?.xp ?? 0} XP</span>
-            <span className="chip chip--soft">{badgesCount} insignias</span>
-            <span className="chip chip--soft">🔥 {user?.rachaActual ?? 0}d (máx. {user?.rachaMasLarga ?? 0}d)</span>
-            <span className="chip chip--soft">{myResourcesCount} recursos</span>
-            <span className="chip chip--soft">{mySolvedCount} dudas resueltas</span>
+            <span className="chip chip--xp"><Zap size={13} aria-hidden="true" /> {user?.xp ?? 0} XP</span>
+            <span className="chip chip--soft"><Award size={13} aria-hidden="true" /> {badgesCount} insignias</span>
+            <span className="chip chip--soft"><Flame size={13} aria-hidden="true" /> {user?.rachaActual ?? 0}d (máx. {user?.rachaMasLarga ?? 0}d)</span>
+            <span className="chip chip--soft"><BookOpen size={13} aria-hidden="true" /> {myResourcesCount} recursos</span>
+            <span className="chip chip--soft"><CheckCircle2 size={13} aria-hidden="true" /> {mySolvedCount} dudas resueltas</span>
           </div>
         </section>
 
         <div className="skeleton-stack">
           <form className="card" onSubmit={onSubmit} noValidate>
-            <h2 className="card__title">Editar perfil académico (RF-51)</h2>
+            <h2 className="card__title">Editar perfil académico</h2>
 
             <div className="form-grid">
               <div className="field">
@@ -385,42 +395,65 @@ export default function Perfil() {
             </div>
           </form>
 
-          {/* RF-53, RF-58 y RF-54: Preferencias y baja de cuenta */}
+          {/* RF-53, RF-58 y RF-54: Preferencias con switches modernos y baja de cuenta */}
           <form className="card" onSubmit={onSavePreferences}>
-            <h2 className="card__title">Preferencias, notificaciones y privacidad (RF-53 / RF-58)</h2>
-            <label className="pref-row">
-              <span>Notificaciones dentro de la plataforma</span>
-              <input
-                type="checkbox"
-                checked={prefs.notificacionesPlataforma}
-                onChange={(e) => setPrefs((p) => ({ ...p, notificacionesPlataforma: e.target.checked }))}
-              />
-            </label>
-            <label className="pref-row">
-              <span>Notificaciones y recordatorios de racha por correo</span>
-              <input
-                type="checkbox"
-                checked={prefs.notificacionesCorreo}
-                onChange={(e) => setPrefs((p) => ({ ...p, notificacionesCorreo: e.target.checked }))}
-              />
-            </label>
-            <label className="pref-row">
-              <span>Aparecer en el ranking por grupo y asignatura (RF-42)</span>
-              <input
-                type="checkbox"
-                checked={prefs.mostrarEnRanking}
-                onChange={(e) => setPrefs((p) => ({ ...p, mostrarEnRanking: e.target.checked }))}
-              />
-            </label>
+            <h2 className="card__title">Preferencias, notificaciones y privacidad</h2>
+            <div className="pref-row">
+              <span className="pref-label-group">
+                <span className="pref-icon-badge"><Bell size={17} aria-hidden="true" /></span>
+                <span>Notificaciones dentro de la plataforma</span>
+              </span>
+              <label className="kolab-toggle">
+                <input
+                  type="checkbox"
+                  checked={prefs.notificacionesPlataforma}
+                  onChange={(e) => setPrefs((p) => ({ ...p, notificacionesPlataforma: e.target.checked }))}
+                  aria-label="Notificaciones dentro de la plataforma"
+                />
+                <span className="kolab-toggle__track"><span className="kolab-toggle__thumb" /></span>
+              </label>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label-group">
+                <span className="pref-icon-badge"><Mail size={17} aria-hidden="true" /></span>
+                <span>Notificaciones y recordatorios de racha por correo</span>
+              </span>
+              <label className="kolab-toggle">
+                <input
+                  type="checkbox"
+                  checked={prefs.notificacionesCorreo}
+                  onChange={(e) => setPrefs((p) => ({ ...p, notificacionesCorreo: e.target.checked }))}
+                  aria-label="Notificaciones y recordatorios de racha por correo"
+                />
+                <span className="kolab-toggle__track"><span className="kolab-toggle__thumb" /></span>
+              </label>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label-group">
+                <span className="pref-icon-badge"><Trophy size={17} aria-hidden="true" /></span>
+                <span>Aparecer en el ranking por grupo y asignatura</span>
+              </span>
+              <label className="kolab-toggle">
+                <input
+                  type="checkbox"
+                  checked={prefs.mostrarEnRanking}
+                  onChange={(e) => setPrefs((p) => ({ ...p, mostrarEnRanking: e.target.checked }))}
+                  aria-label="Aparecer en el ranking por grupo y asignatura"
+                />
+                <span className="kolab-toggle__track"><span className="kolab-toggle__thumb" /></span>
+              </label>
+            </div>
             {prefMsg && (
               <p className={prefMsg.type === 'ok' ? 'form-ok' : 'form-error'} role="status">{prefMsg.text}</p>
             )}
-            <div className="row" style={{ justifyContent: 'space-between' }}>
+            <div className="row" style={{ justifyContent: 'space-between', marginTop: '0.35rem' }}>
               <button className="btn btn--primary btn--sm" type="submit" disabled={savingPrefs}>
-                {savingPrefs ? 'Guardando…' : 'Guardar preferencias'}
+                <CheckCircle2 size={15} aria-hidden="true" />
+                <span>{savingPrefs ? 'Guardando…' : 'Guardar preferencias'}</span>
               </button>
               <button type="button" className="btn btn--danger btn--sm" onClick={handleDeleteAccount}>
-                Eliminar mi cuenta (RF-54)
+                <Trash2 size={15} aria-hidden="true" />
+                <span>Eliminar mi cuenta</span>
               </button>
             </div>
           </form>
@@ -615,7 +648,10 @@ function Cuentas() {
         </div>
 
         <div className="field" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn btn--primary" type="submit">+ Registrar cuenta</button>
+          <button className="btn btn--primary" type="submit">
+            <UserPlus size={16} aria-hidden="true" />
+            <span>Registrar cuenta</span>
+          </button>
         </div>
       </form>
     </section>
@@ -682,7 +718,7 @@ function AdminIaYBitacora() {
   return (
     <div className="td-grid-2">
       <form className="card" onSubmit={saveAiConfig}>
-        <h2 className="card__title">Configuración del motor de IA (RF-33)</h2>
+        <h2 className="card__title"><Sliders size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} />Configuración del motor de IA</h2>
         <div className="field">
           <label htmlFor="ai-model">Modelo Gemini</label>
           <input id="ai-model" value={modelo} onChange={(e) => setModelo(e.target.value)} />
@@ -704,7 +740,7 @@ function AdminIaYBitacora() {
       </form>
 
       <section className="card">
-        <h2 className="card__title">Bitácora de auditoría (RF-34 / RNF-17)</h2>
+        <h2 className="card__title"><ShieldCheck size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} />Bitácora de auditoría</h2>
         {loading ? (
           <RowListSkeleton count={4} />
         ) : logs.length === 0 ? (

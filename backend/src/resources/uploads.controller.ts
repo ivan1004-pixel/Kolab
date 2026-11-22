@@ -3,7 +3,6 @@ import {
   Controller,
   Post,
   Req,
-  UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -83,7 +82,8 @@ export class UploadsController {
       }),
     }),
   )
-  uploadFile(@UploadedFile() file: UploadedFileLike, @Req() req: any) {
+  uploadFile(@Req() req: any) {
+    const file = req.file as UploadedFileLike | undefined;
     if (!file) {
       throw new BadRequestException(
         'Debes adjuntar un archivo PDF o imagen (máx. 10 MB).',

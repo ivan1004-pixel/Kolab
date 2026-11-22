@@ -75,7 +75,11 @@ export class ContentSecurityService {
   private readonly logger = new Logger(ContentSecurityService.name);
   private purgoMalumUnavailableUntil = 0;
 
-  async validatePayload(value: unknown, fieldName = ''): Promise<void> {
+  async validatePayload(
+    value: unknown,
+    fieldName = '',
+    visited = new WeakSet<object>(),
+  ): Promise<void> {
     if (value === null || value === undefined) return;
 
     if (typeof value === 'string') {
@@ -92,17 +96,24 @@ export class ContentSecurityService {
       return;
     }
 
+    if (typeof value !== 'object') return;
+    if (Buffer.isBuffer(value) || value instanceof Date) return;
+    if (visited.has(value)) return;
+    visited.add(value);
+
+    // Ignorar objetos nativos de Express (req/res/socket) si llegan por error
+    const asAny = value as Record<string, unknown>;
+    if (asAny.socket && asAny.headers && asAny.method) return;
+
     if (Array.isArray(value)) {
       for (const item of value) {
-        await this.validatePayload(item, fieldName);
+        await this.validatePayload(item, fieldName, visited);
       }
       return;
     }
 
-    if (typeof value === 'object') {
-      for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
-        await this.validatePayload(val, key);
-      }
+    for (const [key, val] of Object.entries(asAny)) {
+      await this.validatePayload(val, key, visited);
     }
   }
 

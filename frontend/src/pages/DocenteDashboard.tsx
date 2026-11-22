@@ -315,6 +315,7 @@ export default function DocenteDashboard() {
   // RF-22 + RF-92 / RNF-14: Subir material oficial de clase
   async function handleUploadOfficial(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const formEl = e.currentTarget;
     if (!token || !offFile || !offTopicId) return;
     setNotice(null);
 
@@ -375,7 +376,7 @@ export default function DocenteDashboard() {
       setOffKeywords('');
       setOffContent('');
       setOffFile(null);
-      e.currentTarget.reset();
+      formEl?.reset();
       setNotice({
         type: 'ok',
         text: 'Material oficial publicado y autorizado automáticamente para el repositorio y el Asistente IA.',

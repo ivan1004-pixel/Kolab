@@ -11,8 +11,7 @@ export class ContentSecurityPipe implements PipeTransform {
     if (
       metadata.type === 'body' ||
       metadata.type === 'query' ||
-      metadata.type === 'param' ||
-      metadata.type === 'custom'
+      metadata.type === 'param'
     ) {
       await this.contentSecurityService.validatePayload(
         value,

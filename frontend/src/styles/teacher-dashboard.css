@@ -330,3 +330,240 @@
   .td-kpi { padding: 0.75rem 0.85rem; }
   .td-kpi strong { font-size: 1.5rem; }
 }
+
+/* =========================================
+   TITULO LIMPIO PERFIL + TOGGLES MODERNOS
+   ========================================= */
+.perfil-page-title {
+  margin: 0 0 0.25rem;
+  font-size: clamp(1.6rem, 2.5vw, 2.1rem);
+  font-weight: 900;
+  color: var(--tinta);
+  letter-spacing: -0.02em;
+}
+
+:root[data-theme="dark"] .perfil-page-title {
+  color: #e8f3e6;
+}
+
+.pref-label-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.pref-icon-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--menta);
+  color: var(--verde);
+  flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .pref-icon-badge {
+  background: #174a2c;
+  color: #86efac;
+}
+
+.kolab-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.kolab-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.kolab-toggle__track {
+  width: 48px;
+  height: 27px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  border: 1.5px solid #94a3b8;
+  position: relative;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.kolab-toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.2);
+  transition: transform 0.2s ease;
+}
+
+.kolab-toggle input:checked + .kolab-toggle__track {
+  background: var(--verde);
+  border-color: var(--verde);
+}
+
+.kolab-toggle input:checked + .kolab-toggle__track .kolab-toggle__thumb {
+  transform: translateX(21px);
+}
+
+.kolab-toggle input:focus-visible + .kolab-toggle__track {
+  outline: 3px solid var(--azul);
+  outline-offset: 2px;
+}
+
+:root[data-theme="dark"] .kolab-toggle__track {
+  background: #123622;
+  border-color: #477451;
+}
+
+:root[data-theme="dark"] .kolab-toggle input:checked + .kolab-toggle__track {
+  background: #36a461;
+  border-color: #36a461;
+}
+
+/* =========================================
+   MODULO 3: SUBMODULOS Y GRID UNIFORME 3x2
+   ========================================= */
+.km-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.km-upload-grid .field {
+  min-width: 0;
+}
+
+.km-upload-grid .field label {
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.km-upload-grid .field input,
+.km-upload-grid .field select,
+.km-file-picker {
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  padding: 0 0.95rem;
+  border-radius: var(--r-sm);
+  border: 2px solid var(--borde);
+  background: var(--blanco);
+  font-size: 0.92rem;
+  box-sizing: border-box;
+}
+
+.km-file-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  color: var(--texto-suave);
+  font-weight: 700;
+  overflow: hidden;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.km-file-picker:hover {
+  border-color: var(--verde);
+}
+
+.km-file-picker.has-file {
+  color: var(--tinta);
+  border-color: var(--verde);
+}
+
+.km-file-picker__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.km-file-picker__input {
+  display: none !important;
+}
+
+:root[data-theme="dark"] .km-file-picker {
+  background: #174a2c;
+  border-color: #477451;
+  color: #b5c9ba;
+}
+
+:root[data-theme="dark"] .km-file-picker.has-file {
+  color: #ffffff;
+  border-color: #36a461;
+}
+
+.km-repo-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0 1rem;
+  height: 48px;
+  border-radius: var(--pill);
+  border: 2px solid var(--borde);
+  background: var(--blanco);
+  margin-bottom: 0.85rem;
+}
+
+.km-repo-searchbar:focus-within {
+  border-color: var(--verde);
+  box-shadow: 0 0 0 3px rgb(21 127 60 / 0.15);
+}
+
+.km-repo-searchbar input {
+  border: 0 !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+  flex: 1;
+  height: 100%;
+  min-height: 0 !important;
+  padding: 0 !important;
+}
+
+:root[data-theme="dark"] .km-repo-searchbar {
+  background: #174a2c;
+  border-color: #477451;
+  color: #e8f3e6;
+}
+
+.km-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  align-items: end;
+}
+
+.km-filter-grid .field input,
+.km-filter-grid .field select {
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 0.85rem;
+}
+
+@media (max-width: 1020px) {
+  .km-upload-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .km-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .km-upload-grid { grid-template-columns: 1fr; }
+  .km-filter-grid { grid-template-columns: 1fr; }
+}

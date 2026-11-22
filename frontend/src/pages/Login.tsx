@@ -55,7 +55,9 @@ export default function Login() {
     aceptoPrivacidad: true,
     token: '',
     nuevaContrasena: '',
+    confirmarContrasena: '',
   });
+  const [showResetPwd, setShowResetPwd] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -206,10 +208,15 @@ export default function Login() {
           setSuccess(data.forgotPassword.message);
         }
       } else if (mode === 'reset') {
-        if (!form.token.trim() || !form.nuevaContrasena) {
-          throw new Error('Ingresa el token y tu nueva contraseña');
+        if (!form.token.trim()) {
+          throw new Error('El enlace de recuperación no es válido o ha expirado. Solicita uno nuevo.');
         }
-        assertNoScriptInjection(form.token, 'token');
+        if (!form.nuevaContrasena || form.nuevaContrasena.length < 8) {
+          throw new Error('Escribe tu nueva contraseña (mínimo 8 caracteres, mayúscula, número y símbolo).');
+        }
+        if (form.nuevaContrasena !== form.confirmarContrasena) {
+          throw new Error('Las contraseñas no coinciden.');
+        }
         if (USE_MOCK) {
           setSuccess('Contraseña actualizada (modo demo).');
           setMode('login');
@@ -226,7 +233,8 @@ export default function Login() {
             },
           );
           setSuccess(data.resetPassword.message || 'Contraseña restablecida. Ya puedes iniciar sesión.');
-          setForm((f) => ({ ...f, password: '', nuevaContrasena: '', token: '' }));
+          setForm((f) => ({ ...f, password: '', nuevaContrasena: '', confirmarContrasena: '', token: '' }));
+          navigate('/login', { replace: true });
           setMode('login');
         }
       }
@@ -529,32 +537,62 @@ export default function Login() {
             )}
 
             {mode === 'reset' && (
-              <>
-                <div className="klogin-field">
-                  <label htmlFor="reset-token">Token de recuperación</label>
-                  <input
-                    className="klogin-input klogin-input--plain"
-                    id="reset-token"
-                    name="token"
-                    value={form.token}
-                    onChange={onChange}
-                    placeholder="Pega el token recibido por correo"
-                  />
+              form.token.trim() ? (
+                <>
+                  <div className="klogin-field">
+                    <label htmlFor="nuevaContrasena">Nueva contraseña</label>
+                    <div className="klogin-input-box">
+                      <input
+                        className="klogin-input klogin-input--plain klogin-input--pwd"
+                        id="nuevaContrasena"
+                        name="nuevaContrasena"
+                        type={showResetPwd ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        value={form.nuevaContrasena}
+                        onChange={onChange}
+                        placeholder="Mín. 8 caracteres, Mayús, Núm y Símbolo"
+                      />
+                      <button
+                        type="button"
+                        className={`klogin-eye-btn ${showResetPwd ? 'is-active' : ''}`}
+                        onClick={() => setShowResetPwd((v) => !v)}
+                        aria-label={showResetPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      >
+                        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          {showResetPwd ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65" />
+                          ) : (
+                            <>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </>
+                          )}
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="klogin-field">
+                    <label htmlFor="confirmarContrasena">Confirmar nueva contraseña</label>
+                    <input
+                      className="klogin-input klogin-input--plain"
+                      id="confirmarContrasena"
+                      name="confirmarContrasena"
+                      type={showResetPwd ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={form.confirmarContrasena}
+                      onChange={onChange}
+                      placeholder="Repite tu nueva contraseña"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="td-notice td-notice--err">
+                  <span>Enlace inválido o incompleto. Abre el enlace desde tu correo o solicita uno nuevo.</span>
+                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => switchMode('forgot')}>
+                    Solicitar enlace
+                  </button>
                 </div>
-                <div className="klogin-field">
-                  <label htmlFor="nuevaContrasena">Nueva contraseña</label>
-                  <input
-                    className="klogin-input klogin-input--plain"
-                    id="nuevaContrasena"
-                    name="nuevaContrasena"
-                    type="password"
-                    autoComplete="new-password"
-                    value={form.nuevaContrasena}
-                    onChange={onChange}
-                    placeholder="Mín. 8 chars, Mayús, Núm y Símbolo"
-                  />
-                </div>
-              </>
+              )
             )}
 
             {error && <p className="form-error" role="alert">{error}</p>}
