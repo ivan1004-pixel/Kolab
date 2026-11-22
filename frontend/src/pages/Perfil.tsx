@@ -290,7 +290,7 @@ export default function Perfil() {
   async function handleDeleteAccount() {
     if (!token) return;
     const confirmed = window.confirm(
-      '¿Seguro que deseas eliminar tu cuenta y solicitar la baja de tus datos personales (RF-54)? Esta acción cerrará tu sesión inmediatamente.',
+      '¿Seguro que deseas eliminar tu cuenta y solicitar la baja de tus datos personales? Esta acción cerrará tu sesión inmediatamente.',
     );
     if (!confirmed) return;
     try {
@@ -820,7 +820,7 @@ function AdminIaYBitacora() {
             <input id="ai-temp" type="number" step="0.1" min={0} max={1} value={temperatura} onChange={(e) => setTemperatura(Number(e.target.value))} />
           </div>
           <div className="field">
-            <label htmlFor="ai-lim">Límite diario por usuario (RF-75)</label>
+            <label htmlFor="ai-lim">Límite diario por usuario</label>
             <input id="ai-lim" type="number" min={1} max={100} value={limite} onChange={(e) => setLimite(Number(e.target.value))} />
           </div>
         </div>

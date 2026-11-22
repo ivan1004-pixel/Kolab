@@ -11,6 +11,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { GeminiService } from './gemini.service';
 import {
   AiConfig,
+  AnalisisDocumentoIa,
   ConsultaIa,
   Cuestionario,
   IntentoCuestionario,
@@ -22,25 +23,37 @@ import {
 export class AiResolver {
   constructor(private readonly geminiService: GeminiService) {}
 
+  @Mutation(() => AnalisisDocumentoIa, {
+    description: 'Analizar un documento del repositorio de conocimientos con Gemini AI',
+  })
+  @UseGuards(GqlAuthGuard)
+  async analizarDocumentoIa(
+    @CurrentUser() user: AuthenticatedUser,
+    @Args('idRecurso', { type: () => ID }) idRecurso: string,
+  ): Promise<AnalisisDocumentoIa> {
+    return this.geminiService.analizarDocumento(user.userId, idRecurso);
+  }
+
   @Mutation(() => ConsultaIa, {
-    description:
-      'RF-23/RF-71/RF-72/RF-75: Consultar a Gemini AI usando solo material autorizado',
+    description: 'Consultar a Gemini AI sobre un documento o tema',
   })
   @UseGuards(GqlAuthGuard)
   async consultarIa(
     @CurrentUser() user: AuthenticatedUser,
     @Args('idTema', { type: () => ID }) idTema: string,
     @Args('promptPregunta') promptPregunta: string,
+    @Args('idRecurso', { type: () => ID, nullable: true }) idRecurso?: string,
   ): Promise<ConsultaIa> {
     return this.geminiService.consultarIaSobreTema(
       user.userId,
       idTema,
       promptPregunta,
+      idRecurso,
     );
   }
 
   @Mutation(() => Cuestionario, {
-    description: 'RF-24/RF-43..45: Generar cuestionario de práctica (1-15 reactivos)',
+    description: 'Generar cuestionario de práctica (1-15 reactivos)',
   })
   @UseGuards(GqlAuthGuard)
   async generarCuestionarioIa(
@@ -49,12 +62,14 @@ export class AiResolver {
     @Args('cantidadReactivos', { type: () => Int, defaultValue: 5 })
     cantidadReactivos: number,
     @Args('titulo', { nullable: true }) titulo?: string,
+    @Args('idRecurso', { type: () => ID, nullable: true }) idRecurso?: string,
   ): Promise<Cuestionario> {
     return this.geminiService.generarCuestionario(
       user.userId,
       idTema,
       cantidadReactivos,
       titulo,
+      idRecurso,
     );
   }
 

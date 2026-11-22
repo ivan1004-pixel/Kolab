@@ -53,7 +53,7 @@ export class AuthService {
   async register(input: RegisterInput): Promise<RegisterResponse> {
     if (!input.aceptoPrivacidad) {
       throw new BadRequestException(
-        'Debes aceptar el aviso de privacidad y los términos de uso (RNF-22).',
+        'Debes aceptar el aviso de privacidad y los términos de uso.',
       );
     }
 

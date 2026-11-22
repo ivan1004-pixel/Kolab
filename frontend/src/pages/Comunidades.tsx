@@ -265,7 +265,7 @@ export default function Comunidades() {
             </select>
             <label className="row" style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>
               <input type="checkbox" checked={newGroupPrivate} onChange={(e) => setNewGroupPrivate(e.target.checked)} />
-              <span>Grupo privado (RF-68)</span>
+              <span>Grupo privado</span>
             </label>
           </div>
           <div className="inline-form-actions">
@@ -417,7 +417,7 @@ export default function Comunidades() {
       {/* RF-42: Ranking comunitario respetando privacidad */}
       <section className="kolab-card" aria-label="Ranking comunitario">
         <header className="card-header-row">
-          <h2 className="card-title">Ranking académico (RF-42)</h2>
+          <h2 className="card-title">Ranking académico</h2>
           <span className="muted" style={{ fontSize: '0.82rem' }}>Puedes activar o desactivar tu visibilidad desde Perfil</span>
         </header>
         {ranking.length === 0 ? (

@@ -63,7 +63,7 @@ export class ResourcesService {
   ): Promise<RecursoDocument> {
     if (input.tamanoBytes > MAX_FILE_SIZE_BYTES) {
       throw new BadRequestException(
-        'El archivo excede el tamaño máximo permitido de 10 MB (RF-92 / RNF-14).',
+        'El archivo excede el tamaño máximo permitido de 10 MB.',
       );
     }
 
@@ -380,7 +380,7 @@ export class ResourcesService {
 
     if (recurso.idUsuario.toString() === userId) {
       throw new ForbiddenException(
-        'No puedes calificar tus propios recursos (RF-91).',
+        'No puedes calificar tus propios recursos.',
       );
     }
 
@@ -389,7 +389,7 @@ export class ResourcesService {
     );
     if (yaCalifico) {
       throw new BadRequestException(
-        'Ya calificaste este recurso anteriormente (RF-89).',
+        'Ya calificaste este recurso anteriormente.',
       );
     }
 

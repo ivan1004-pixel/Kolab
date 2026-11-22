@@ -53,7 +53,7 @@ export class UploadsController {
         if (!ALLOWED_MIME[file.mimetype.toLowerCase()]) {
           return cb(
             new BadRequestException(
-              'Formato no permitido (RNF-14). Solo se aceptan PDF e imágenes (PNG, JPG, WEBP).',
+              'Formato no permitido. Solo se aceptan PDF e imágenes (PNG, JPG, WEBP).',
             ) as any,
             false,
           );

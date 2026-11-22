@@ -302,7 +302,7 @@ export default function Dashboard() {
       {/* RF-09 (Cuadro de pregunta rápida) + RF-43/RF-45 (Pregunta del día espaciada) */}
       <div className="td-grid-2">
         <form className="card" onSubmit={handleQuickQuestion}>
-          <h2 className="card__title">Pregunta rápida a la comunidad (RF-09)</h2>
+          <h2 className="card__title">Pregunta rápida a la comunidad</h2>
           <div className="field">
             <label htmlFor="dash-tema">Tema</label>
             <select id="dash-tema" value={quickTemaId} onChange={(e) => setQuickTemaId(e.target.value)}>
@@ -330,7 +330,7 @@ export default function Dashboard() {
 
         <section className="card">
           <div className="row" style={{ justifyContent: 'space-between' }}>
-            <h2 className="card__title">Pregunta del día · Repaso espaciado (RF-43 / RF-45)</h2>
+            <h2 className="card__title">Pregunta del día · Repaso espaciado</h2>
             {preguntaDia && <span className="chip chip--xp">{preguntaDia.dificultad}</span>}
           </div>
           {loadingStats ? (
@@ -355,7 +355,7 @@ export default function Dashboard() {
       <div className="td-grid-2">
         <section className="card">
           <div className="row" style={{ justifyContent: 'space-between' }}>
-            <h2 className="card__title">Mi tira de materias (RF-07)</h2>
+            <h2 className="card__title">Mi tira de materias</h2>
             <Link className="btn btn--ghost btn--sm" to="/curricular">Administrar</Link>
           </div>
           {loadingStats ? (
@@ -381,7 +381,7 @@ export default function Dashboard() {
 
         <section className="card">
           <div className="row" style={{ justifyContent: 'space-between' }}>
-            <h2 className="card__title">Materiales validados por docente (RF-08)</h2>
+            <h2 className="card__title">Materiales validados por docente</h2>
             <Link className="btn btn--ghost btn--sm" to="/recursos">Ver todos</Link>
           </div>
           {loadingStats ? (
@@ -417,7 +417,7 @@ export default function Dashboard() {
       {/* RF-78/RF-79 (Calendario y Plan de Repaso) + RF-10 (Actividad Reciente) */}
       <div className="td-grid-2">
         <section className="card">
-          <h2 className="card__title">Calendario de exámenes y plan de repaso (RF-78 / RF-79)</h2>
+          <h2 className="card__title">Calendario de exámenes y plan de repaso</h2>
           {loadingStats ? (
             <RowListSkeleton count={2} />
           ) : planRepaso.length > 0 ? (
@@ -457,7 +457,7 @@ export default function Dashboard() {
         </section>
 
         <section className="card">
-          <h2 className="card__title">Actividad reciente (RF-10)</h2>
+          <h2 className="card__title">Actividad reciente</h2>
           {loadingStats ? (
             <RowListSkeleton count={3} />
           ) : actividad.length === 0 ? (

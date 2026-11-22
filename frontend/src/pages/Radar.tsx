@@ -225,7 +225,7 @@ export default function Radar() {
 
         <section className="kolab-card" aria-label="Preguntas sin resolver destacadas">
           <header className="card-header-row">
-            <h2 className="card-title">Dudas más debatidas y errores (RF-27 / RF-28)</h2>
+            <h2 className="card-title">Dudas más debatidas y errores</h2>
             {isTeacher && radar.length > 0 && (
               <div className="row">
                 <button

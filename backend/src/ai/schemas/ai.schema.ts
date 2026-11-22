@@ -15,6 +15,39 @@ export class FuenteCitada {
 }
 
 @ObjectType()
+export class AnalisisDocumentoIa {
+  @Field(() => ID)
+  idRecurso: Types.ObjectId;
+
+  @Field()
+  tituloRecurso: string;
+
+  @Field()
+  resumen: string;
+
+  @Field(() => [String])
+  temasClave: string[];
+
+  @Field()
+  mensajeBienvenida: string;
+}
+
+@ObjectType()
+export class RecursoRecomendado {
+  @Field(() => ID)
+  idRecurso: Types.ObjectId;
+
+  @Field()
+  titulo: string;
+
+  @Field()
+  motivo: string;
+
+  @Field({ nullable: true })
+  archivoUrl?: string;
+}
+
+@ObjectType()
 @Schema({ timestamps: true, collection: 'consultas_ia' })
 export class ConsultaIa {
   @Field(() => ID)
@@ -27,6 +60,18 @@ export class ConsultaIa {
   @Field()
   @Prop({ required: true })
   respuestaIa: string;
+
+  @Field({ nullable: true })
+  @Prop()
+  respuestaRecurso?: string;
+
+  @Field({ nullable: true })
+  @Prop()
+  respuestaComplementaria?: string;
+
+  @Field(() => ID, { nullable: true })
+  @Prop({ type: Types.ObjectId, ref: 'Recurso' })
+  idRecurso?: Types.ObjectId;
 
   @Field(() => [FuenteCitada])
   @Prop({ type: [Object], default: [] })
@@ -143,6 +188,10 @@ export class IntentoCuestionario {
   @Prop({ type: Types.ObjectId, ref: 'Tema', required: true })
   idTema: Types.ObjectId;
 
+  @Field({ nullable: true })
+  @Prop()
+  tituloCuestionario?: string;
+
   @Field(() => Int)
   @Prop({ required: true })
   aciertos: number;
@@ -162,6 +211,10 @@ export class IntentoCuestionario {
   @Field(() => [String])
   @Prop({ type: [String], default: [] })
   conceptosPorReforzar: string[];
+
+  @Field(() => [RecursoRecomendado])
+  @Prop({ type: [Object], default: [] })
+  recursosRecomendados: RecursoRecomendado[];
 
   @Field()
   createdAt: Date;

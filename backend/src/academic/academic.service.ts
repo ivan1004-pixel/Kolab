@@ -77,7 +77,7 @@ export class AcademicService {
     ]);
     if (temasCount > 0 || recursosCount > 0) {
       throw new BadRequestException(
-        'No se puede eliminar la asignatura porque tiene temas o recursos asociados (RNF-18).',
+        'No se puede eliminar la asignatura porque tiene temas o recursos asociados.',
       );
     }
     const res = await this.asignaturaModel.findByIdAndDelete(id).exec();

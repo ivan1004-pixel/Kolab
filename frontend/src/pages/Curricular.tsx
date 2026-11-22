@@ -245,7 +245,7 @@ export default function Curricular() {
 
         {showCareerForm && isAdmin && (
           <form className="card km-form" onSubmit={addCareer}>
-            <h3>Registrar carrera (RF-32)</h3>
+            <h3>Registrar carrera</h3>
             <div className="km-inline-form">
               <input value={careerName} onChange={(e) => setCareerName(e.target.value)} required placeholder="Ej. Ingeniería en Desarrollo de Software" />
               <button className="btn btn--primary btn--sm">Guardar carrera</button>

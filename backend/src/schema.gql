@@ -30,6 +30,14 @@ type AiConfig {
   temperatura: Float!
 }
 
+type AnalisisDocumentoIa {
+  idRecurso: ID!
+  mensajeBienvenida: String!
+  resumen: String!
+  temasClave: [String!]!
+  tituloRecurso: String!
+}
+
 type Asignatura {
   _id: ID!
   cuatrimestre: String
@@ -96,10 +104,13 @@ type ConsultaIa {
   esValida: Boolean!
   fuentesCitadas: [FuenteCitada!]!
   generadoPorIa: Boolean!
+  idRecurso: ID
   idTema: ID!
   idUsuario: ID!
   promptPregunta: String!
+  respuestaComplementaria: String
   respuestaIa: String!
+  respuestaRecurso: String
 }
 
 input CreateAsignaturaInput {
@@ -216,7 +227,9 @@ type IntentoCuestionario {
   idCuestionario: ID!
   idTema: ID!
   idUsuario: ID!
+  recursosRecomendados: [RecursoRecomendado!]!
   retroalimentacion: String!
+  tituloCuestionario: String
   totalReactivos: Int!
 }
 
@@ -254,6 +267,9 @@ type Mutation {
   """RF-13/RF-66: Agregar nueva versión de un recurso"""
   agregarVersionRecurso(archivoUrl: String!, notaCambio: String!, recursoId: ID!): Recurso!
 
+  """Analizar un documento del repositorio de conocimientos con Gemini AI"""
+  analizarDocumentoIa(idRecurso: ID!): AnalisisDocumentoIa!
+
   """RF-89..91: Calificar recurso (1 a 5 estrellas)"""
   calificarRecurso(estrellas: Int!, recursoId: ID!): Recurso!
 
@@ -272,10 +288,8 @@ type Mutation {
   """RF-38: Congela la racha usando un comodín mensual"""
   congelarMiRacha: Usuario!
 
-  """
-  RF-23/RF-71/RF-72/RF-75: Consultar a Gemini AI usando solo material autorizado
-  """
-  consultarIa(idTema: ID!, promptPregunta: String!): ConsultaIa!
+  """Consultar a Gemini AI sobre un documento o tema"""
+  consultarIa(idRecurso: ID, idTema: ID!, promptPregunta: String!): ConsultaIa!
 
   """RF-74: Corregir respuesta de IA marcada como incorrecta (Docente)"""
   corregirRespuestaIa(consultaId: ID!, correccionDocente: String!): ConsultaIa!
@@ -307,8 +321,8 @@ type Mutation {
   """RF-05: Solicita enlace temporal de recuperación por Brevo"""
   forgotPassword(correo: String!): ActionResponse!
 
-  """RF-24/RF-43..45: Generar cuestionario de práctica (1-15 reactivos)"""
-  generarCuestionarioIa(cantidadReactivos: Int! = 5, idTema: ID!, titulo: String): Cuestionario!
+  """Generar cuestionario de práctica (1-15 reactivos)"""
+  generarCuestionarioIa(cantidadReactivos: Int! = 5, idRecurso: ID, idTema: ID!, titulo: String): Cuestionario!
 
   """RF-61/RF-62: Guardar en favoritos o colección personal"""
   guardarRecursoEnColeccion(esFavoritos: Boolean! = false, nombreColeccion: String! = "Favoritos", recursoId: ID!): ColeccionPersonal!
@@ -559,6 +573,13 @@ type Recurso {
   totalCalificaciones: Int!
   updatedAt: DateTime!
   versiones: [VersionRecurso!]!
+}
+
+type RecursoRecomendado {
+  archivoUrl: String
+  idRecurso: ID!
+  motivo: String!
+  titulo: String!
 }
 
 input RegisterInput {

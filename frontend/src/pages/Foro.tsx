@@ -399,7 +399,7 @@ export default function Foro() {
             <input id="texto" name="texto" value={form.texto} onChange={onChange} />
           </div>
           <div className="field">
-            <label htmlFor="fragmento">Detalle o fragmento del recurso que no entendiste (RF-15)</label>
+            <label htmlFor="fragmento">Detalle o fragmento del recurso que no entendiste</label>
             <textarea id="fragmento" name="fragmento" value={form.fragmento} onChange={onChange} />
           </div>
           <div className="field">
@@ -408,7 +408,7 @@ export default function Foro() {
           </div>
           <label className="row" style={{ cursor: 'pointer' }}>
             <input type="checkbox" name="esBancoColaborativo" checked={form.esBancoColaborativo} onChange={onChange} />
-            <span>Compartir también en el <strong>Banco Colaborativo de preguntas</strong> (RF-46)</span>
+            <span>Compartir también en el <strong>Banco Colaborativo de preguntas</strong></span>
           </label>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="row">

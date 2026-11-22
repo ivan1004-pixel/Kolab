@@ -760,7 +760,7 @@ export default function DocenteDashboard() {
       {activeTab === 'oficial' && (
         <div className="td-grid-2">
           <form className="card" onSubmit={handleUploadOfficial}>
-            <h2 className="card__title">Subir material oficial de clase (RF-22)</h2>
+            <h2 className="card__title">Subir material oficial de clase</h2>
             <p className="muted">Guías, rúbricas o bibliografía. Se publican con sello oficial y alimentan directamente al Asistente IA.</p>
             <div className="field">
               <label htmlFor="off-title">Título del material oficial</label>
@@ -781,11 +781,11 @@ export default function DocenteDashboard() {
               </div>
             </div>
             <div className="field">
-              <label htmlFor="off-desc">Descripción breve (RF-83)</label>
+              <label htmlFor="off-desc">Descripción breve</label>
               <input id="off-desc" value={offDesc} onChange={(e) => setOffDesc(e.target.value)} placeholder="Resumen breve visible en búsquedas…" />
             </div>
             <div className="field">
-              <label htmlFor="off-kw">Palabras clave separadas por coma (RF-84)</label>
+              <label htmlFor="off-kw">Palabras clave separadas por coma</label>
               <input id="off-kw" value={offKeywords} onChange={(e) => setOffKeywords(e.target.value)} placeholder="guía, rúbrica, examen parcial" />
             </div>
             <div className="field">
@@ -856,7 +856,7 @@ export default function DocenteDashboard() {
         <div className="td-grid-2">
           <section className="card">
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <h2 className="card__title">Dudas y Banco Colaborativo (RF-17 / RF-47)</h2>
+              <h2 className="card__title">Dudas y Banco Colaborativo</h2>
               <Link className="btn btn--ghost btn--sm" to="/foro">Ir al Foro</Link>
             </div>
             {loading ? (
@@ -882,12 +882,12 @@ export default function DocenteDashboard() {
                     <div className="row">
                       {!p.validadaPorDocente && (
                         <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleValidateBankQuestion(p._id)}>
-                          Validar para banco (RF-47)
+                          Validar para banco
                         </button>
                       )}
                       {!p.resuelta && (
                         <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleCloseQuestion(p._id)}>
-                          Cerrar duda (RF-18)
+                          Cerrar duda
                         </button>
                       )}
                     </div>
@@ -919,7 +919,7 @@ export default function DocenteDashboard() {
           </section>
 
           <section className="card">
-            <h2 className="card__title">Revisión y corrección de IA (RF-74)</h2>
+            <h2 className="card__title">Revisión y corrección de IA</h2>
             <p className="muted">Respuestas de Gemini AI marcadas como "No útiles" por estudiantes para que puedas corregirlas.</p>
             {loading ? (
               <CardListSkeleton count={3} />
@@ -971,7 +971,7 @@ export default function DocenteDashboard() {
       {activeTab === 'calendario' && (
         <div className="td-grid-2">
           <section className="card">
-            <h2 className="card__title">Calendario de exámenes y entregas (RF-77)</h2>
+            <h2 className="card__title">Calendario de exámenes y entregas</h2>
             <form onSubmit={handleCreateEvent} className="skeleton-stack">
               <div className="field">
                 <label htmlFor="cal-title">Título del examen o entrega</label>
@@ -1038,7 +1038,7 @@ export default function DocenteDashboard() {
           </section>
 
           <section className="card">
-            <h2 className="card__title">Retos semanales comunitarios (RF-49)</h2>
+            <h2 className="card__title">Retos semanales comunitarios</h2>
             <form onSubmit={handleCreateChallenge} className="skeleton-stack">
               <div className="field">
                 <label htmlFor="reto-title">Título del reto</label>
@@ -1097,7 +1097,7 @@ export default function DocenteDashboard() {
         <section className="card">
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <div>
-              <h2 className="card__title">Radar de Dificultades y Exportación (RF-27, RF-28, RF-82)</h2>
+              <h2 className="card__title">Radar de Dificultades y Exportación</h2>
               <p className="muted">Dudas sin resolver cruzadas con errores en cuestionarios de autoevaluación por tema.</p>
             </div>
             <div className="row">
