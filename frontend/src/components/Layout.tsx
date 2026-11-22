@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { MODULES } from '../data/modules';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import Logo from './Logo';
+import NotificationBell from './NotificationBell';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -29,12 +30,13 @@ export default function Layout() {
         <Logo light />
         <nav className="nav" aria-label="Módulos">
           <NavLink to="/" end className="nav__link" onClick={close}>
-            <span className="nav__num">★</span> Inicio
+            <span className="nav__num">★</span>
+            <span className="nav__label">Inicio</span>
           </NavLink>
           {MODULES.map((m) => (
             <NavLink key={m.id} to={m.path} className="nav__link" onClick={close}>
               <span className={`nav__num ${m.ink ? 'nav__num--ink' : ''}`} style={{ background: m.c1 }}>{m.id}</span>
-              {m.short}
+              <span className="nav__label">{m.short}</span>
             </NavLink>
           ))}
         </nav>
@@ -54,6 +56,7 @@ export default function Layout() {
           </form>
           <span className="topbar__spacer" />
           <span className="chip chip--xp xp-chip">Nivel {nivel} · {user?.xp ?? 0} XP</span>
+          <NotificationBell />
           <NavLink to="/perfil" className="avatar" aria-label="Mi perfil">
             {user?.foto_url ? <img src={user.foto_url} alt="" /> : (user?.nombre?.[0] ?? 'K')}
           </NavLink>

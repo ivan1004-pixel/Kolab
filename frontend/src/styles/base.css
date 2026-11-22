@@ -1,5 +1,9 @@
 *, *::before, *::after { box-sizing: border-box; }
 
+html, body {
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   font-family: var(--font);
@@ -7,6 +11,7 @@ body {
   line-height: 1.5;
   color: var(--tinta);
   background: var(--menta);
+  overflow-x: hidden;
 }
 
 h1, h2, h3 { margin: 0; line-height: 1.15; font-weight: 800; }
