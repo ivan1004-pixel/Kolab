@@ -48,9 +48,12 @@ type AuditoriaLog {
 }
 
 type AuthPayload {
-  accessToken: String!
-  refreshToken: String!
-  usuario: Usuario!
+  accessToken: String
+  correo: String
+  message: String
+  refreshToken: String
+  requiresVerification: Boolean
+  usuario: Usuario
 }
 
 type CalendarioEvento {
@@ -315,6 +318,9 @@ type Mutation {
   """RF-04/RNF-10: Inicio de sesión seguro con límite de intentos"""
   login(input: LoginInput!): AuthPayload!
 
+  """Inicio de sesión con Google OAuth2 verificando idToken en backend"""
+  loginWithGoogle(idToken: String!): AuthPayload!
+
   """RF-06: Cierra la sesión actual e invalida el token"""
   logout: ActionResponse!
   marcarNotificacionLeida(notificacionId: ID!): Notificacion!
@@ -370,9 +376,9 @@ type Mutation {
   validarRecurso(estado: EstadoValidacionRecurso!, recursoId: ID!, retroalimentacion: String): Recurso!
 
   """
-  Verifica el correo electrónico y dispara el correo de bienvenida por Brevo
+  Verifica el código de 8 dígitos, envía el correo de bienvenida por Brevo e inicia sesión
   """
-  verifyEmail(token: String!): ActionResponse!
+  verifyEmail(token: String!): AuthPayload!
 
   """RF-48: Votar utilidad de pregunta"""
   votarPregunta(preguntaId: ID!): Pregunta!

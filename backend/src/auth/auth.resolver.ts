@@ -30,11 +30,11 @@ export class AuthResolver {
     return this.authService.register(input);
   }
 
-  @Mutation(() => ActionResponse, {
+  @Mutation(() => AuthPayload, {
     description:
-      'Verifica el correo electrónico y dispara el correo de bienvenida por Brevo',
+      'Verifica el código de 8 dígitos, envía el correo de bienvenida por Brevo e inicia sesión',
   })
-  async verifyEmail(@Args('token') token: string): Promise<ActionResponse> {
+  async verifyEmail(@Args('token') token: string): Promise<AuthPayload> {
     return this.authService.verifyEmail(token);
   }
 
@@ -54,6 +54,16 @@ export class AuthResolver {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   async login(@Args('input') input: LoginInput): Promise<AuthPayload> {
     return this.authService.login(input);
+  }
+
+  @Mutation(() => AuthPayload, {
+    description: 'Inicio de sesión con Google OAuth2 verificando idToken en backend',
+  })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async loginWithGoogle(
+    @Args('idToken') idToken: string,
+  ): Promise<AuthPayload> {
+    return this.authService.loginWithGoogle(idToken);
   }
 
   @Mutation(() => AuthPayload, {

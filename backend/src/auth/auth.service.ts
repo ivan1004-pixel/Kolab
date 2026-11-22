@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { Model, Types } from 'mongoose';
 import { RolUsuario } from '../common/enums/kolab.enums';
 import { BrevoService } from '../mail/brevo.service';
@@ -30,13 +31,21 @@ const LOCK_DURATION_MINUTES = 15;
 
 @Injectable()
 export class AuthService {
+  private readonly googleClient: OAuth2Client;
+  private readonly googleClientId: string;
+
   constructor(
     @InjectModel(Usuario.name)
     private readonly usuarioModel: Model<UsuarioDocument>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly brevoService: BrevoService,
-  ) {}
+  ) {
+    this.googleClientId = (
+      this.configService.get<string>('GOOGLE_CLIENT_ID') || ''
+    ).trim();
+    this.googleClient = new OAuth2Client(this.googleClientId);
+  }
 
   async register(input: RegisterInput): Promise<RegisterResponse> {
     if (!input.aceptoPrivacidad) {
@@ -61,7 +70,7 @@ export class AuthService {
 
     const contrasenaHash = await bcrypt.hash(input.contrasena, 10);
     const verificationToken = this.generateEightDigitToken();
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const verificationExpires = new Date(Date.now() + 15 * 60 * 1000);
 
     const newUser = new this.usuarioModel({
       nombre: input.nombre.trim(),
@@ -95,11 +104,11 @@ export class AuthService {
     };
   }
 
-  async verifyEmail(token: string): Promise<ActionResponse> {
+  async verifyEmail(token: string): Promise<AuthPayload> {
     const normalizedToken = token?.trim();
     if (!normalizedToken) {
       throw new BadRequestException(
-        'El token de verificación es inválido, ya fue utilizado o ha expirado.',
+        'El código de verificación es inválido, ya fue utilizado o ha expirado.',
       );
     }
 
@@ -111,7 +120,7 @@ export class AuthService {
           deletedAt: { $exists: false },
         },
         {
-          $set: { emailVerified: true },
+          $set: { emailVerified: true, lastActiveAt: new Date() },
           $unset: { emailVerificationToken: 1, emailVerificationExpires: 1 },
         },
         { new: true },
@@ -120,15 +129,18 @@ export class AuthService {
 
     if (!user) {
       throw new BadRequestException(
-        'El token de verificación es inválido, ya fue utilizado o ha expirado.',
+        'El código de verificación es inválido, ya fue utilizado o ha expirado.',
       );
     }
 
     // Una vez comprobado que el correo existe, enviar correo de bienvenida con Brevo
     await this.brevoService.sendWelcomeEmail(user.correo, user.nombre);
 
+    const tokens = await this.generateTokens(user);
     return {
-      success: true,
+      ...tokens,
+      requiresVerification: false,
+      correo: user.correo,
       message:
         'Correo verificado exitosamente. Te hemos enviado tu correo de bienvenida.',
     };
@@ -153,7 +165,7 @@ export class AuthService {
 
     const token = this.generateEightDigitToken();
     user.emailVerificationToken = token;
-    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
 
     await this.brevoService.sendVerificationEmail(
@@ -216,6 +228,123 @@ export class AuthService {
     await user.save();
 
     return this.generateTokens(user);
+  }
+
+  async loginWithGoogle(idToken: string): Promise<AuthPayload> {
+    if (!this.googleClientId) {
+      throw new BadRequestException(
+        'GOOGLE_CLIENT_ID no está configurado en el servidor.',
+      );
+    }
+
+    let payload: any;
+    if (idToken.split('.').length === 3) {
+      try {
+        const ticket = await this.googleClient.verifyIdToken({
+          idToken,
+          audience: this.googleClientId,
+        });
+        payload = ticket.getPayload();
+      } catch {
+        throw new UnauthorizedException('Token de Google inválido o expirado.');
+      }
+    } else {
+      try {
+        const userInfoRes = await fetch(
+          'https://www.googleapis.com/oauth2/v3/userinfo',
+          {
+            headers: { Authorization: `Bearer ${idToken}` },
+            signal: AbortSignal.timeout(5000),
+          },
+        );
+        if (!userInfoRes.ok) {
+          throw new UnauthorizedException('Token de Google inválido.');
+        }
+        payload = await userInfoRes.json();
+      } catch {
+        throw new UnauthorizedException('Token de Google inválido o expirado.');
+      }
+    }
+
+    if (!payload?.email || !payload.email_verified) {
+      throw new UnauthorizedException(
+        'La cuenta de Google no tiene un correo verificado.',
+      );
+    }
+
+    const correo = payload.email.trim().toLowerCase();
+    let user = await this.usuarioModel.findOne({ correo }).exec();
+
+    if (user && (user.deletedAt || !user.isActive)) {
+      throw new ForbiddenException('Esta cuenta se encuentra deshabilitada.');
+    }
+
+    if (!user) {
+      const randomSecret = crypto.randomBytes(32).toString('hex');
+      const contrasenaHash = await bcrypt.hash(randomSecret, 10);
+      const otpCode = this.generateEightDigitToken();
+      user = new this.usuarioModel({
+        nombre: payload.given_name || payload.name || 'Estudiante',
+        apellidos: payload.family_name || 'Kolab',
+        correo,
+        contrasenaHash,
+        rol: RolUsuario.ESTUDIANTE,
+        fotoUrl: payload.picture || undefined,
+        aceptoPrivacidad: true,
+        emailVerified: false,
+        emailVerificationToken: otpCode,
+        emailVerificationExpires: new Date(Date.now() + 15 * 60 * 1000),
+        isActive: true,
+      });
+      await user.save();
+      await this.brevoService.sendVerificationEmail(
+        user.correo,
+        user.nombre,
+        otpCode,
+      );
+      return {
+        requiresVerification: true,
+        correo: user.correo,
+        message:
+          'Te enviamos un código de 8 dígitos a tu correo para verificar tu cuenta.',
+      };
+    }
+
+    if (!user.emailVerified) {
+      const otpCode = this.generateEightDigitToken();
+      user.emailVerificationToken = otpCode;
+      user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+      if (!user.fotoUrl && payload.picture) {
+        user.fotoUrl = payload.picture;
+      }
+      await user.save();
+      await this.brevoService.sendVerificationEmail(
+        user.correo,
+        user.nombre,
+        otpCode,
+      );
+      return {
+        requiresVerification: true,
+        correo: user.correo,
+        message:
+          'Tu cuenta aún no está verificada. Te enviamos un código de 8 dígitos a tu correo.',
+      };
+    }
+
+    user.failedLoginAttempts = 0;
+    user.lockUntil = undefined;
+    user.lastActiveAt = new Date();
+    if (!user.fotoUrl && payload.picture) {
+      user.fotoUrl = payload.picture;
+    }
+    await user.save();
+
+    const tokens = await this.generateTokens(user);
+    return {
+      ...tokens,
+      requiresVerification: false,
+      correo: user.correo,
+    };
   }
 
   async refreshTokens(refreshToken: string): Promise<AuthPayload> {

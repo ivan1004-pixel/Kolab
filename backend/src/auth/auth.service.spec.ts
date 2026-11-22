@@ -41,7 +41,10 @@ describe('AuthService', () => {
         { provide: getModelToken(Usuario.name), useValue: mockUsuarioModel },
         {
           provide: JwtService,
-          useValue: { signAsync: jest.fn(), verifyAsync: jest.fn() },
+          useValue: {
+            signAsync: jest.fn().mockResolvedValue('jwt-token'),
+            verifyAsync: jest.fn(),
+          },
         },
         {
           provide: ConfigService,
@@ -87,8 +90,11 @@ describe('AuthService', () => {
 
   it('debe enviar el correo de bienvenida solo después de verificar el token', async () => {
     const fakeUser = {
+      _id: '507f1f77bcf86cd799439011',
       correo: 'ana@gmail.com',
       nombre: 'Ana',
+      rol: 'ESTUDIANTE',
+      tokenVersion: 0,
       emailVerified: true,
     };
     mockUsuarioModel.findOneAndUpdate
@@ -100,11 +106,12 @@ describe('AuthService', () => {
       });
 
     const res = await service.verifyEmail('12345678');
-    expect(res.success).toBe(true);
+    expect(res.accessToken).toBe('jwt-token');
+    expect(res.requiresVerification).toBe(false);
     expect(mockUsuarioModel.findOneAndUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ emailVerificationToken: '12345678' }),
       expect.objectContaining({
-        $set: { emailVerified: true },
+        $set: expect.objectContaining({ emailVerified: true }),
         $unset: { emailVerificationToken: 1, emailVerificationExpires: 1 },
       }),
       { new: true },

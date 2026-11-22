@@ -1,464 +1,717 @@
-/* ---------- Stitch Branded Login Design (Desktop & Mobile) ---------- */
-.stitch-login-page {
-  min-height: 100dvh;
-  background: #f3fbff;
-  color: #001f28;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  overflow-x: hidden;
-  font-family: var(--font, 'Nunito Sans', system-ui, sans-serif);
+/* ==========================================================================
+   KOLAB LOGIN — Escritorio (Split Rocket Scene) & Móvil (Capsule Rocket Card)
+   ========================================================================== */
+
+@keyframes kolabFloatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(0.8deg); }
 }
 
-.stitch-topbar {
+@keyframes kolabPulseGlow {
+  0%, 100% { opacity: 0.4; filter: drop-shadow(0 0 14px rgba(163, 230, 53, 0.45)); }
+  50% { opacity: 0.78; filter: drop-shadow(0 0 28px rgba(163, 230, 53, 0.85)); }
+}
+
+@keyframes kolabSmokeDrift {
+  0%, 100% { transform: scale(1) translateY(0px); }
+  50% { transform: scale(1.025) translateY(-3px); }
+}
+
+@keyframes kolabStarTwinkle {
+  0%, 100% { opacity: 0.35; transform: scale(0.95); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@keyframes kolabFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.rocket-hover {
+  animation: kolabFloatSlow 5s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.thruster-glow {
+  animation: kolabPulseGlow 2.4s ease-in-out infinite;
+}
+
+.cloud-drift {
+  animation: kolabSmokeDrift 6s ease-in-out infinite alternate;
+  transform-origin: center bottom;
+}
+
+.star-twinkle {
+  animation: kolabStarTwinkle 3.2s ease-in-out infinite;
+}
+
+.fade-up-anim {
+  animation: kolabFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---------- Contenedor Principal ---------- */
+.klogin-root {
+  height: 100dvh;
   width: 100%;
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 0.75rem 1.5rem 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.78rem;
-  color: #3f493f;
-}
-
-.stitch-topbar__help {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.stitch-topbar__link {
-  color: #00642b;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.stitch-topbar__link:hover {
-  color: #157f3c;
-  text-decoration: underline;
-}
-
-.stitch-main {
-  width: 100%;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1rem;
-}
-
-.stitch-card {
-  width: 100%;
-  max-width: min(1060px, 100%);
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 5fr 7fr;
-  border-radius: 16px;
-  overflow: hidden;
   background: #ffffff;
-  box-shadow: 0 20px 50px -12px rgba(16, 53, 64, 0.16);
-}
-
-/* Panel Izquierdo (Verde Bosque / Tinta #103540) */
-.stitch-hero {
-  position: relative;
-  background: radial-gradient(circle at 85% 90%, rgba(21, 127, 60, 0.28), transparent 55%),
-    radial-gradient(circle at 10% 10%, rgba(21, 127, 60, 0.22), transparent 50%),
-    #103540;
-  color: #def4ff;
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  color: #123642;
+  font-family: var(--font, 'Nunito Variable', 'Nunito', sans-serif);
   overflow: hidden;
+  display: flex;
+  flex-direction: row;
 }
 
-.stitch-hero__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.4rem 0.85rem;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(8px);
-  width: fit-content;
-}
-
-.stitch-hero__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 9999px;
-  background: #b2f746;
-  box-shadow: 0 0 10px rgba(178, 247, 70, 0.7);
-}
-
-.stitch-hero__brand {
-  margin-top: 2.25rem;
-}
-
-.stitch-hero__title {
-  margin-top: 1.5rem;
-  font-size: clamp(1.85rem, 2.5vw, 2.3rem);
-  font-weight: 800;
-  line-height: 1.18;
-  letter-spacing: -0.015em;
-  color: #ffffff;
-}
-
-.stitch-hero__desc {
-  margin-top: 1rem;
-  font-size: 1rem;
-  line-height: 1.6;
-  color: #bbefc5;
-  opacity: 0.92;
-}
-
-.stitch-hero__foot {
-  font-size: 0.78rem;
-  color: rgba(222, 244, 255, 0.65);
-}
-
-/* Panel Derecho (Formulario) */
-.stitch-form-panel {
+/* ---------- Panel Izquierdo (Escritorio >= 1024px) ---------- */
+.klogin-left {
+  width: 40%;
+  min-width: 420px;
+  max-width: 560px;
+  height: 100%;
   background: #ffffff;
-  padding: 1.75rem 2.25rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-width: 0;
+  padding: 1.75rem 3.25rem;
+  z-index: 10;
+  overflow-y: auto;
 }
 
-.stitch-form-wrap {
-  width: 100%;
-  max-width: 440px;
-  margin: 0 auto;
+.klogin-brand-top {
+  display: flex;
+  align-items: center;
 }
 
-.stitch-mobile-brand {
+.klogin-mobile-hero {
   display: none;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  margin-bottom: 0.75rem;
 }
 
-.stitch-form-brand {
-  margin-bottom: 0.75rem;
+.klogin-main {
+  width: 100%;
+  max-width: 420px;
+  margin: auto;
+  padding: 0.75rem 0;
 }
 
-.stitch-heading {
-  font-size: clamp(1.5rem, 2.2vw, 1.85rem);
+.klogin-header {
+  margin-bottom: 1.35rem;
+}
+
+.klogin-title {
+  font-size: 1.9rem;
   font-weight: 800;
-  letter-spacing: -0.015em;
-  color: #001f28;
+  color: #123642;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
-.stitch-subheading {
-  margin-top: 0.25rem;
-  margin-bottom: 1rem;
-  font-size: 0.86rem;
-  color: #3f493f;
-}
-
-.stitch-google-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  padding: 0.8rem 1.25rem;
-  border-radius: 9999px;
-  border: none;
-  background: #e5f6ff;
-  color: #001f28;
-  font-weight: 700;
-  font-size: 0.95rem;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 31, 40, 0.06);
-  transition: background 0.15s ease, transform 0.15s ease;
-}
-
-.stitch-google-btn:hover {
-  background: #d6f2ff;
-}
-
-.stitch-divider {
-  position: relative;
-  margin: 0.9rem 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.stitch-divider::before {
-  content: '';
-  width: 100%;
-  height: 1px;
-  background: rgba(190, 202, 187, 0.45);
-}
-
-.stitch-divider span {
-  position: absolute;
-  padding: 0 0.85rem;
-  background: #ffffff;
-  font-size: 0.78rem;
-  color: #3f493f;
+.klogin-subtitle {
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
   font-weight: 600;
+  color: #6b7280;
 }
 
-.stitch-form {
+.klogin-switch-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.35rem;
+  color: #157f3c;
+  font-weight: 800;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.klogin-switch-btn:hover {
+  color: #116831;
+  text-decoration: underline;
+}
+
+/* Botón Google Escritorio */
+.klogin-google-top {
+  width: 100%;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #123642;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+}
+
+.klogin-google-top:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+}
+
+/* Divisor */
+.klogin-divider {
+  position: relative;
+  margin: 1.25rem 0;
+  display: flex;
+  align-items: center;
   gap: 0.75rem;
 }
 
-.stitch-name-grid {
+.klogin-divider::before,
+.klogin-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.klogin-divider span {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+/* Formulario */
+.klogin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.klogin-form .form-error {
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  background: #ffe4e6;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.klogin-form .form-ok {
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  color: #157f3c;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.klogin-name-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
 }
 
-.stitch-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.4rem;
-}
-
-.stitch-label {
+.klogin-field label {
   display: block;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  color: #001f28;
-  margin-bottom: 0.4rem;
+  color: #123642;
+  margin-bottom: 0.35rem;
 }
 
-.stitch-label-row .stitch-label {
-  margin-bottom: 0;
-}
-
-.stitch-link-sm {
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #00642b;
-  cursor: pointer;
-}
-
-.stitch-link-sm:hover {
-  color: #157f3c;
-  text-decoration: underline;
-}
-
-.stitch-input-wrap {
+.klogin-input-box {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.stitch-input-icon {
+.klogin-icon-left {
   position: absolute;
-  left: 1rem;
-  color: #3f493f;
+  left: 0.9rem;
+  color: #9ca3af;
   display: inline-flex;
   pointer-events: none;
 }
 
-.stitch-input {
+.klogin-icon-right {
+  position: absolute;
+  right: 0.9rem;
+  color: #9ca3af;
+  display: inline-flex;
+  pointer-events: none;
+}
+
+.klogin-input {
   width: 100%;
-  padding: 0.8rem 1rem 0.8rem 2.85rem;
-  border-radius: 9999px;
-  border: none;
-  background: #e5f6ff;
-  color: #001f28;
-  font-size: 0.92rem;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  padding: 0.75rem 1rem 0.75rem 2.65rem;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: rgba(249, 250, 251, 0.7);
+  color: #123642;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
 }
 
-.stitch-input--no-icon {
-  padding-left: 1.15rem;
+.klogin-input--plain {
+  padding-left: 0.95rem;
 }
 
-.stitch-input--pwd {
-  padding-right: 2.85rem;
+.klogin-input--pwd {
+  padding-right: 2.65rem;
 }
 
-.stitch-input::placeholder {
-  color: rgba(63, 73, 63, 0.6);
+.klogin-input::placeholder {
+  color: #9ca3af;
 }
 
-.stitch-input:focus {
+.klogin-input:focus {
   outline: none;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(21, 127, 60, 0.25);
+  border-color: #157f3c;
+  box-shadow: 0 0 0 3px rgba(21, 127, 60, 0.18);
 }
 
-.stitch-eye-btn {
+.klogin-eye-btn {
   position: absolute;
-  right: 0.85rem;
+  right: 0.75rem;
   background: none;
   border: none;
   padding: 0.25rem;
-  color: #3f493f;
+  color: #9ca3af;
   cursor: pointer;
   display: inline-flex;
-  border-radius: 9999px;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
 }
 
-.stitch-eye-btn:hover {
-  color: #001f28;
+.klogin-eye-btn:hover,
+.klogin-eye-btn.is-active {
+  color: #157f3c;
 }
 
-.stitch-check-row {
+.klogin-aux-row {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  font-size: 0.88rem;
-  color: #3f493f;
+  justify-content: space-between;
+  padding-top: 0.15rem;
+  font-size: 0.82rem;
+}
+
+.klogin-check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #4b5563;
+  font-weight: 600;
   cursor: pointer;
   user-select: none;
 }
 
-.stitch-check-row input[type='checkbox'] {
+.klogin-check-label input[type='checkbox'] {
   width: 16px;
   height: 16px;
+  border-radius: 4px;
   accent-color: #157f3c;
   cursor: pointer;
 }
 
-.stitch-submit-btn {
+.klogin-forgot-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #157f3c;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.klogin-forgot-btn:hover {
+  color: #116831;
+  text-decoration: underline;
+}
+
+.klogin-submit-btn {
   width: 100%;
+  margin-top: 0.25rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
   padding: 0.85rem 1.5rem;
-  border-radius: 9999px;
+  border-radius: 12px;
   border: none;
   background: #157f3c;
   color: #ffffff;
-  font-size: 0.96rem;
-  font-weight: 700;
+  font-size: 0.98rem;
+  font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(21, 127, 60, 0.3);
-  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 8px 20px -4px rgba(21, 127, 60, 0.35);
+  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
 }
 
-.stitch-submit-btn:hover:not(:disabled) {
-  background: #00642b;
-  box-shadow: 0 6px 20px rgba(21, 127, 60, 0.38);
+.klogin-submit-btn:hover:not(:disabled) {
+  background: #116831;
+  box-shadow: 0 10px 24px -4px rgba(21, 127, 60, 0.45);
 }
 
-.stitch-submit-btn:disabled {
+.klogin-submit-btn:hover:not(:disabled) svg {
+  transform: translateX(4px);
+}
+
+.klogin-submit-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.klogin-submit-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }
 
-.stitch-signup-prompt {
-  margin-top: 1.25rem;
-  text-align: center;
-  font-size: 0.9rem;
-  color: #3f493f;
+/* Grid OTP de 8 dígitos */
+.stitch-otp-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.4rem;
+  margin-top: 0.35rem;
 }
 
-.stitch-signup-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  margin-left: 0.35rem;
-  color: #00642b;
-  font-weight: 800;
-  font-size: 0.95rem;
-  cursor: pointer;
-}
-
-.stitch-signup-btn:hover {
+.stitch-otp-cell {
+  width: 100%;
+  height: 46px;
+  border-radius: 10px;
+  border: 1.5px solid #cfe3d0;
+  background: #f4faf3;
   color: #157f3c;
-  text-decoration: underline;
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-align: center;
+  transition: all 0.15s ease;
 }
 
-.stitch-trust-bar {
-  margin-top: 1.25rem;
-  padding: 0.65rem 1rem;
-  border-radius: 12px;
-  background: rgba(229, 246, 255, 0.55);
+.stitch-otp-cell:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: #157f3c;
+  box-shadow: 0 0 0 3px rgba(21, 127, 60, 0.2);
+}
+
+/* Social móvil oculto en escritorio */
+.klogin-mobile-social {
+  display: none;
+}
+
+/* Footer izquierdo (Escritorio) */
+.klogin-footer-desktop {
+  width: 100%;
+  padding-top: 0.85rem;
+  border-top: 1px solid #f3f4f6;
+  font-size: 0.74rem;
+  color: #9ca3af;
+}
+
+.klogin-footer-links {
+  margin-top: 0.3rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.78rem;
-  color: #3f493f;
+  gap: 0.75rem;
 }
 
-.stitch-trust-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 9999px;
-  background: #00642b;
-  display: inline-block;
+.klogin-footer-links a {
+  color: #9ca3af;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.klogin-footer-links a:hover {
+  color: #157f3c;
+}
+
+.klogin-footer-mobile {
+  display: none;
+}
+
+/* ---------- Panel Derecho Ilustrado (Escritorio >= 1024px) ---------- */
+.klogin-right {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #062212 0%, #0c3e21 55%, #072816 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.klogin-badge-float {
+  position: absolute;
+  top: 2.25rem;
+  right: 2.25rem;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.75rem 1.25rem;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  color: #ffffff;
+  max-width: 360px;
+  animation: kolabFloatSlow 6s ease-in-out infinite;
+}
+
+.klogin-badge-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #a3e635;
+  color: #0c3e21;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
   flex-shrink: 0;
 }
 
-.stitch-footer {
+.klogin-badge-kicker {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 800;
+  color: #a3e635;
+  margin: 0;
+}
+
+.klogin-badge-text {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #f3f4f6;
+  margin: 0.1rem 0 0;
+}
+
+.klogin-scene-wrap {
+  position: relative;
   width: 100%;
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 0.65rem 1.5rem 0.9rem;
+  height: 100%;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  font-size: 0.75rem;
-  color: #3f493f;
+  align-items: flex-end;
+  justify-content: center;
 }
 
-.stitch-footer__links {
-  display: flex;
-  gap: 1.25rem;
+.klogin-scene-svg {
+  width: 100%;
+  height: 100%;
+  max-height: 100dvh;
+  object-fit: cover;
 }
 
-.stitch-footer__links a {
-  color: #3f493f;
-  text-decoration: none;
+.klogin-scene-caption {
+  position: absolute;
+  bottom: 1.35rem;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+  z-index: 10;
+  padding: 0 1.5rem;
 }
 
-.stitch-footer__links a:hover {
-  color: #001f28;
+.klogin-scene-caption__kicker {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #a3e635;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.9;
 }
 
-@media (max-width: 960px) {
-  .stitch-card {
-    grid-template-columns: 1fr;
-    max-width: 480px;
-    min-height: auto;
-    background: transparent;
-    box-shadow: none;
+.klogin-scene-caption__sub {
+  font-size: 0.85rem;
+  color: #d1d5db;
+  font-weight: 500;
+  margin-top: 0.2rem;
+}
+
+/* ==========================================================================
+   DISEÑO MÓVIL Y TABLET (< 1024px) — Estilo Cápsula con Cohete Kolab
+   ========================================================================== */
+@media (max-width: 1023px) {
+  .klogin-root {
+    background: #e2e8f0;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
   }
 
-  .stitch-hero {
-    display: none;
+  .klogin-right,
+  .klogin-google-top,
+  .klogin-divider--desktop,
+  .klogin-footer-desktop,
+  .klogin-field label:not(.stitch-label) {
+    display: none !important;
   }
 
-  .stitch-form-brand {
-    display: none;
+  .klogin-left {
+    width: 100%;
+    max-width: 420px;
+    min-width: 0;
+    height: 100dvh;
+    background: #ffffff;
+    padding: 1.25rem 1.5rem;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 20px 40px -15px rgba(18, 54, 66, 0.15);
   }
 
-  .stitch-mobile-brand {
+  .klogin-brand-top {
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 0.25rem;
+  }
+
+  .klogin-mobile-hero {
     display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 160px;
+    margin: 0 auto 0.25rem auto;
   }
 
-  .stitch-form-panel {
-    border-radius: 20px;
-    padding: 1.35rem 1.15rem;
-    box-shadow: 0 12px 32px rgba(16, 53, 64, 0.08);
+  .klogin-mobile-hero svg {
+    width: 250px;
+    height: 160px;
+    display: block;
+    margin: 0 auto;
   }
 
-  .stitch-name-grid {
-    grid-template-columns: 1fr;
+  .klogin-main {
+    margin: 0 auto;
+    padding: 0;
+    width: 100%;
+  }
+
+  .klogin-header {
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+
+  .klogin-title {
+    font-size: 1.55rem;
+    font-weight: 900;
+  }
+
+  .klogin-subtitle--desktop {
+    display: none;
+  }
+
+  .klogin-subtitle--mobile {
+    display: block !important;
+    font-size: 0.78rem;
+    color: #6b7280;
+    margin-top: 0.2rem;
+  }
+
+  /* Inputs estilo cápsula con icono a la derecha en móvil */
+  .klogin-icon-left {
+    left: auto;
+    right: 1.1rem;
+  }
+
+  .klogin-icon-lock {
+    display: none !important;
+  }
+
+  .klogin-input {
+    border-radius: 9999px;
+    background: rgba(243, 244, 246, 0.9);
+    border-color: transparent;
+    padding: 0.85rem 2.75rem 0.85rem 1.25rem;
+  }
+
+  .klogin-eye-btn {
+    right: 1rem;
+  }
+
+  .klogin-submit-btn {
+    border-radius: 9999px;
+    padding: 0.85rem 1.5rem;
+  }
+
+  .klogin-mobile-social {
+    display: block;
+    margin-top: 0.85rem;
+  }
+
+  .klogin-mobile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .klogin-pill-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .klogin-pill-btn--google {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    color: #123642;
+  }
+
+  .klogin-pill-btn--google:hover {
+    background: #f3f4f6;
+  }
+
+  .klogin-pill-btn--campus {
+    background: #ebf7ee;
+    border: 1px solid rgba(21, 127, 60, 0.2);
+    color: #0c3e21;
+  }
+
+  .klogin-pill-btn--campus:hover {
+    background: #d1fae5;
+  }
+
+  .klogin-footer-mobile {
+    display: block;
+    padding-top: 0.65rem;
+    text-align: center;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #6b7280;
+  }
+
+  .klogin-trust-mobile {
+    margin-top: 0.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: #9ca3af;
+  }
+
+  .klogin-trust-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: #a3e635;
+    display: inline-block;
   }
 }

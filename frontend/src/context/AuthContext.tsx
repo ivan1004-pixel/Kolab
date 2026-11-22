@@ -38,9 +38,10 @@ interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<{ requiresVerification: boolean; correo?: string; message?: string }>;
   logout: () => Promise<void>;
   register: (payload: RegisterPayload) => Promise<{ message: string; correo: string; requiereVerificacion: boolean }>;
-  verifyEmail: (token: string) => Promise<{ success: boolean; message: string }>;
+  verifyEmail: (token: string) => Promise<{ success: boolean; message: string; autoLoggedIn?: boolean }>;
   updateProfile: (changes: Record<string, any>) => Promise<void>;
 }
 
@@ -142,6 +143,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [persist]);
 
+  const loginWithGoogle = useCallback(async (idToken: string) => {
+    const data = await gqlRequest(
+      `mutation LoginWithGoogle($idToken: String!) {
+        loginWithGoogle(idToken: $idToken) {
+          accessToken
+          refreshToken
+          requiresVerification
+          correo
+          message
+          usuario {
+            ${USER_FIELDS}
+          }
+        }
+      }`,
+      { idToken },
+    );
+
+    const res = data.loginWithGoogle;
+    if (res.requiresVerification || !res.accessToken) {
+      return {
+        requiresVerification: true,
+        correo: res.correo,
+        message: res.message || 'Te enviamos un código de 8 dígitos a tu correo.',
+      };
+    }
+
+    persist({
+      token: res.accessToken,
+      refreshToken: res.refreshToken,
+      user: normalizeUser(res.usuario),
+    });
+    return { requiresVerification: false, correo: res.correo };
+  }, [persist]);
+
   const register = useCallback(async ({ nombre, apellidos, correo, contrasena, idCarrera, aceptoPrivacidad = true }: RegisterPayload) => {
     assertNoScriptInjection({ nombre, apellidos, correo }, 'registro');
 
@@ -177,19 +212,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyEmail = useCallback(async (token: string) => {
     if (USE_MOCK) {
-      return { success: true, message: 'Correo verificado (modo demo).' };
+      return { success: true, message: 'Correo verificado (modo demo).', autoLoggedIn: false };
     }
     const data = await gqlRequest(
       `mutation VerifyEmail($token: String!) {
         verifyEmail(token: $token) {
-          success
+          accessToken
+          refreshToken
           message
+          correo
+          requiresVerification
+          usuario {
+            ${USER_FIELDS}
+          }
         }
       }`,
       { token: token.trim() },
     );
-    return data.verifyEmail;
-  }, []);
+    const res = data.verifyEmail;
+    if (res.accessToken && res.usuario) {
+      persist({
+        token: res.accessToken,
+        refreshToken: res.refreshToken,
+        user: normalizeUser(res.usuario),
+      });
+      return {
+        success: true,
+        message: res.message || 'Correo verificado. ¡Bienvenido a Kolab!',
+        autoLoggedIn: true,
+      };
+    }
+    return { success: true, message: res.message || 'Correo verificado.', autoLoggedIn: false };
+  }, [persist]);
 
   const updateProfile = useCallback(async (changes: Record<string, any>) => {
     assertNoScriptInjection(changes, 'perfil');
@@ -248,12 +302,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       token: session?.token ?? null,
       login,
+      loginWithGoogle,
       logout,
       register,
       verifyEmail,
       updateProfile,
     }),
-    [session, login, logout, register, verifyEmail, updateProfile],
+    [session, login, loginWithGoogle, logout, register, verifyEmail, updateProfile],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

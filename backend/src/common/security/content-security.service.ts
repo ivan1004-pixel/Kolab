@@ -7,6 +7,7 @@ const SKIP_PROFANITY_FIELDS = new Set([
   'accessToken',
   'refreshToken',
   'token',
+  'idToken',
   'archivoUrl',
   'fotoUrl',
   'iconoUrl',
@@ -19,6 +20,7 @@ const SKIP_SCRIPT_FIELDS = new Set([
   'accessToken',
   'refreshToken',
   'token',
+  'idToken',
 ]);
 
 const SPANISH_PROFANITY_LIST = [

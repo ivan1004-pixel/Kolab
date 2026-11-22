@@ -3,14 +3,23 @@ import { Usuario } from '../../users/schemas/usuario.schema';
 
 @ObjectType()
 export class AuthPayload {
-  @Field()
-  accessToken: string;
+  @Field({ nullable: true })
+  accessToken?: string;
 
-  @Field()
-  refreshToken: string;
+  @Field({ nullable: true })
+  refreshToken?: string;
 
-  @Field(() => Usuario)
-  usuario: Usuario;
+  @Field(() => Usuario, { nullable: true })
+  usuario?: Usuario;
+
+  @Field({ nullable: true })
+  requiresVerification?: boolean;
+
+  @Field({ nullable: true })
+  correo?: string;
+
+  @Field({ nullable: true })
+  message?: string;
 }
 
 @ObjectType()
