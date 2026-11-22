@@ -1,8 +1,9 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
-import Skeleton from '../components/Skeleton';
+import { downloadCsv, escapeHtml, exportHtmlToPdf } from '../utils/exportUtils';
+import Skeleton, { RowListSkeleton } from '../components/Skeleton';
 
 interface TemaItem {
   _id: string;
@@ -20,6 +21,7 @@ interface ChatMsg {
   text: string;
   sourceLabel?: string;
   isTeacherReviewed?: boolean;
+  rated?: boolean | null;
 }
 
 interface Reactivo {
@@ -38,20 +40,38 @@ interface CuestionarioItem {
   reactivos: Reactivo[];
 }
 
+interface IntentoItem {
+  _id: string;
+  idTema: string;
+  aciertos: number;
+  totalReactivos: number;
+  calificacion: number;
+  retroalimentacion: string;
+  conceptosPorReforzar: string[];
+  createdAt: string;
+}
+
 export default function Asistente() {
   const { token } = useAuth();
   const [temas, setTemas] = useState<TemaItem[]>([]);
+  const [historial, setHistorial] = useState<IntentoItem[]>([]);
   const [loadingTemas, setLoadingTemas] = useState(!USE_MOCK && Boolean(token));
   const [selectedTemaId, setSelectedTemaId] = useState('');
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [questionInput, setQuestionInput] = useState('');
   const [asking, setAsking] = useState(false);
   const [securityError, setSecurityError] = useState('');
+  const [statusOk, setStatusOk] = useState('');
 
+  const [quizCount, setQuizCount] = useState(5);
   const [activeQuiz, setActiveQuiz] = useState<CuestionarioItem | null>(null);
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [evaluationFeedback, setEvaluationFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+  const [evaluationFeedback, setEvaluationFeedback] = useState<{
+    ok: boolean;
+    message: string;
+    conceptos?: string[];
+  } | null>(null);
 
   const loadTemas = useCallback(async () => {
     if (USE_MOCK || !token) {
@@ -60,13 +80,22 @@ export default function Asistente() {
     }
     setLoadingTemas(true);
     try {
-      const data = await gqlRequest<{ temas: TemaItem[] }>(
-        `query AsistenteTemas { temas { _id titulo } }`,
+      const data = await gqlRequest<{
+        temas: TemaItem[];
+        miHistorialCuestionarios: IntentoItem[];
+      }>(
+        `query AsistenteInit {
+          temas { _id titulo }
+          miHistorialCuestionarios {
+            _id idTema aciertos totalReactivos calificacion retroalimentacion conceptosPorReforzar createdAt
+          }
+        }`,
         {},
         token,
       );
       const list = data.temas ?? [];
       setTemas(list);
+      setHistorial(data.miHistorialCuestionarios ?? []);
       if (list.length > 0 && !selectedTemaId) {
         setSelectedTemaId(list[0]._id);
       }
@@ -80,6 +109,8 @@ export default function Asistente() {
   useEffect(() => {
     loadTemas();
   }, [loadTemas]);
+
+  const temaMap = useMemo(() => new Map(temas.map((t) => [t._id, t.titulo])), [temas]);
 
   async function handleSendQuestion(e: FormEvent) {
     e.preventDefault();
@@ -109,10 +140,7 @@ export default function Asistente() {
       }>(
         `mutation ConsultarIa($idTema: ID!, $prompt: String!) {
           consultarIa(idTema: $idTema, promptPregunta: $prompt) {
-            _id
-            respuestaIa
-            esValida
-            fuentesCitadas { tituloRecurso fragmento }
+            _id respuestaIa esValida fuentesCitadas { tituloRecurso fragmento }
           }
         }`,
         { idTema: selectedTemaId, prompt: trimmed },
@@ -123,14 +151,50 @@ export default function Asistente() {
         id: res.consultarIa._id,
         sender: 'ai',
         text: res.consultarIa.respuestaIa,
-        sourceLabel: fuentes.length > 0 ? `Fuente: ${fuentes[0].tituloRecurso}` : 'Sin fuentes citadas',
+        sourceLabel: fuentes.length > 0 ? `Fuente: ${fuentes[0].tituloRecurso} — "${fuentes[0].fragmento.slice(0, 80)}…"` : 'Sin fuentes citadas',
         isTeacherReviewed: res.consultarIa.esValida && fuentes.length > 0,
+        rated: null,
       };
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err: any) {
       setSecurityError(err.message || 'No se pudo consultar al asistente de IA.');
     } finally {
       setAsking(false);
+    }
+  }
+
+  // RF-73: Calificar respuesta de IA (útil / no útil)
+  async function handleRateAi(consultaId: string, util: boolean) {
+    if (!token) return;
+    try {
+      await gqlRequest(
+        `mutation CalificarIA($id: ID!, $util: Boolean!) { calificarRespuestaIa(consultaId: $id, util: $util) { _id } }`,
+        { id: consultaId, util },
+        token,
+      );
+      setMessages((prev) => prev.map((m) => (m.id === consultaId ? { ...m, rated: util } : m)));
+      setStatusOk(util ? 'Gracias por valorar la respuesta de IA.' : 'Respuesta marcada para revisión y corrección docente (RF-74).');
+    } catch (err: any) {
+      setSecurityError(err.message || 'No se pudo calificar la respuesta.');
+    }
+  }
+
+  async function handleReportAi(consultaId: string) {
+    if (!token) return;
+    const motivo = window.prompt('Describe el error encontrado en la respuesta de IA:');
+    if (!motivo?.trim()) return;
+    try {
+      assertNoScriptInjection(motivo, 'reporte IA');
+      await gqlRequest(
+        `mutation ReportarIA($id: ID!, $motivo: String!) {
+          reportarContenido(tipoObjetivo: "ConsultaIa", idObjetivo: $id, motivo: $motivo) { _id }
+        }`,
+        { id: consultaId, motivo: motivo.trim() },
+        token,
+      );
+      await handleRateAi(consultaId, false);
+    } catch (err: any) {
+      setSecurityError(err.message || 'No se pudo reportar la respuesta.');
     }
   }
 
@@ -145,15 +209,13 @@ export default function Asistente() {
     try {
       const temaNombre = temas.find((t) => t._id === selectedTemaId)?.titulo || 'Práctica';
       const res = await gqlRequest<{ generarCuestionarioIa: CuestionarioItem }>(
-        `mutation GenerarCuestionario($idTema: ID!, $titulo: String) {
-          generarCuestionarioIa(cantidadReactivos: 3, idTema: $idTema, titulo: $titulo) {
-            _id
-            titulo
-            idTema
+        `mutation GenerarCuestionario($idTema: ID!, $cantidad: Int!, $titulo: String) {
+          generarCuestionarioIa(cantidadReactivos: $cantidad, idTema: $idTema, titulo: $titulo) {
+            _id titulo idTema
             reactivos { numero pregunta tipo opciones respuestaCorrecta explicacion }
           }
         }`,
-        { idTema: selectedTemaId, titulo: `Autoevaluación: ${temaNombre}` },
+        { idTema: selectedTemaId, cantidad: quizCount, titulo: `Autoevaluación: ${temaNombre}` },
         token,
       );
       setActiveQuiz(res.generarCuestionarioIa);
@@ -171,17 +233,10 @@ export default function Asistente() {
     try {
       assertNoScriptInjection(ordered, 'respuestas');
       setSecurityError('');
-      const res = await gqlRequest<{
-        responderCuestionario: {
-          aciertos: number;
-          calificacion: number;
-          totalReactivos: number;
-          retroalimentacion: string;
-        };
-      }>(
+      const res = await gqlRequest<{ responderCuestionario: IntentoItem }>(
         `mutation ResponderCuestionario($id: ID!, $respuestas: [String!]!) {
           responderCuestionario(cuestionarioId: $id, respuestas: $respuestas) {
-            aciertos calificacion totalReactivos retroalimentacion
+            _id idTema aciertos calificacion totalReactivos retroalimentacion conceptosPorReforzar createdAt
           }
         }`,
         { id: activeQuiz._id, respuestas: ordered },
@@ -191,35 +246,83 @@ export default function Asistente() {
       setEvaluationFeedback({
         ok: r.calificacion >= 60,
         message: `Calificación: ${Math.round(r.calificacion)}% (${r.aciertos}/${r.totalReactivos} aciertos). ${r.retroalimentacion}`,
+        conceptos: r.conceptosPorReforzar,
       });
+      setHistorial((prev) => [r, ...prev]);
     } catch (err: any) {
       setSecurityError(err.message || 'No se pudo calificar el cuestionario.');
     }
   }
 
-  return (
-    <div className="module5-wrap">
-      <section className="module-banner" aria-label="Encabezado del Módulo 5">
-        <div className="banner-deco-circle banner-deco-1" aria-hidden="true" />
-        <div className="banner-deco-circle banner-deco-2" aria-hidden="true" />
+  // RF-81: Descargar historial de autoevaluaciones
+  function handleExportHistoryCsv() {
+    downloadCsv(
+      `kolab-historial-autoevaluaciones-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Fecha', 'Tema', 'Aciertos', 'Total', 'Calificación (%)', 'Conceptos por reforzar'],
+      historial.map((h) => [
+        new Date(h.createdAt).toLocaleDateString('es-MX'),
+        temaMap.get(h.idTema) || h.idTema,
+        h.aciertos,
+        h.totalReactivos,
+        Math.round(h.calificacion),
+        (h.conceptosPorReforzar || []).join(' | ') || 'Ninguno',
+      ]),
+    );
+  }
 
+  function handleExportHistoryPdf() {
+    const rows = historial
+      .map(
+        (h) => `<tr>
+          <td>${new Date(h.createdAt).toLocaleDateString('es-MX')}</td>
+          <td>${escapeHtml(temaMap.get(h.idTema) || h.idTema)}</td>
+          <td>${h.aciertos}/${h.totalReactivos}</td>
+          <td><strong>${Math.round(h.calificacion)}%</strong></td>
+          <td>${escapeHtml((h.conceptosPorReforzar || []).join(', ') || '—')}</td>
+        </tr>`,
+      )
+      .join('');
+    exportHtmlToPdf(
+      'Historial de Autoevaluaciones',
+      `<table><thead><tr><th>Fecha</th><th>Tema</th><th>Aciertos</th><th>Calificación</th><th>Conceptos a reforzar</th></tr></thead><tbody>${rows}</tbody></table>`,
+    );
+  }
+
+  return (
+    <div className="kolab-module module5-page">
+      <section className="module-banner banner-indigo" aria-label="Módulo 5">
         <div className="banner-content">
-          <span className="banner-pill">Módulo 5</span>
+          <span className="banner-eyebrow">MÓDULO 5 · LÍMITE 10 CONSULTAS/DÍA</span>
           <h1 className="banner-title">Asistente con IA (RAG) y autoevaluación</h1>
-          <p className="banner-subtitle">Respuestas basadas en los materiales de tu escuela</p>
+          <p className="banner-subtitle">Respuestas basadas únicamente en los materiales autorizados de tu escuela</p>
         </div>
 
-        <button
-          type="button"
-          className="btn-banner-action"
-          onClick={handleGenerateQuiz}
-          disabled={generatingQuiz || !selectedTemaId}
-        >
-          {generatingQuiz ? 'Generando…' : 'Nuevo cuestionario'}
-        </button>
+        <div className="row">
+          <select
+            className="duel-select"
+            value={quizCount}
+            onChange={(e) => setQuizCount(Number(e.target.value))}
+            aria-label="Número de reactivos"
+            style={{ width: 'auto' }}
+          >
+            <option value={3}>3 reactivos</option>
+            <option value={5}>5 reactivos</option>
+            <option value={10}>10 reactivos</option>
+            <option value={15}>15 reactivos</option>
+          </select>
+          <button
+            type="button"
+            className="btn-banner-action"
+            onClick={handleGenerateQuiz}
+            disabled={generatingQuiz || !selectedTemaId}
+          >
+            {generatingQuiz ? 'Generando…' : 'Nuevo cuestionario'}
+          </button>
+        </div>
       </section>
 
       {securityError && <p className="form-error" role="alert">{securityError}</p>}
+      {statusOk && <p className="form-ok" role="status">{statusOk}</p>}
 
       <div className="module5-grid">
         <section className="kolab-card assistant-card" aria-label="Asistente académico">
@@ -268,7 +371,38 @@ export default function Asistente() {
                           </span>
                         )}
                       </div>
-                      <p className="ai-disclaimer">Respuesta generada por IA: no es una validación oficial</p>
+                      <div className="row" style={{ marginTop: 4 }}>
+                        <button
+                          type="button"
+                          className={`btn btn--sm ${msg.rated === true ? 'btn--primary' : 'btn--ghost'}`}
+                          onClick={() => handleRateAi(msg.id, true)}
+                        >
+                          👍 Útil
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn btn--sm ${msg.rated === false ? 'btn--danger' : 'btn--ghost'}`}
+                          onClick={() => handleRateAi(msg.id, false)}
+                        >
+                          👎 No útil
+                        </button>
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleReportAi(msg.id)}>
+                          🚩 Reportar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--sm"
+                          onClick={() =>
+                            exportHtmlToPdf(
+                              `Resumen IA · ${temaMap.get(selectedTemaId) || 'Tema'}`,
+                              `<div class="card"><p>${escapeHtml(msg.text).replace(/\n/g, '<br/>')}</p><p><em>${escapeHtml(msg.sourceLabel || '')}</em></p></div>`,
+                            )
+                          }
+                        >
+                          PDF
+                        </button>
+                      </div>
+                      <p className="ai-disclaimer">Contenido generado por IA (RF-76): no sustituye validación docente oficial</p>
                     </div>
                   </div>
                 ),
@@ -296,7 +430,7 @@ export default function Asistente() {
                 onClick={handleGenerateQuiz}
                 disabled={!selectedTemaId || generatingQuiz}
               >
-                Generar cuestionario del tema
+                Generar cuestionario ({quizCount})
               </button>
             </div>
           </form>
@@ -304,13 +438,13 @@ export default function Asistente() {
 
         <section className="kolab-card quiz-card" aria-label="Autoevaluación">
           <header className="card-header-row quiz-header-row">
-            <h2 className="card-title">Autoevaluación</h2>
+            <h2 className="card-title">Autoevaluación (hasta 15 reactivos)</h2>
             {activeQuiz && <span className="quiz-topic-chip">{activeQuiz.titulo}</span>}
           </header>
 
           {!activeQuiz ? (
             <p className="empty">
-              Aún no hay un cuestionario activo. Selecciona un tema y pulsa «Nuevo cuestionario» para practicar.
+              Aún no hay un cuestionario activo. Selecciona un tema, elige de 3 a 15 reactivos y pulsa «Nuevo cuestionario».
             </p>
           ) : (
             <>
@@ -349,19 +483,73 @@ export default function Asistente() {
 
               {evaluationFeedback && (
                 <div className={`quiz-feedback ${evaluationFeedback.ok ? 'is-good' : 'is-warn'}`}>
-                  {evaluationFeedback.message}
+                  <p>{evaluationFeedback.message}</p>
+                  {evaluationFeedback.conceptos && evaluationFeedback.conceptos.length > 0 && (
+                    <div className="td-tags" style={{ marginTop: 6 }}>
+                      {evaluationFeedback.conceptos.map((c, idx) => (
+                        <span key={idx} className="td-tag">Reforzar: {c}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
-              <div className="quiz-footer">
-                <button type="button" className="btn-indigo" onClick={handleGradeQuiz}>
-                  Calificar
-                </button>
-              </div>
+              <button type="button" className="btn-green btn-full" onClick={handleGradeQuiz}>
+                Calificar cuestionario
+              </button>
             </>
           )}
         </section>
       </div>
+
+      {/* Historial de resultados de autoevaluación y descarga (RF-26 / RF-81) */}
+      <section className="kolab-card" aria-label="Historial de autoevaluaciones">
+        <header className="card-header-row">
+          <h2 className="card-title">Mi historial de autoevaluaciones (RF-26 / RF-81)</h2>
+          <div className="row">
+            <button type="button" className="btn btn--ghost btn--sm" onClick={handleExportHistoryCsv} disabled={historial.length === 0}>
+              Descargar CSV
+            </button>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={handleExportHistoryPdf} disabled={historial.length === 0}>
+              Exportar PDF
+            </button>
+          </div>
+        </header>
+        {loadingTemas ? (
+          <RowListSkeleton count={3} />
+        ) : historial.length === 0 ? (
+          <p className="empty">Aún no has completado cuestionarios de autoevaluación.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tema</th>
+                  <th>Aciertos</th>
+                  <th>Calificación</th>
+                  <th>Conceptos a reforzar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historial.map((h) => (
+                  <tr key={h._id}>
+                    <td>{new Date(h.createdAt).toLocaleDateString('es-MX')}</td>
+                    <td>{temaMap.get(h.idTema) || 'Tema'}</td>
+                    <td>{h.aciertos}/{h.totalReactivos}</td>
+                    <td>
+                      <span className={`chip ${h.calificacion >= 70 ? 'chip--soft' : 'chip--xp'}`}>
+                        {Math.round(h.calificacion)}%
+                      </span>
+                    </td>
+                    <td>{h.conceptosPorReforzar?.join(', ') || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

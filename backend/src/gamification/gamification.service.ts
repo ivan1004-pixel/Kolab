@@ -145,9 +145,21 @@ export class GamificationService {
   }
 
   async getMisInsignias(userId: string): Promise<UsuarioInsigniaDocument[]> {
-    return this.usuarioInsigniaModel
+    const lista = await this.usuarioInsigniaModel
       .find({ idUsuario: new Types.ObjectId(userId) })
       .exec();
+    if (lista.length === 0) return lista;
+    const ids = lista.map((i) => i.idInsignia);
+    const catalog = await this.insigniaModel.find({ _id: { $in: ids } }).exec();
+    const map = new Map(catalog.map((c) => [c._id.toString(), c]));
+    for (const item of lista) {
+      const def = map.get(item.idInsignia.toString());
+      if (def) {
+        item.nombreInsignia = def.nombre;
+        item.descripcionInsignia = def.descripcion;
+      }
+    }
+    return lista;
   }
 
   /**

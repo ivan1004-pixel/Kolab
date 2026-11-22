@@ -2,10 +2,12 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import { Model, Types } from 'mongoose';
+import { ModerationService } from '../moderation/moderation.service';
 import {
   AdminCreateUsuarioInput,
   AdminUpdateUsuarioInput,
@@ -19,6 +21,7 @@ export class UsersService {
   constructor(
     @InjectModel(Usuario.name)
     private readonly usuarioModel: Model<UsuarioDocument>,
+    @Optional() private readonly moderationService?: ModerationService,
   ) {}
 
   async findById(id: string): Promise<UsuarioDocument> {
@@ -126,12 +129,54 @@ export class UsersService {
   async adminUpdateUsuario(
     id: string,
     input: AdminUpdateUsuarioInput,
+    adminId?: string,
   ): Promise<UsuarioDocument> {
+    const prev = await this.usuarioModel.findById(id).exec();
+    if (!prev) throw new NotFoundException('Usuario no encontrado');
+
     const updated = await this.usuarioModel
       .findByIdAndUpdate(id, { $set: input }, { new: true })
       .exec();
     if (!updated) throw new NotFoundException('Usuario no encontrado');
+
+    if (input.rol && input.rol !== prev.rol) {
+      await this.moderationService
+        ?.registrarAuditoria(
+          'CAMBIO_ROL',
+          adminId,
+          'Usuario',
+          `Rol de ${updated.correo} cambiado de ${prev.rol} a ${input.rol}`,
+        )
+        .catch(() => {});
+    } else if (input.isActive === false) {
+      await this.moderationService
+        ?.registrarAuditoria(
+          'BAJA_USUARIO',
+          adminId,
+          'Usuario',
+          `Usuario ${updated.correo} desactivado`,
+        )
+        .catch(() => {});
+    }
+
     return updated;
+  }
+
+  async adminDeleteUsuario(id: string, adminId?: string): Promise<boolean> {
+    const user = await this.findById(id);
+    user.isActive = false;
+    user.deletedAt = new Date();
+    user.tokenVersion += 1;
+    await user.save();
+    await this.moderationService
+      ?.registrarAuditoria(
+        'BAJA_USUARIO',
+        adminId,
+        'Usuario',
+        `Usuario ${user.correo} dado de baja por administrador`,
+      )
+      .catch(() => {});
+    return true;
   }
 
   async addXp(userId: string, amount: number): Promise<void> {

@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import {
+  IntentoCuestionario,
+  IntentoCuestionarioSchema,
+} from '../ai/schemas/ai.schema';
 import { QaResolver } from './qa.resolver';
 import { QaService } from './qa.service';
 import {
@@ -17,6 +21,7 @@ import {
       { name: Pregunta.name, schema: PreguntaSchema },
       { name: Respuesta.name, schema: RespuestaSchema },
       { name: Etiqueta.name, schema: EtiquetaSchema },
+      { name: IntentoCuestionario.name, schema: IntentoCuestionarioSchema },
     ]),
   ],
   providers: [QaService, QaResolver],

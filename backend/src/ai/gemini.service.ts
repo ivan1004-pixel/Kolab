@@ -7,9 +7,18 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
+import * as fs from 'fs';
 import { Model, Types } from 'mongoose';
+import * as path from 'path';
+import {
+  CalendarioEvento,
+  CalendarioEventoDocument,
+  Tema,
+  TemaDocument,
+} from '../academic/schemas/academic.schema';
 import { EstadoValidacionRecurso } from '../common/enums/kolab.enums';
 import { GamificationService } from '../gamification/gamification.service';
+import { Pregunta, PreguntaDocument } from '../qa/schemas/qa.schema';
 import {
   Recurso,
   RecursoDocument,
@@ -24,6 +33,8 @@ import {
   FuenteCitada,
   IntentoCuestionario,
   IntentoCuestionarioDocument,
+  PlanRepasoItem,
+  PreguntaDelDia,
   ReactivoCuestionario,
 } from './schemas/ai.schema';
 
@@ -33,9 +44,8 @@ export class GeminiService {
   private readonly apiKey: string;
   private readonly fallbackModels = [
     'gemini-3.1-flash-lite',
-    'gemini-3.5-flash-lite',
-    'gemini-3.5-flash',
-    'gemini-3.6-flash',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
   ];
 
   constructor(
@@ -50,9 +60,61 @@ export class GeminiService {
     private readonly aiConfigModel: Model<AiConfigDocument>,
     @InjectModel(Recurso.name)
     private readonly recursoModel: Model<RecursoDocument>,
+    @InjectModel(Tema.name)
+    private readonly temaModel: Model<TemaDocument>,
+    @InjectModel(CalendarioEvento.name)
+    private readonly calendarioModel: Model<CalendarioEventoDocument>,
+    @InjectModel(Pregunta.name)
+    private readonly preguntaModel: Model<PreguntaDocument>,
     private readonly gamificationService: GamificationService,
   ) {
     this.apiKey = (this.configService.get<string>('GEMINI_API_KEY') || '').trim();
+  }
+
+  private buildMultimodalParts(
+    prompt: string,
+    materiales: RecursoDocument[],
+  ): Array<Record<string, unknown>> {
+    const parts: Array<Record<string, unknown>> = [];
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const maxInlineBytes = 5 * 1024 * 1024;
+    let attached = 0;
+
+    for (const m of materiales) {
+      if (attached >= 3) break;
+      const match = m.archivoUrl?.match(/\/uploads\/([^/?#]+)$/);
+      if (!match) continue;
+      const fileName = decodeURIComponent(match[1]);
+      const safeName = path.basename(fileName);
+      const fullPath = path.join(uploadsDir, safeName);
+      if (!fs.existsSync(fullPath)) continue;
+
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.size <= 0 || stat.size > maxInlineBytes) continue;
+        const ext = path.extname(safeName).toLowerCase();
+        const mimeType =
+          ext === '.pdf'
+            ? 'application/pdf'
+            : ext === '.png'
+              ? 'image/png'
+              : ext === '.webp'
+                ? 'image/webp'
+                : ext === '.jpg' || ext === '.jpeg'
+                  ? 'image/jpeg'
+                  : '';
+        if (!mimeType) continue;
+
+        const data = fs.readFileSync(fullPath).toString('base64');
+        parts.push({ inlineData: { mimeType, data } });
+        attached += 1;
+      } catch {
+        // Si no se puede leer el archivo físico, se usa su texto y metadatos
+      }
+    }
+
+    parts.push({ text: prompt });
+    return parts;
   }
 
   private async callGeminiRest(
@@ -60,10 +122,12 @@ export class GeminiService {
     prompt: string,
     temperature: number,
     jsonMode = false,
+    materiales: RecursoDocument[] = [],
   ): Promise<string> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${this.apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+    const parts = this.buildMultimodalParts(prompt, materiales);
     const body: Record<string, unknown> = {
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      contents: [{ role: 'user', parts }],
       generationConfig: {
         temperature,
         ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
@@ -73,7 +137,7 @@ export class GeminiService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(14000),
     });
 
     if (!res.ok) {
@@ -104,6 +168,9 @@ export class GeminiService {
           this.configService.get<number>('AI_DAILY_LIMIT_PER_USER') || 10,
         ),
       }).save();
+    } else if (cfg.modelo === 'gemini-3.8-flash' || cfg.modelo === 'gemini-3.5-flash') {
+      cfg.modelo = 'gemini-3.1-flash-lite';
+      await cfg.save();
     }
     return cfg;
   }
@@ -135,7 +202,7 @@ export class GeminiService {
     ]);
     if (consultasCount + cuestionariosCount >= limit) {
       throw new BadRequestException(
-        `Has alcanzado tu límite diario de ${limit} consultas a la IA (RF-75).`,
+        `Has alcanzado tu límite diario de ${limit} consultas a la IA.`,
       );
     }
   }
@@ -170,7 +237,7 @@ export class GeminiService {
       return new this.consultaModel({
         promptPregunta,
         respuestaIa:
-          'No encontré material autorizado o validado por docente para este tema en la plataforma, por lo que no puedo generar una respuesta inventada (RF-72).',
+          'No encontré material autorizado o validado por docente para este tema en la plataforma, por lo que no puedo generar una respuesta inventada.',
         fuentesCitadas: [],
         esValida: true,
         generadoPorIa: true,
@@ -182,8 +249,7 @@ export class GeminiService {
     const contexto = materiales
       .map(
         (m, idx) =>
-          `[Fuente ${idx + 1} | ID:${m._id} | Título:${m.titulo}]: ${
-            m.contenidoTextoExtraido || m.descripcion || m.titulo
+          `[Fuente ${idx + 1} | ID:${m._id} | Título:${m.titulo}]: ${m.contenidoTextoExtraido || m.descripcion || m.titulo
           }`,
       )
       .join('\n\n');
@@ -213,6 +279,8 @@ ${contexto}`;
               modelName,
               `${systemPrompt}\n\nPregunta del estudiante: ${promptPregunta}`,
               cfg.temperatura,
+              false,
+              materiales,
             );
             respuestaTexto =
               text || 'No se pudo obtener una respuesta del modelo de IA.';
@@ -340,6 +408,7 @@ ${contexto}`;
                 prompt,
                 cfg.temperatura,
                 true,
+                materiales,
               )) || '[]';
             lastErr = null;
             break;
@@ -361,7 +430,11 @@ ${contexto}`;
           }
         }
         if (lastErr) throw lastErr;
-        const parsed = JSON.parse(generatedText);
+        const cleanedJson = generatedText
+          .replace(/^```(?:json)?\s*/i, '')
+          .replace(/\s*```$/i, '')
+          .trim();
+        const parsed = JSON.parse(cleanedJson);
         reactivos = Array.isArray(parsed) ? parsed.slice(0, 15) : [];
       } catch (error) {
         this.logger.error('Error generando cuestionario con Gemini', error);
@@ -471,5 +544,164 @@ ${contexto}`;
       .exec();
     if (!c) throw new NotFoundException('Consulta de IA no encontrada');
     return c;
+  }
+
+  /**
+   * RF-74: Listar respuestas de IA marcadas como no útiles o pendientes de revisión docente.
+   */
+  async consultasIaPorRevisar(): Promise<ConsultaIaDocument[]> {
+    return this.consultaModel
+      .find({
+        $or: [
+          { calificacionUsuario: false },
+          { correccionDocente: { $exists: true, $ne: '' } },
+        ],
+      })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .exec();
+  }
+
+  /**
+   * RF-43 & RF-45: Pregunta del día priorizando los temas con más errores (repaso espaciado).
+   */
+  async obtenerPreguntaDelDia(userId: string): Promise<PreguntaDelDia | null> {
+    const [intentos, temas] = await Promise.all([
+      this.intentoModel
+        .find({ idUsuario: new Types.ObjectId(userId) })
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .exec(),
+      this.temaModel.find().sort({ createdAt: 1 }).exec(),
+    ]);
+
+    if (temas.length === 0) return null;
+
+    // Calcular tema con mayor necesidad de repaso espaciado (menor promedio / más fallos)
+    const statsByTema = new Map<string, { sumScore: number; count: number; weakConcept?: string }>();
+    for (const i of intentos) {
+      const key = i.idTema.toString();
+      const s = statsByTema.get(key) ?? { sumScore: 0, count: 0 };
+      s.sumScore += i.calificacion;
+      s.count += 1;
+      if (!s.weakConcept && i.conceptosPorReforzar?.length) {
+        s.weakConcept = i.conceptosPorReforzar[0];
+      }
+      statsByTema.set(key, s);
+    }
+
+    let chosenTema = temas[0];
+    let dificultad = 'INTERMEDIA';
+    let motivoPrioridad = 'Tema sugerido del día según materiales autorizados.';
+    let weakConcept: string | undefined;
+
+    if (statsByTema.size > 0) {
+      let lowestAvg = 101;
+      for (const [temaId, s] of statsByTema.entries()) {
+        const avg = s.sumScore / s.count;
+        if (avg < lowestAvg) {
+          lowestAvg = avg;
+          const found = temas.find((t) => t._id.toString() === temaId);
+          if (found) {
+            chosenTema = found;
+            weakConcept = s.weakConcept;
+            dificultad = avg < 60 ? 'BASICA' : avg >= 85 ? 'AVANZADA' : 'INTERMEDIA';
+            motivoPrioridad = `Repaso espaciado (RF-45): tu promedio reciente en este tema es ${Math.round(avg)}%.`;
+          }
+        }
+      }
+    } else {
+      const dayIdx = new Date().getDate() % temas.length;
+      chosenTema = temas[dayIdx];
+    }
+
+    const [bancoValidado, materiales] = await Promise.all([
+      this.preguntaModel
+        .findOne({ idTema: chosenTema._id, validadaPorDocente: true })
+        .sort({ votosUtilidad: -1 })
+        .exec(),
+      this.getAuthorizedMaterials(chosenTema._id.toString()),
+    ]);
+
+    const fuenteTitulo = materiales[0]?.titulo;
+    const pregunta =
+      bancoValidado?.texto ||
+      (weakConcept
+        ? `Repasa este concepto clave de "${chosenTema.titulo}": ${weakConcept}`
+        : fuenteTitulo
+          ? `Con base en "${fuenteTitulo}", ¿cuáles son los conceptos fundamentales de ${chosenTema.titulo} y cómo se aplican en un caso práctico?`
+          : `¿Qué concepto clave de "${chosenTema.titulo}" consideras más importante y cómo lo explicarías con un ejemplo?`);
+
+    return {
+      idTema: chosenTema._id,
+      tituloTema: chosenTema.titulo,
+      pregunta,
+      dificultad,
+      motivoPrioridad,
+      fuenteTitulo,
+    };
+  }
+
+  /**
+   * RF-79: Plan de repaso recomendado antes de un examen según los temas con más errores.
+   */
+  async generarPlanDeRepaso(userId: string): Promise<PlanRepasoItem[]> {
+    const ahora = new Date();
+    const [eventos, intentos] = await Promise.all([
+      this.calendarioModel
+        .find({ fecha: { $gte: ahora } })
+        .sort({ fecha: 1 })
+        .limit(10)
+        .exec(),
+      this.intentoModel
+        .find({ idUsuario: new Types.ObjectId(userId) })
+        .sort({ createdAt: -1 })
+        .limit(30)
+        .exec(),
+    ]);
+
+    const weakByTema = new Map<string, { avg: number; conceptos: string[] }>();
+    const grouped = new Map<string, IntentoCuestionarioDocument[]>();
+    for (const i of intentos) {
+      const k = i.idTema.toString();
+      if (!grouped.has(k)) grouped.set(k, []);
+      grouped.get(k)!.push(i);
+    }
+    for (const [k, arr] of grouped.entries()) {
+      const avg = arr.reduce((s, x) => s + x.calificacion, 0) / arr.length;
+      const conceptos = Array.from(
+        new Set(arr.flatMap((x) => x.conceptosPorReforzar || [])),
+      ).slice(0, 4);
+      weakByTema.set(k, { avg, conceptos });
+    }
+
+    return eventos.map((ev) => {
+      const temaKey = ev.idTema?.toString();
+      const weak = temaKey ? weakByTema.get(temaKey) : undefined;
+      const diasRestantes = Math.max(
+        0,
+        Math.ceil((ev.fecha.getTime() - ahora.getTime()) / (1000 * 60 * 60 * 24)),
+      );
+      const prioridad =
+        diasRestantes <= 3 || (weak && weak.avg < 65)
+          ? 'ALTA'
+          : diasRestantes <= 7
+            ? 'MEDIA'
+            : 'NORMAL';
+      const recomendacion = weak
+        ? `Faltan ${diasRestantes} día(s). Tu promedio en este tema es ${Math.round(weak.avg)}%; dedica 2 sesiones de práctica y resuelve un cuestionario IA antes del evento.`
+        : `Faltan ${diasRestantes} día(s). Revisa los recursos validados por docente y genera un cuestionario corto de diagnóstico.`;
+
+      return {
+        idEvento: ev._id,
+        tituloEvento: ev.titulo,
+        fechaEvento: ev.fecha,
+        idAsignatura: ev.idAsignatura,
+        idTema: ev.idTema,
+        prioridad,
+        recomendacion,
+        conceptosClave: weak?.conceptos ?? [],
+      };
+    });
   }
 }

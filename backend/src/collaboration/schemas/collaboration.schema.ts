@@ -8,6 +8,9 @@ export class MiembroGrupo {
   @Field(() => ID)
   idUsuario: Types.ObjectId;
 
+  @Field({ nullable: true })
+  nombreUsuario?: string;
+
   @Field()
   rolGrupo: string;
 

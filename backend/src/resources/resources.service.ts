@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Model, Types } from 'mongoose';
 import {
   EstadoValidacionRecurso,
@@ -13,6 +15,7 @@ import {
 } from '../common/enums/kolab.enums';
 import { GamificationService } from '../gamification/gamification.service';
 import { ModerationService } from '../moderation/moderation.service';
+import { Usuario, UsuarioDocument } from '../users/schemas/usuario.schema';
 import {
   CreateRecursoInput,
   FiltrarRecursosInput,
@@ -40,11 +43,15 @@ const ALLOWED_MIME_OR_EXT = new Set([
 
 @Injectable()
 export class ResourcesService {
+  private readonly logger = new Logger(ResourcesService.name);
+
   constructor(
     @InjectModel(Recurso.name)
     private readonly recursoModel: Model<RecursoDocument>,
     @InjectModel(ColeccionPersonal.name)
     private readonly coleccionModel: Model<ColeccionPersonalDocument>,
+    @InjectModel(Usuario.name)
+    private readonly usuarioModel: Model<UsuarioDocument>,
     private readonly gamificationService: GamificationService,
     private readonly moderationService: ModerationService,
   ) {}
@@ -70,6 +77,14 @@ export class ResourcesService {
       Boolean(input.esMaterialOficial) &&
       (rol === RolUsuario.DOCENTE || rol === RolUsuario.ADMINISTRADOR);
 
+    const autor = await this.usuarioModel
+      .findById(userId)
+      .select('nombre apellidos')
+      .exec();
+    const nombreAutor = autor
+      ? `${autor.nombre} ${autor.apellidos}`.trim()
+      : undefined;
+
     const recurso = new this.recursoModel({
       titulo: input.titulo,
       descripcion: input.descripcion,
@@ -78,6 +93,7 @@ export class ResourcesService {
       tamanoBytes: input.tamanoBytes,
       contenidoTextoExtraido: input.contenidoTextoExtraido,
       idUsuario: new Types.ObjectId(userId),
+      nombreAutor,
       idTema: new Types.ObjectId(input.idTema),
       idAsignatura: input.idAsignatura
         ? new Types.ObjectId(input.idAsignatura)
@@ -100,6 +116,34 @@ export class ResourcesService {
 
     const saved = await recurso.save();
     await this.gamificationService.registrarActividadDiaria(userId, 20);
+
+    // RF-57: Notificar a los docentes cuando haya recursos pendientes de revisión
+    if (!esOficial) {
+      this.usuarioModel
+        .find({
+          rol: { $in: [RolUsuario.DOCENTE, RolUsuario.ADMINISTRADOR] },
+          isActive: true,
+          deletedAt: { $exists: false },
+          _id: { $ne: new Types.ObjectId(userId) },
+        })
+        .select('_id')
+        .limit(20)
+        .exec()
+        .then((docentes) =>
+          Promise.allSettled(
+            docentes.map((doc) =>
+              this.moderationService.notificarUsuario(
+                doc._id.toString(),
+                TipoNotificacion.REVISION_PENDIENTE,
+                'Nuevo recurso pendiente de revisión',
+                `${nombreAutor || 'Un estudiante'} subió "${saved.titulo}" para validación docente.`,
+              ),
+            ),
+          ),
+        )
+        .catch(() => {});
+    }
+
     return saved;
   }
 
@@ -108,16 +152,28 @@ export class ResourcesService {
   ): Promise<RecursoDocument[]> {
     const query: Record<string, unknown> = {
       eliminadoEn: { $exists: false },
-      estadoValidacion: { $ne: EstadoValidacionRecurso.ARCHIVADO },
+      estadoValidacion:
+        filtros?.estadoValidacion || { $ne: EstadoValidacionRecurso.ARCHIVADO },
     };
 
     if (filtros) {
       if (filtros.texto) {
         const regex = new RegExp(filtros.texto, 'i');
+        // RF-88: Buscar coincidencias en título, descripción, palabras clave y nombre del autor
+        const autoresCoincidentes = await this.usuarioModel
+          .find({
+            deletedAt: { $exists: false },
+            $or: [{ nombre: regex }, { apellidos: regex }],
+          })
+          .select('_id')
+          .exec();
+        const autorIds = autoresCoincidentes.map((a) => a._id);
         query.$or = [
           { titulo: regex },
           { descripcion: regex },
           { palabrasClave: regex },
+          { nombreAutor: regex },
+          ...(autorIds.length > 0 ? [{ idUsuario: { $in: autorIds } }] : []),
         ];
       }
       if (filtros.palabrasClave && filtros.palabrasClave.length > 0) {
@@ -148,6 +204,66 @@ export class ResourcesService {
     }
 
     return this.recursoModel.find(query).sort(sort).exec();
+  }
+
+  async resolveNombreAutor(userId: string): Promise<string | undefined> {
+    const autor = await this.usuarioModel
+      .findById(userId)
+      .select('nombre apellidos')
+      .exec();
+    return autor ? `${autor.nombre} ${autor.apellidos}`.trim() : undefined;
+  }
+
+  async recursosRelacionados(recursoId: string): Promise<RecursoDocument[]> {
+    const base = await this.recursoModel.findById(recursoId).exec();
+    if (!base) return [];
+    return this.recursoModel
+      .find({
+        _id: { $ne: base._id },
+        idTema: base.idTema,
+        eliminadoEn: { $exists: false },
+        estadoValidacion: { $ne: EstadoValidacionRecurso.ARCHIVADO },
+      })
+      .sort({ promedioCalificacion: -1, consultasCount: -1 })
+      .limit(5)
+      .exec();
+  }
+
+  async miPapelera(userId: string): Promise<RecursoDocument[]> {
+    const limite = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    return this.recursoModel
+      .find({
+        idUsuario: new Types.ObjectId(userId),
+        eliminadoEn: { $gte: limite },
+      })
+      .sort({ eliminadoEn: -1 })
+      .exec();
+  }
+
+  async restaurarRecurso(
+    userId: string,
+    recursoId: string,
+  ): Promise<RecursoDocument> {
+    const recurso = await this.recursoModel.findById(recursoId).exec();
+    if (!recurso) throw new NotFoundException('Recurso no encontrado');
+    if (recurso.idUsuario.toString() !== userId) {
+      throw new ForbiddenException('Solo el autor puede restaurar este recurso');
+    }
+    recurso.eliminadoEn = undefined;
+    return recurso.save();
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async purgarPapeleraVencida(): Promise<void> {
+    const limite = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const res = await this.recursoModel
+      .deleteMany({ eliminadoEn: { $lt: limite } })
+      .exec();
+    if (res.deletedCount > 0) {
+      this.logger.log(
+        `RF-67: Purgados ${res.deletedCount} recursos vencidos (>30 días) de la papelera.`,
+      );
+    }
   }
 
   async verRecurso(id: string): Promise<RecursoDocument> {

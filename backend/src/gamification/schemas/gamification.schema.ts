@@ -42,6 +42,12 @@ export class UsuarioInsignia {
   @Prop({ type: Types.ObjectId, ref: 'Insignia', required: true })
   idInsignia: Types.ObjectId;
 
+  @Field({ nullable: true })
+  nombreInsignia?: string;
+
+  @Field({ nullable: true })
+  descripcionInsignia?: string;
+
   @Field(() => ID, { nullable: true })
   @Prop({ type: Types.ObjectId, ref: 'GrupoEstudio' })
   idGrupo?: Types.ObjectId;

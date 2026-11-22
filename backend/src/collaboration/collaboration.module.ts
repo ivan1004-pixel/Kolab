@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { UsersModule } from '../users/users.module';
 import { CollaborationResolver } from './collaboration.resolver';
 import { CollaborationService } from './collaboration.service';
 import {
@@ -11,6 +12,7 @@ import {
 
 @Module({
   imports: [
+    UsersModule,
     MongooseModule.forFeature([
       { name: GrupoEstudio.name, schema: GrupoEstudioSchema },
       { name: SolicitudTutoria.name, schema: SolicitudTutoriaSchema },

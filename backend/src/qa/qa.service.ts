@@ -5,6 +5,10 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import {
+  IntentoCuestionario,
+  IntentoCuestionarioDocument,
+} from '../ai/schemas/ai.schema';
 import { TipoNotificacion } from '../common/enums/kolab.enums';
 import { GamificationService } from '../gamification/gamification.service';
 import { ModerationService } from '../moderation/moderation.service';
@@ -27,6 +31,8 @@ export class QaService {
     private readonly respuestaModel: Model<RespuestaDocument>,
     @InjectModel(Etiqueta.name)
     private readonly etiquetaModel: Model<EtiquetaDocument>,
+    @InjectModel(IntentoCuestionario.name)
+    private readonly intentoModel: Model<IntentoCuestionarioDocument>,
     private readonly gamificationService: GamificationService,
     private readonly moderationService: ModerationService,
   ) {}
@@ -175,17 +181,34 @@ export class QaService {
   }
 
   /**
-   * RF-27 & RF-28: Radar de Dificultades por tema y pregunta más debatida sin respuesta relevante.
+   * RF-27 & RF-28: Radar de Dificultades por tema (dudas + errores de autoevaluación) y pregunta más debatida sin respuesta relevante.
    */
   async radarDificultades(idTema?: string): Promise<RadarDificultadTema[]> {
     const match = idTema ? { idTema: new Types.ObjectId(idTema) } : {};
-    const preguntas = await this.preguntaModel.find(match).exec();
+    const [preguntas, intentos] = await Promise.all([
+      this.preguntaModel.find(match).exec(),
+      this.intentoModel.find(match).exec(),
+    ]);
 
     const porTema = new Map<string, PreguntaDocument[]>();
+    const erroresPorTema = new Map<string, { count: number; conceptos: Map<string, number> }>();
+
     for (const p of preguntas) {
       const key = p.idTema.toString();
       if (!porTema.has(key)) porTema.set(key, []);
       porTema.get(key)!.push(p);
+    }
+
+    for (const intento of intentos) {
+      const key = intento.idTema.toString();
+      if (!porTema.has(key)) porTema.set(key, []);
+      const entry = erroresPorTema.get(key) ?? { count: 0, conceptos: new Map<string, number>() };
+      const fallos = Math.max(0, (intento.totalReactivos || 0) - (intento.aciertos || 0));
+      entry.count += fallos;
+      for (const concepto of intento.conceptosPorReforzar || []) {
+        entry.conceptos.set(concepto, (entry.conceptos.get(concepto) || 0) + 1);
+      }
+      erroresPorTema.set(key, entry);
     }
 
     const resultados: RadarDificultadTema[] = [];
@@ -205,14 +228,29 @@ export class QaService {
         }
       }
 
+      const errInfo = erroresPorTema.get(temaId);
+      const conceptosDebiles = errInfo
+        ? Array.from(errInfo.conceptos.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([c]) => c)
+        : [];
+
       resultados.push({
         idTema: new Types.ObjectId(temaId),
         totalPreguntas: lista.length,
         preguntasSinResolver: sinResolver.length,
+        erroresAutoevaluacion: errInfo?.count ?? 0,
+        conceptosDebiles,
         preguntaMasDebatidaSinSolucion: topDebatida,
       });
     }
 
-    return resultados;
+    return resultados.sort(
+      (a, b) =>
+        b.preguntasSinResolver +
+        b.erroresAutoevaluacion -
+        (a.preguntasSinResolver + a.erroresAutoevaluacion),
+    );
   }
 }

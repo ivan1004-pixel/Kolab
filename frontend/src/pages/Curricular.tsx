@@ -47,7 +47,10 @@ export default function Curricular() {
   const [loading, setLoading] = useState(true);
 
   const [showForm, setShowForm] = useState(false);
+  const [showCareerForm, setShowCareerForm] = useState(false);
+  const [careerName, setCareerName] = useState('');
   const [name, setName] = useState('');
+  const [cuatrimestre, setCuatrimestre] = useState('');
   const [careerId, setCareerId] = useState('');
   const [topic, setTopic] = useState('');
   const [secError, setSecError] = useState('');
@@ -119,25 +122,63 @@ export default function Curricular() {
     [topics, current],
   );
 
+  async function addCareer(e: FormEvent) {
+    e.preventDefault();
+    if (!careerName.trim() || !token) return;
+    try {
+      assertNoScriptInjection(careerName, 'carrera');
+      setSecError('');
+      const res = await gqlRequest<{ crearCarrera: CarreraItem }>(
+        `mutation CrearCarrera($input: CreateCarreraInput!) { crearCarrera(input: $input) { _id nombre } }`,
+        { input: { nombre: careerName.trim() } },
+        token,
+      );
+      setCarreras((prev) => [...prev, res.crearCarrera]);
+      if (!careerId) setCareerId(res.crearCarrera._id);
+      setCareerName('');
+      setShowCareerForm(false);
+    } catch (err: any) {
+      setSecError(err.message || 'No se pudo registrar la carrera.');
+    }
+  }
+
   async function addCourse(e: FormEvent) {
     e.preventDefault();
     if (!name.trim() || !careerId || !token) return;
     try {
-      assertNoScriptInjection(name, 'asignatura');
+      assertNoScriptInjection({ name, cuatrimestre }, 'asignatura');
       setSecError('');
       const res = await gqlRequest<{ crearAsignatura: AsignaturaItem }>(
         `mutation CrearAsignatura($input: CreateAsignaturaInput!) {
           crearAsignatura(input: $input) { _id nombre cuatrimestre descripcion idCarrera }
         }`,
-        { input: { nombre: name.trim(), idCarrera: careerId } },
+        {
+          input: {
+            nombre: name.trim(),
+            idCarrera: careerId,
+            ...(cuatrimestre.trim() ? { cuatrimestre: cuatrimestre.trim() } : {}),
+          },
+        },
         token,
       );
       setCourses((prev) => [...prev, res.crearAsignatura]);
       setSelected(res.crearAsignatura._id);
       setName('');
+      setCuatrimestre('');
       setShowForm(false);
     } catch (err: any) {
       setSecError(err.message || 'No se pudo registrar la asignatura.');
+    }
+  }
+
+  async function deleteCourse(id: string) {
+    if (!token || !window.confirm('¿Eliminar esta asignatura? (Solo permitido si no tiene temas ni recursos asociados)')) return;
+    try {
+      setSecError('');
+      await gqlRequest(`mutation EliminarAsig($id: ID!) { eliminarAsignatura(id: $id) }`, { id }, token);
+      setCourses((prev) => prev.filter((c) => c._id !== id));
+    } catch (err: any) {
+      setSecError(err.message || 'No se pudo eliminar la asignatura.');
     }
   }
 
@@ -188,13 +229,29 @@ export default function Curricular() {
             <p className="muted">Consulta tus asignaturas y los temas de cada unidad.</p>
           </div>
           {isAdmin && (
-            <button className="btn btn--primary" onClick={() => setShowForm((v) => !v)}>
-              ＋ Nueva asignatura
-            </button>
+            <div className="row">
+              <button className="btn btn--ghost btn--sm" onClick={() => setShowCareerForm((v) => !v)}>
+                ＋ Nueva carrera
+              </button>
+              <button className="btn btn--primary" onClick={() => setShowForm((v) => !v)}>
+                ＋ Nueva asignatura
+              </button>
+            </div>
           )}
         </section>
 
         {secError && <p className="form-error" role="alert">{secError}</p>}
+
+        {showCareerForm && isAdmin && (
+          <form className="card km-form" onSubmit={addCareer}>
+            <h3>Registrar carrera (RF-32)</h3>
+            <div className="km-inline-form">
+              <input value={careerName} onChange={(e) => setCareerName(e.target.value)} required placeholder="Ej. Ingeniería en Desarrollo de Software" />
+              <button className="btn btn--primary btn--sm">Guardar carrera</button>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setShowCareerForm(false)}>Cancelar</button>
+            </div>
+          </form>
+        )}
 
         {showForm && isAdmin && (
           <form className="card km-form" onSubmit={addCourse}>
@@ -207,6 +264,14 @@ export default function Curricular() {
                   onChange={(e) => setName(e.target.value)}
                   required
                   placeholder="Ej. Programación web"
+                />
+              </div>
+              <div className="field">
+                <label>Cuatrimestre</label>
+                <input
+                  value={cuatrimestre}
+                  onChange={(e) => setCuatrimestre(e.target.value)}
+                  placeholder="Ej. 5° Cuatrimestre"
                 />
               </div>
               <div className="field">
@@ -260,9 +325,16 @@ export default function Curricular() {
                       <span className={`chip ${enrolled ? 'chip--soft' : 'chip--xp'}`}>
                         {enrolled ? 'Inscrita' : 'Disponible'}
                       </span>
-                      <button className="btn btn--ghost btn--sm" onClick={() => toggleEnroll(c._id)}>
-                        {enrolled ? 'Inscrita ✓' : 'Inscribirme'}
-                      </button>
+                      <div className="row">
+                        <button className="btn btn--ghost btn--sm" onClick={() => toggleEnroll(c._id)}>
+                          {enrolled ? 'Inscrita ✓' : 'Inscribirme'}
+                        </button>
+                        {isAdmin && (
+                          <button type="button" className="btn btn--danger btn--sm" onClick={() => deleteCourse(c._id)}>
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </article>
                 );

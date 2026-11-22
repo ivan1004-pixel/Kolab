@@ -23,6 +23,7 @@ interface PreguntaItem {
   idTema: string;
   idUsuario: string;
   resuelta: boolean;
+  esBancoColaborativo: boolean;
   validadaPorDocente: boolean;
   votosUtilidad: number;
   etiquetas: string[];
@@ -44,8 +45,16 @@ export default function Foro() {
   const [preguntas, setPreguntas] = useState<PreguntaItem[]>([]);
   const [temas, setTemas] = useState<TemaItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ texto: '', fragmento: '', idTema: '' });
+  const [onlyBank, setOnlyBank] = useState(false);
+  const [form, setForm] = useState({
+    texto: '',
+    fragmento: '',
+    etiquetas: '',
+    idTema: '',
+    esBancoColaborativo: false,
+  });
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [showForm, setShowForm] = useState(false);
 
   const loadForo = useCallback(async () => {
@@ -62,7 +71,7 @@ export default function Foro() {
       }>(
         `query ForoData {
           preguntas {
-            _id texto idTema idUsuario resuelta validadaPorDocente votosUtilidad etiquetas fragmentoRecurso createdAt
+            _id texto idTema idUsuario resuelta esBancoColaborativo validadaPorDocente votosUtilidad etiquetas fragmentoRecurso createdAt
           }
           temas { _id titulo }
         }`,
@@ -109,8 +118,13 @@ export default function Foro() {
 
   const temaMap = useMemo(() => new Map(temas.map((t) => [t._id, t.titulo])), [temas]);
 
-  const onChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const onChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    setForm((f) => ({
+      ...f,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+    }));
+  };
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -123,22 +137,29 @@ export default function Foro() {
     if (form.texto.trim().length < 8) return setError('Escribe tu pregunta con un poco más de detalle');
     if (!form.idTema) return setError('Selecciona un tema para publicar tu pregunta.');
 
+    const etiquetas = form.etiquetas
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
     try {
       const res = await gqlRequest<{ crearPregunta: Omit<PreguntaItem, 'respuestas'> }>(
-        `mutation CrearPregunta($idTema: ID!, $texto: String!, $fragmento: String) {
-          crearPregunta(idTema: $idTema, texto: $texto, fragmentoRecurso: $fragmento) {
-            _id texto idTema idUsuario resuelta validadaPorDocente votosUtilidad etiquetas fragmentoRecurso createdAt
+        `mutation CrearPregunta($idTema: ID!, $texto: String!, $fragmento: String, $etiquetas: [String!], $banco: Boolean) {
+          crearPregunta(idTema: $idTema, texto: $texto, fragmentoRecurso: $fragmento, etiquetas: $etiquetas, esBancoColaborativo: $banco) {
+            _id texto idTema idUsuario resuelta esBancoColaborativo validadaPorDocente votosUtilidad etiquetas fragmentoRecurso createdAt
           }
         }`,
         {
           idTema: form.idTema,
           texto: form.texto.trim(),
           ...(form.fragmento.trim() ? { fragmento: form.fragmento.trim() } : {}),
+          etiquetas,
+          banco: form.esBancoColaborativo,
         },
         token,
       );
       setPreguntas((p) => [{ ...res.crearPregunta, respuestas: [] }, ...p]);
-      setForm((f) => ({ ...f, texto: '', fragmento: '' }));
+      setForm((f) => ({ ...f, texto: '', fragmento: '', etiquetas: '', esBancoColaborativo: false }));
       setError('');
       setShowForm(false);
     } catch (err: any) {
@@ -180,19 +201,84 @@ export default function Foro() {
     );
   }
 
+  async function cerrarResuelta(qid: string) {
+    if (!token) return;
+    await gqlRequest(`mutation Cerrar($id: ID!) { cerrarPreguntaResuelta(preguntaId: $id) { _id resuelta } }`, { id: qid }, token);
+    setPreguntas((p) => p.map((x) => (x._id === qid ? { ...x, resuelta: true } : x)));
+  }
+
+  async function validarBanco(qid: string) {
+    if (!token) return;
+    await gqlRequest(`mutation ValidarBanco($id: ID!) { validarPreguntaBanco(preguntaId: $id) { _id validadaPorDocente } }`, { id: qid }, token);
+    setPreguntas((p) => p.map((x) => (x._id === qid ? { ...x, validadaPorDocente: true } : x)));
+  }
+
+  async function votarPregunta(qid: string) {
+    if (!token) return;
+    const res = await gqlRequest<{ votarPregunta: { votosUtilidad: number } }>(
+      `mutation VotarP($id: ID!) { votarPregunta(preguntaId: $id) { votosUtilidad } }`,
+      { id: qid },
+      token,
+    );
+    setPreguntas((p) => p.map((x) => (x._id === qid ? { ...x, votosUtilidad: res.votarPregunta.votosUtilidad } : x)));
+  }
+
+  async function votarRespuesta(qid: string, rid: string) {
+    if (!token) return;
+    const res = await gqlRequest<{ votarRespuesta: { votosUtilidad: number } }>(
+      `mutation VotarR($id: ID!) { votarRespuesta(respuestaId: $id) { votosUtilidad } }`,
+      { id: rid },
+      token,
+    );
+    setPreguntas((p) =>
+      p.map((x) =>
+        x._id === qid
+          ? { ...x, respuestas: x.respuestas.map((r) => (r._id === rid ? { ...r, votosUtilidad: res.votarRespuesta.votosUtilidad } : r)) }
+          : x,
+      ),
+    );
+  }
+
+  async function reportarPregunta(qid: string) {
+    if (!token) return;
+    const motivo = window.prompt('Motivo del reporte (contenido inapropiado o inexacto):');
+    if (!motivo?.trim()) return;
+    assertNoScriptInjection(motivo, 'reporte');
+    await gqlRequest(
+      `mutation ReportarP($id: ID!, $motivo: String!) {
+        reportarContenido(tipoObjetivo: "Pregunta", idObjetivo: $id, motivo: $motivo) { _id }
+      }`,
+      { id: qid, motivo: motivo.trim() },
+      token,
+    );
+    setNotice('Pregunta reportada a moderación.');
+  }
+
   const puedeValidar = user?.rol === 'docente' || user?.rol === 'admin';
   const lista = preguntas.filter((x) => {
+    if (onlyBank && !x.esBancoColaborativo) return false;
     const temaNombre = temaMap.get(x.idTema) ?? '';
-    return `${x.texto} ${x.fragmentoRecurso ?? ''} ${temaNombre}`.toLowerCase().includes(q);
+    return `${x.texto} ${x.fragmentoRecurso ?? ''} ${x.etiquetas.join(' ')} ${temaNombre}`.toLowerCase().includes(q);
   });
 
   return (
     <>
       <ModuleBanner module={MODULES[3]}>
-        <button className="btn btn--action" onClick={() => setShowForm((s) => !s)}>
-          {showForm ? 'Cerrar' : 'Nueva pregunta'}
-        </button>
+        <div className="row">
+          <button
+            type="button"
+            className={`btn btn--sm ${onlyBank ? 'btn--primary' : 'btn--ghost'}`}
+            onClick={() => setOnlyBank((b) => !b)}
+          >
+            {onlyBank ? '✓ Banco colaborativo' : 'Ver banco colaborativo'}
+          </button>
+          <button className="btn btn--action" onClick={() => setShowForm((s) => !s)}>
+            {showForm ? 'Cerrar' : 'Nueva pregunta'}
+          </button>
+        </div>
       </ModuleBanner>
+
+      {notice && <p className="form-ok" role="status">{notice}</p>}
 
       {showForm && (
         <form className="card" onSubmit={onSubmit} noValidate>
@@ -211,9 +297,17 @@ export default function Foro() {
             <input id="texto" name="texto" value={form.texto} onChange={onChange} />
           </div>
           <div className="field">
-            <label htmlFor="fragmento">Detalle o fragmento que no entendiste (opcional)</label>
+            <label htmlFor="fragmento">Detalle o fragmento del recurso que no entendiste (RF-15)</label>
             <textarea id="fragmento" name="fragmento" value={form.fragmento} onChange={onChange} />
           </div>
+          <div className="field">
+            <label htmlFor="etiquetas">Etiquetas separadas por coma</label>
+            <input id="etiquetas" name="etiquetas" value={form.etiquetas} onChange={onChange} placeholder="SQL, parcial 1" />
+          </div>
+          <label className="row" style={{ cursor: 'pointer' }}>
+            <input type="checkbox" name="esBancoColaborativo" checked={form.esBancoColaborativo} onChange={onChange} />
+            <span>Compartir también en el <strong>Banco Colaborativo de preguntas</strong> (RF-46)</span>
+          </label>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="row"><button className="btn btn--primary" disabled={!form.idTema}>Publicar</button></div>
         </form>
@@ -226,17 +320,23 @@ export default function Foro() {
         <p className="empty">
           {preguntas.length === 0
             ? 'No hay preguntas todavía. ¡Sé el primero en preguntar!'
-            : 'No se encontraron preguntas que coincidan con tu búsqueda.'}
+            : 'No se encontraron preguntas con esos criterios.'}
         </p>
       ) : (
         lista.map((p) => (
           <Pregunta
             key={p._id}
             p={p}
+            currentUserId={String(user?.id ?? '')}
             temaNombre={temaMap.get(p.idTema) || 'Tema general'}
             puedeValidar={puedeValidar}
             onResponder={responder}
             onValidar={validar}
+            onCerrar={cerrarResuelta}
+            onValidarBanco={validarBanco}
+            onVotarPregunta={votarPregunta}
+            onVotarRespuesta={votarRespuesta}
+            onReportar={reportarPregunta}
           />
         ))
       )}
@@ -246,20 +346,33 @@ export default function Foro() {
 
 function Pregunta({
   p,
+  currentUserId,
   temaNombre,
   puedeValidar,
   onResponder,
   onValidar,
+  onCerrar,
+  onValidarBanco,
+  onVotarPregunta,
+  onVotarRespuesta,
+  onReportar,
 }: {
   p: PreguntaItem;
+  currentUserId: string;
   temaNombre: string;
   puedeValidar: boolean;
   onResponder: (id: string, texto: string) => Promise<void>;
   onValidar: (qid: string, rid: string) => Promise<void>;
+  onCerrar: (qid: string) => Promise<void>;
+  onValidarBanco: (qid: string) => Promise<void>;
+  onVotarPregunta: (qid: string) => Promise<void>;
+  onVotarRespuesta: (qid: string, rid: string) => Promise<void>;
+  onReportar: (qid: string) => Promise<void>;
 }) {
   const [texto, setTexto] = useState('');
   const [respError, setRespError] = useState('');
   const resuelta = p.resuelta || p.respuestas.some((r) => r.esValida);
+  const puedeCerrar = !resuelta && (puedeValidar || String(p.idUsuario) === currentUserId);
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -278,13 +391,41 @@ function Pregunta({
     <article className="card question">
       <div className="question__head">
         <div>
-          <span className="chip chip--soft">{temaNombre}</span>
+          <div className="row">
+            <span className="chip chip--soft">{temaNombre}</span>
+            {p.esBancoColaborativo && <span className="chip chip--xp">Banco colaborativo</span>}
+            {p.validadaPorDocente && <span className="chip chip--solid">✓ Revisada por docente</span>}
+          </div>
           <h2 style={{ marginTop: '0.4rem' }}>{p.texto}</h2>
-          {p.fragmentoRecurso && <p className="muted">{p.fragmentoRecurso}</p>}
+          {p.fragmentoRecurso && <p className="muted">Fragmento: “{p.fragmentoRecurso}”</p>}
+          {p.etiquetas?.length > 0 && (
+            <div className="td-tags" style={{ marginTop: 6 }}>
+              {p.etiquetas.map((et) => <span key={et} className="td-tag">#{et}</span>)}
+            </div>
+          )}
         </div>
         <span className={`chip ${resuelta ? 'chip--solid' : 'chip--xp'}`}>
           {resuelta ? '✓ Resuelta' : 'Abierta'}
         </span>
+      </div>
+
+      <div className="row">
+        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onVotarPregunta(p._id)}>
+          👍 Útil ({p.votosUtilidad})
+        </button>
+        {puedeCerrar && (
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => onCerrar(p._id)}>
+            ✓ Cerrar resuelta
+          </button>
+        )}
+        {puedeValidar && !p.validadaPorDocente && (
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => onValidarBanco(p._id)}>
+            Validar para banco
+          </button>
+        )}
+        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onReportar(p._id)}>
+          🚩 Reportar
+        </button>
       </div>
 
       {p.respuestas.length > 0 && (
@@ -293,19 +434,23 @@ function Pregunta({
             <div className="answer" key={r._id}>
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <strong>Respuesta de la comunidad</strong>
-                {r.esValida && <span className="chip chip--solid">✓ Validada</span>}
+                {r.esValida && <span className="chip chip--solid">✓ Relevante</span>}
               </div>
               <p>{r.texto}</p>
-              {puedeValidar && !r.esValida && (
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--sm"
-                  style={{ alignSelf: 'flex-start' }}
-                  onClick={() => onValidar(p._id, r._id)}
-                >
-                  Validar respuesta
+              <div className="row">
+                <button type="button" className="btn btn--ghost btn--sm" onClick={() => onVotarRespuesta(p._id, r._id)}>
+                  👍 ({r.votosUtilidad})
                 </button>
-              )}
+                {puedeValidar && !r.esValida && (
+                  <button
+                    type="button"
+                    className="btn btn--primary btn--sm"
+                    onClick={() => onValidar(p._id, r._id)}
+                  >
+                    Marcar relevante
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

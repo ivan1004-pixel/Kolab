@@ -6,6 +6,7 @@ import { RowListSkeleton } from '../components/Skeleton';
 
 interface MiembroItem {
   idUsuario: string;
+  nombreUsuario?: string;
   rolGrupo: string;
   fechaUnion: string;
 }
@@ -38,7 +39,18 @@ interface TemaItem {
 interface InsigniaItem {
   _id: string;
   idInsignia: string;
+  nombreInsignia?: string;
+  descripcionInsignia?: string;
   fechaObtencion: string;
+}
+
+interface RankingItem {
+  _id: string;
+  nombre: string;
+  apellidos: string;
+  xpTotal: number;
+  rachaActual: number;
+  grupo?: string;
 }
 
 const GROUP_COLORS = ['#157F3C', '#2563EB', '#D97706', '#0F766E', '#4338CA'];
@@ -46,17 +58,20 @@ const GROUP_COLORS = ['#157F3C', '#2563EB', '#D97706', '#0F766E', '#4338CA'];
 export default function Comunidades() {
   const { user, token } = useAuth();
   const xp = user?.xp ?? 0;
+  const canCreateChallenge = user?.rol === 'docente' || user?.rol === 'admin';
 
   const [groups, setGroups] = useState<GrupoItem[]>([]);
   const [temas, setTemas] = useState<TemaItem[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [challenges, setChallenges] = useState<RetoItem[]>([]);
   const [insignias, setInsignias] = useState<InsigniaItem[]>([]);
+  const [ranking, setRanking] = useState<RankingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupTemaId, setNewGroupTemaId] = useState('');
+  const [newGroupPrivate, setNewGroupPrivate] = useState(true);
 
   const [showNewChallengeForm, setShowNewChallengeForm] = useState(false);
   const [newChallengeTitle, setNewChallengeTitle] = useState('');
@@ -75,20 +90,23 @@ export default function Comunidades() {
         gruposEstudio: GrupoItem[];
         temas: TemaItem[];
         misInsignias: InsigniaItem[];
+        ranking: RankingItem[];
       }>(
         `query ComunidadesData {
           gruposEstudio {
             _id nombre descripcion esPrivado idTema
-            miembros { idUsuario rolGrupo fechaUnion }
+            miembros { idUsuario nombreUsuario rolGrupo fechaUnion }
           }
           temas { _id titulo }
-          misInsignias { _id idInsignia fechaObtencion }
+          misInsignias { _id idInsignia nombreInsignia descripcionInsignia fechaObtencion }
+          ranking { _id nombre apellidos xpTotal rachaActual grupo }
         }`,
         {},
         token,
       );
       const grpList = data.gruposEstudio ?? [];
       const temaList = data.temas ?? [];
+      setRanking(data.ranking ?? []);
       setGroups(grpList);
       setTemas(temaList);
       setInsignias(data.misInsignias ?? []);
@@ -139,13 +157,13 @@ export default function Comunidades() {
     try {
       assertNoScriptInjection(nombre, 'grupo');
       const res = await gqlRequest<{ crearGrupoEstudio: GrupoItem }>(
-        `mutation CrearGrupo($nombre: String!, $idTema: ID!) {
-          crearGrupoEstudio(nombre: $nombre, idTema: $idTema, esPrivado: false) {
+        `mutation CrearGrupo($nombre: String!, $idTema: ID!, $privado: Boolean!) {
+          crearGrupoEstudio(nombre: $nombre, idTema: $idTema, esPrivado: $privado) {
             _id nombre descripcion esPrivado idTema
-            miembros { idUsuario rolGrupo fechaUnion }
+            miembros { idUsuario nombreUsuario rolGrupo fechaUnion }
           }
         }`,
-        { nombre, idTema: newGroupTemaId },
+        { nombre, idTema: newGroupTemaId, privado: newGroupPrivate },
         token,
       );
       setGroups((prev) => [res.crearGrupoEstudio, ...prev]);
@@ -164,7 +182,7 @@ export default function Comunidades() {
       const res = await gqlRequest<{ unirseAGrupo: GrupoItem }>(
         `mutation Unirse($id: ID!) {
           unirseAGrupo(grupoId: $id) {
-            _id miembros { idUsuario rolGrupo fechaUnion }
+            _id miembros { idUsuario nombreUsuario rolGrupo fechaUnion }
           }
         }`,
         { id: selectedGroup._id },
@@ -244,6 +262,10 @@ export default function Comunidades() {
                 <option key={t._id} value={t._id}>{t.titulo}</option>
               ))}
             </select>
+            <label className="row" style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <input type="checkbox" checked={newGroupPrivate} onChange={(e) => setNewGroupPrivate(e.target.checked)} />
+              <span>Grupo privado (RF-68)</span>
+            </label>
           </div>
           <div className="inline-form-actions">
             <button type="submit" className="btn-green" disabled={!newGroupTemaId}>Guardar grupo</button>
@@ -308,7 +330,7 @@ export default function Comunidades() {
                 <div key={`${member.idUsuario}-${idx}`} className="member-row">
                   <div className="member-info">
                     <span className="member-avatar" style={{ backgroundColor: '#86EFAC' }} aria-hidden="true" />
-                    <span className="member-name">Integrante #{idx + 1}</span>
+                    <span className="member-name">{member.nombreUsuario || `Integrante #${idx + 1}`}</span>
                   </div>
                   <div className="member-meta">
                     <span className={`role-pill ${member.rolGrupo === 'LIDER' ? 'role-leader' : 'role-member'}`}>
@@ -381,7 +403,7 @@ export default function Comunidades() {
             </form>
           )}
 
-          {selectedGroup && (
+          {selectedGroup && canCreateChallenge && (
             <div className="challenges-footer">
               <button type="button" className="btn-sol btn-full" onClick={() => setShowNewChallengeForm((v) => !v)}>
                 + Publicar reto
@@ -390,6 +412,42 @@ export default function Comunidades() {
           )}
         </section>
       </div>
+
+      {/* RF-42: Ranking comunitario respetando privacidad */}
+      <section className="kolab-card" aria-label="Ranking comunitario">
+        <header className="card-header-row">
+          <h2 className="card-title">Ranking académico (RF-42)</h2>
+          <span className="muted" style={{ fontSize: '0.82rem' }}>Puedes activar o desactivar tu visibilidad desde Perfil</span>
+        </header>
+        {ranking.length === 0 ? (
+          <p className="empty">Aún no hay participantes visibles en el ranking.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Estudiante</th>
+                  <th>Grupo</th>
+                  <th>Racha</th>
+                  <th>XP Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranking.slice(0, 10).map((r, i) => (
+                  <tr key={r._id}>
+                    <td><strong>{i + 1}</strong></td>
+                    <td>{r.nombre} {r.apellidos}</td>
+                    <td>{r.grupo || 'General'}</td>
+                    <td>🔥 {r.rachaActual}d</td>
+                    <td><span className="chip chip--xp">{r.xpTotal} XP</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="kolab-card badges-card" aria-label="Mis insignias y progreso">
         <header className="card-header-row">
@@ -403,9 +461,9 @@ export default function Comunidades() {
           ) : (
             <div className="badges-row">
               {insignias.map((ins, idx) => (
-                <div className="badge-item" key={ins._id}>
+                <div className="badge-item" key={ins._id} title={ins.descripcionInsignia || ''}>
                   <div className="badge-medal badge-green">★</div>
-                  <span className="badge-label">Insignia #{idx + 1}</span>
+                  <span className="badge-label">{ins.nombreInsignia || `Insignia #${idx + 1}`}</span>
                 </div>
               ))}
             </div>

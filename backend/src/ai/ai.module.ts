@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { AcademicModule } from '../academic/academic.module';
+import { QaModule } from '../qa/qa.module';
 import { ResourcesModule } from '../resources/resources.module';
 import { AiResolver } from './ai.resolver';
 import { GeminiService } from './gemini.service';
@@ -17,6 +19,8 @@ import {
 @Module({
   imports: [
     ResourcesModule,
+    AcademicModule,
+    QaModule,
     MongooseModule.forFeature([
       { name: ConsultaIa.name, schema: ConsultaIaSchema },
       { name: Cuestionario.name, schema: CuestionarioSchema },

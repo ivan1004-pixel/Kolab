@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { Recurso, RecursoSchema } from '../resources/schemas/recurso.schema';
 import { AcademicResolver } from './academic.resolver';
 import { AcademicService } from './academic.service';
 import {
@@ -20,6 +21,7 @@ import {
       { name: Asignatura.name, schema: AsignaturaSchema },
       { name: Tema.name, schema: TemaSchema },
       { name: CalendarioEvento.name, schema: CalendarioEventoSchema },
+      { name: Recurso.name, schema: RecursoSchema },
     ]),
   ],
   providers: [AcademicService, AcademicResolver],

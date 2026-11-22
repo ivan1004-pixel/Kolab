@@ -3,6 +3,13 @@ import { DEMO_USERS } from '../data/demoUsers';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 
+export interface UserPreferences {
+  notificacionesPlataforma: boolean;
+  notificacionesCorreo: boolean;
+  mostrarEnRanking: boolean;
+  temaOscuro: boolean;
+}
+
 export interface AuthUser {
   id: string | number;
   nombre: string;
@@ -12,11 +19,17 @@ export interface AuthUser {
   rol: string;
   foto_url: string;
   xp: number;
+  idCarrera?: string;
   cuatrimestre?: string;
   grupo?: string;
   carrera: string;
   insignias: number;
   retos: number;
+  rachaActual: number;
+  rachaMasLarga: number;
+  comodinesMes: number;
+  asignaturasInscritas: string[];
+  preferencias: UserPreferences;
 }
 
 interface SessionData {
@@ -43,6 +56,7 @@ interface AuthContextValue {
   register: (payload: RegisterPayload) => Promise<{ message: string; correo: string; requiereVerificacion: boolean }>;
   verifyEmail: (token: string) => Promise<{ success: boolean; message: string; autoLoggedIn?: boolean }>;
   updateProfile: (changes: Record<string, any>) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -63,8 +77,19 @@ const USER_FIELDS = `
   rol
   fotoUrl
   xpTotal
+  idCarrera
   cuatrimestre
   grupo
+  rachaActual
+  rachaMasLarga
+  comodinesMes
+  asignaturasInscritas
+  preferencias {
+    notificacionesPlataforma
+    notificacionesCorreo
+    mostrarEnRanking
+    temaOscuro
+  }
 `;
 
 function normalizeUser(u: any): AuthUser | null {
@@ -78,11 +103,22 @@ function normalizeUser(u: any): AuthUser | null {
     rol: ROLE_MAP[u.rol] ?? u.rol ?? 'estudiante',
     foto_url: u.fotoUrl ?? u.foto_url ?? '',
     xp: u.xpTotal ?? u.xp ?? 0,
+    idCarrera: u.idCarrera ?? '',
     cuatrimestre: u.cuatrimestre ?? '',
     grupo: u.grupo ?? '',
     carrera: u.carrera ?? 'Carrera por definir',
     insignias: u.insignias ?? 0,
     retos: u.retos ?? 0,
+    rachaActual: u.rachaActual ?? 0,
+    rachaMasLarga: u.rachaMasLarga ?? 0,
+    comodinesMes: u.comodinesMes ?? 2,
+    asignaturasInscritas: Array.isArray(u.asignaturasInscritas) ? u.asignaturasInscritas : [],
+    preferencias: {
+      notificacionesPlataforma: u.preferencias?.notificacionesPlataforma ?? true,
+      notificacionesCorreo: u.preferencias?.notificacionesCorreo ?? true,
+      mostrarEnRanking: u.preferencias?.mostrarEnRanking ?? true,
+      temaOscuro: u.preferencias?.temaOscuro ?? false,
+    },
   };
 }
 
@@ -281,6 +317,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [persist, session]);
 
+  const refreshUser = useCallback(async () => {
+    if (USE_MOCK || !session?.token) return;
+    try {
+      const data = await gqlRequest<{ miPerfil: any }>(
+        `query MiPerfilRefresh { miPerfil { ${USER_FIELDS} } }`,
+        {},
+        session.token,
+      );
+      if (data?.miPerfil) {
+        persist({ ...session, user: normalizeUser(data.miPerfil) });
+      }
+    } catch {
+      // Ignorar si falla temporalmente
+    }
+  }, [persist, session]);
+
   useEffect(() => {
     if (!session) return undefined;
     let timer: ReturnType<typeof setTimeout>;
@@ -307,8 +359,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       verifyEmail,
       updateProfile,
+      refreshUser,
     }),
-    [session, login, loginWithGoogle, logout, register, verifyEmail, updateProfile],
+    [session, login, loginWithGoogle, logout, register, verifyEmail, updateProfile, refreshUser],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

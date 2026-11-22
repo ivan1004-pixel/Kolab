@@ -83,6 +83,20 @@ export default function Layout() {
             <span className="nav__label">Inicio</span>
           </NavLink>
 
+          {(user?.rol === 'docente' || user?.rol === 'admin') && (
+            <NavLink
+              to="/docente"
+              className="nav__link"
+              onClick={close}
+              title="Panel Docente"
+            >
+              <span className="nav__num" style={{ background: '#b45309' }}>
+                <GraduationCap size={20} />
+              </span>
+              <span className="nav__label">Panel Docente</span>
+            </NavLink>
+          )}
+
           {MODULES.filter((m) => m.id !== 1).map((m) => {
             const Icon = getModuleIcon(m.id);
 

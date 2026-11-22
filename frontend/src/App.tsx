@@ -5,6 +5,7 @@ import { MODULES } from './data/modules';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import DocenteDashboard from './pages/DocenteDashboard';
 import Perfil from './pages/Perfil';
 import Foro from './pages/Foro';
 import ModulePlaceholder from './pages/ModulePlaceholder';
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="/reset-password" element={<Login />} />
       <Route element={<Protected><Layout /></Protected>}>
         <Route index element={<Dashboard />} />
+        <Route path="docente" element={<DocenteDashboard />} />
         <Route path="perfil" element={<Perfil />} />
         <Route path="foro" element={<Foro />} />
         <Route path="curricular" element={<Curricular />} />

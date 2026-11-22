@@ -81,9 +81,20 @@ export class UsersResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles(RolUsuario.ADMINISTRADOR)
   async adminActualizarUsuario(
+    @CurrentUser() admin: AuthenticatedUser,
     @Args('id', { type: () => ID }) id: string,
     @Args('input') input: AdminUpdateUsuarioInput,
   ): Promise<Usuario> {
-    return this.usersService.adminUpdateUsuario(id, input);
+    return this.usersService.adminUpdateUsuario(id, input, admin.userId);
+  }
+
+  @Mutation(() => Boolean, { description: 'RF-31: Dar de baja definitiva (soft delete) a un usuario' })
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles(RolUsuario.ADMINISTRADOR)
+  async adminEliminarUsuario(
+    @CurrentUser() admin: AuthenticatedUser,
+    @Args('id', { type: () => ID }) id: string,
+  ): Promise<boolean> {
+    return this.usersService.adminDeleteUsuario(id, admin.userId);
   }
 }

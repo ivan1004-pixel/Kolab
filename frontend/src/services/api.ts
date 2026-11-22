@@ -52,3 +52,26 @@ export async function request<T = any>(
   if (!res.ok) throw new Error(data.message || 'Ocurrió un error, intenta de nuevo');
   return data as T;
 }
+
+export async function uploadResourceFile(
+  file: File,
+  token: string,
+): Promise<{ url: string; filename: string; tipoArchivo: string; tamanoBytes: number }> {
+  const baseUrl = API_URL.replace(/\/graphql\/?$/, '');
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${baseUrl}/uploads`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || 'No se pudo subir el archivo al servidor.');
+  }
+  return data;
+}

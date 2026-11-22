@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -13,6 +14,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { Model, Types } from 'mongoose';
 import { RolUsuario } from '../common/enums/kolab.enums';
 import { BrevoService } from '../mail/brevo.service';
+import { ModerationService } from '../moderation/moderation.service';
 import { Usuario, UsuarioDocument } from '../users/schemas/usuario.schema';
 import {
   LoginInput,
@@ -40,6 +42,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly brevoService: BrevoService,
+    @Optional() private readonly moderationService?: ModerationService,
   ) {
     this.googleClientId = (
       this.configService.get<string>('GOOGLE_CLIENT_ID') || ''
@@ -227,6 +230,15 @@ export class AuthService {
     user.lastActiveAt = new Date();
     await user.save();
 
+    await this.moderationService
+      ?.registrarAuditoria(
+        'INICIO_SESION',
+        user._id.toString(),
+        'Usuario',
+        `Inicio de sesión con correo (${user.rol})`,
+      )
+      .catch(() => {});
+
     return this.generateTokens(user);
   }
 
@@ -338,6 +350,15 @@ export class AuthService {
       user.fotoUrl = payload.picture;
     }
     await user.save();
+
+    await this.moderationService
+      ?.registrarAuditoria(
+        'INICIO_SESION_GOOGLE',
+        user._id.toString(),
+        'Usuario',
+        `Inicio de sesión con Google OAuth2 (${user.rol})`,
+      )
+      .catch(() => {});
 
     const tokens = await this.generateTokens(user);
     return {

@@ -121,6 +121,12 @@ export class RadarDificultadTema {
   @Field(() => Int)
   preguntasSinResolver: number;
 
+  @Field(() => Int)
+  erroresAutoevaluacion: number;
+
+  @Field(() => [String])
+  conceptosDebiles: string[];
+
   @Field(() => Pregunta, { nullable: true })
   preguntaMasDebatidaSinSolucion?: Pregunta;
 }

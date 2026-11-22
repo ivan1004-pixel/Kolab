@@ -14,6 +14,8 @@ import {
   ConsultaIa,
   Cuestionario,
   IntentoCuestionario,
+  PlanRepasoItem,
+  PreguntaDelDia,
 } from './schemas/ai.schema';
 
 @Resolver()
@@ -91,6 +93,36 @@ export class AiResolver {
     @Args('util') util: boolean,
   ): Promise<ConsultaIa> {
     return this.geminiService.calificarConsultaIa(consultaId, util);
+  }
+
+  @Query(() => [ConsultaIa], {
+    description: 'RF-74: Consultas de IA marcadas como incorrectas para revisión docente',
+  })
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles(RolUsuario.DOCENTE, RolUsuario.ADMINISTRADOR)
+  async consultasIaPorRevisar(): Promise<ConsultaIa[]> {
+    return this.geminiService.consultasIaPorRevisar();
+  }
+
+  @Query(() => PreguntaDelDia, {
+    nullable: true,
+    description: 'RF-43/RF-45: Pregunta del día priorizando temas con más errores',
+  })
+  @UseGuards(GqlAuthGuard)
+  async preguntaDelDia(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<PreguntaDelDia | null> {
+    return this.geminiService.obtenerPreguntaDelDia(user.userId);
+  }
+
+  @Query(() => [PlanRepasoItem], {
+    description: 'RF-79: Plan de repaso recomendado antes de exámenes',
+  })
+  @UseGuards(GqlAuthGuard)
+  async planDeRepaso(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<PlanRepasoItem[]> {
+    return this.geminiService.generarPlanDeRepaso(user.userId);
   }
 
   @Mutation(() => ConsultaIa, {

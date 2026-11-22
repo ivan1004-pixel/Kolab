@@ -178,7 +178,7 @@ export class AiConfig {
   _id: Types.ObjectId;
 
   @Field()
-  @Prop({ default: 'gemini-3.8-flash' })
+  @Prop({ default: 'gemini-3.1-flash-lite' })
   modelo: string;
 
   @Field(() => Float)
@@ -192,3 +192,51 @@ export class AiConfig {
 
 export type AiConfigDocument = AiConfig & Document;
 export const AiConfigSchema = SchemaFactory.createForClass(AiConfig);
+
+@ObjectType()
+export class PreguntaDelDia {
+  @Field(() => ID)
+  idTema: Types.ObjectId;
+
+  @Field()
+  tituloTema: string;
+
+  @Field()
+  pregunta: string;
+
+  @Field()
+  dificultad: string;
+
+  @Field()
+  motivoPrioridad: string;
+
+  @Field({ nullable: true })
+  fuenteTitulo?: string;
+}
+
+@ObjectType()
+export class PlanRepasoItem {
+  @Field(() => ID)
+  idEvento: Types.ObjectId;
+
+  @Field()
+  tituloEvento: string;
+
+  @Field()
+  fechaEvento: Date;
+
+  @Field(() => ID)
+  idAsignatura: Types.ObjectId;
+
+  @Field(() => ID, { nullable: true })
+  idTema?: Types.ObjectId;
+
+  @Field()
+  prioridad: string;
+
+  @Field()
+  recomendacion: string;
+
+  @Field(() => [String])
+  conceptosClave: string[];
+}

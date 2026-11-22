@@ -6,6 +6,10 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
+  Recurso,
+  RecursoDocument,
+} from '../resources/schemas/recurso.schema';
+import {
   CreateAsignaturaInput,
   CreateCalendarioEventoInput,
   CreateCarreraInput,
@@ -33,6 +37,8 @@ export class AcademicService {
     private readonly temaModel: Model<TemaDocument>,
     @InjectModel(CalendarioEvento.name)
     private readonly calendarioModel: Model<CalendarioEventoDocument>,
+    @InjectModel(Recurso.name)
+    private readonly recursoModel: Model<RecursoDocument>,
   ) {}
 
   async createCarrera(input: CreateCarreraInput): Promise<CarreraDocument> {
@@ -62,12 +68,16 @@ export class AcademicService {
   }
 
   async deleteAsignatura(id: string): Promise<boolean> {
-    const temasCount = await this.temaModel
-      .countDocuments({ idAsignatura: new Types.ObjectId(id) })
-      .exec();
-    if (temasCount > 0) {
+    const objId = new Types.ObjectId(id);
+    const [temasCount, recursosCount] = await Promise.all([
+      this.temaModel.countDocuments({ idAsignatura: objId }).exec(),
+      this.recursoModel
+        .countDocuments({ idAsignatura: objId, eliminadoEn: { $exists: false } })
+        .exec(),
+    ]);
+    if (temasCount > 0 || recursosCount > 0) {
       throw new BadRequestException(
-        'No se puede eliminar la asignatura porque tiene temas asociados (RNF-18).',
+        'No se puede eliminar la asignatura porque tiene temas o recursos asociados (RNF-18).',
       );
     }
     const res = await this.asignaturaModel.findByIdAndDelete(id).exec();

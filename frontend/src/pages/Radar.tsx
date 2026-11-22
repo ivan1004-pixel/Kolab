@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
+import { downloadCsv, escapeHtml, exportHtmlToPdf } from '../utils/exportUtils';
 import { ChartSkeleton } from '../components/Skeleton';
 import {
   clearPwaCache,
@@ -14,6 +15,8 @@ interface RadarItem {
   idTema: string;
   totalPreguntas: number;
   preguntasSinResolver: number;
+  erroresAutoevaluacion: number;
+  conceptosDebiles: string[];
   preguntaMasDebatidaSinSolucion?: {
     _id: string;
     texto: string;
@@ -32,7 +35,8 @@ interface IntentoItem {
 }
 
 export default function Radar() {
-  const { token } = useAuth();
+  const { user, token } = useAuth();
+  const isTeacher = user?.rol === 'docente' || user?.rol === 'admin';
   const [radar, setRadar] = useState<RadarItem[]>([]);
   const [temas, setTemas] = useState<TemaItem[]>([]);
   const [intentos, setIntentos] = useState<IntentoItem[]>([]);
@@ -65,6 +69,8 @@ export default function Radar() {
             idTema
             totalPreguntas
             preguntasSinResolver
+            erroresAutoevaluacion
+            conceptosDebiles
             preguntaMasDebatidaSinSolucion { _id texto votosUtilidad }
           }
           temas { _id titulo }
@@ -212,8 +218,60 @@ export default function Radar() {
 
         <section className="kolab-card" aria-label="Preguntas sin resolver destacadas">
           <header className="card-header-row">
-            <h2 className="card-title">Dudas más debatidas</h2>
+            <h2 className="card-title">Dudas más debatidas y errores (RF-27 / RF-28)</h2>
+            {isTeacher && radar.length > 0 && (
+              <div className="row">
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={() =>
+                    downloadCsv(
+                      `kolab-radar-${new Date().toISOString().slice(0, 10)}.csv`,
+                      ['Tema', 'Total Preguntas', 'Sin Resolver', 'Errores Quiz', 'Conceptos Débiles', 'Pregunta más debatida'],
+                      radar.map((r) => [
+                        temaMap.get(r.idTema) || r.idTema,
+                        r.totalPreguntas,
+                        r.preguntasSinResolver,
+                        r.erroresAutoevaluacion,
+                        (r.conceptosDebiles || []).join(' | '),
+                        r.preguntaMasDebatidaSinSolucion?.texto || '',
+                      ]),
+                    )
+                  }
+                >
+                  CSV
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={() =>
+                    exportHtmlToPdf(
+                      'Reporte del Radar de Dificultades',
+                      `<table><thead><tr><th>Tema</th><th>Preguntas</th><th>Sin resolver</th><th>Errores Quiz</th><th>Pregunta más debatida</th></tr></thead><tbody>${radar
+                        .map(
+                          (r) =>
+                            `<tr><td>${escapeHtml(temaMap.get(r.idTema) || r.idTema)}</td><td>${r.totalPreguntas}</td><td>${r.preguntasSinResolver}</td><td>${r.erroresAutoevaluacion}</td><td>${escapeHtml(r.preguntaMasDebatidaSinSolucion?.texto || '—')}</td></tr>`,
+                        )
+                        .join('')}</tbody></table>`,
+                    )
+                  }
+                >
+                  PDF
+                </button>
+              </div>
+            )}
           </header>
+
+          {selectedUnit && selectedUnit.conceptosDebiles?.length > 0 && (
+            <div style={{ marginBottom: '0.75rem' }}>
+              <span className="muted" style={{ fontSize: '0.82rem' }}>
+                Errores de autoevaluación en <strong>{temaMap.get(selectedUnit.idTema) || 'este tema'}</strong>: {selectedUnit.erroresAutoevaluacion}
+              </span>
+              <div className="td-tags" style={{ marginTop: 4 }}>
+                {selectedUnit.conceptosDebiles.map((c, idx) => <span key={idx} className="td-tag">{c}</span>)}
+              </div>
+            </div>
+          )}
 
           {radar.filter((r) => r.preguntaMasDebatidaSinSolucion).length === 0 ? (
             <p className="empty">No hay dudas pendientes de solución en este momento.</p>

@@ -1,5 +1,14 @@
 import { UseGuards } from '@nestjs/common';
-import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
+import {
+  Args,
+  ID,
+  Int,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from '@nestjs/graphql';
 import {
   AuthenticatedUser,
   CurrentUser,
@@ -167,5 +176,44 @@ export class ResourcesResolver {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ColeccionPersonal[]> {
     return this.resourcesService.misColecciones(user.userId);
+  }
+
+  @Query(() => [Recurso], {
+    description: 'RF-63: Sugerir recursos relacionados por tema',
+  })
+  @UseGuards(GqlAuthGuard)
+  async recursosRelacionados(
+    @Args('recursoId', { type: () => ID }) recursoId: string,
+  ): Promise<Recurso[]> {
+    return this.resourcesService.recursosRelacionados(recursoId);
+  }
+
+  @Query(() => [Recurso], {
+    description: 'RF-67: Ver papelera de reciclaje personal (últimos 30 días)',
+  })
+  @UseGuards(GqlAuthGuard)
+  async miPapelera(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Recurso[]> {
+    return this.resourcesService.miPapelera(user.userId);
+  }
+
+  @Mutation(() => Recurso, {
+    description: 'RF-67: Restaurar recurso desde la papelera de reciclaje',
+  })
+  @UseGuards(GqlAuthGuard)
+  async restaurarRecurso(
+    @CurrentUser() user: AuthenticatedUser,
+    @Args('recursoId', { type: () => ID }) recursoId: string,
+  ): Promise<Recurso> {
+    return this.resourcesService.restaurarRecurso(user.userId, recursoId);
+  }
+
+  @ResolveField(() => String, { nullable: true })
+  async nombreAutor(@Parent() recurso: Recurso): Promise<string | undefined> {
+    if (recurso.nombreAutor) return recurso.nombreAutor;
+    return this.resourcesService.resolveNombreAutor(
+      recurso.idUsuario.toString(),
+    );
   }
 }

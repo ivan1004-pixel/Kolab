@@ -79,6 +79,10 @@ export class Recurso {
   @Prop({ type: Types.ObjectId, ref: 'Usuario', required: true })
   idUsuario: Types.ObjectId;
 
+  @Field({ nullable: true })
+  @Prop()
+  nombreAutor?: string;
+
   @Field(() => [ID])
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Usuario' }], default: [] })
   coautores: Types.ObjectId[];
