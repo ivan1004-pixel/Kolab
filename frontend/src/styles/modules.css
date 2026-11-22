@@ -195,3 +195,105 @@
     min-width: 150px;
   }
 }
+
+/* =====================================
+   KOLAB - RECORTADOR DE FOTOGRAFÍA
+===================================== */
+
+.crop-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(5px);
+}
+
+.crop-modal__content {
+  width: min(100%, 520px);
+  padding: 28px;
+  background: var(--blanco);
+  color: var(--tinta);
+  border: 1px solid var(--borde);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+}
+
+.crop-modal__content h2 {
+  margin: 0 0 8px;
+}
+
+.crop-modal__content p {
+  color: var(--texto-suave);
+  font-size: 14px;
+}
+
+.crop-container {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  margin: 20px 0;
+  overflow: hidden;
+  background: #17251c;
+  border-radius: 14px;
+}
+
+.crop-zoom {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.crop-zoom input {
+  width: 100%;
+  accent-color: var(--verde);
+}
+
+.crop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 500px) {
+  .crop-modal__content {
+    padding: 18px;
+  }
+
+  .crop-container {
+    height: 280px;
+  }
+
+  .crop-actions button {
+    flex: 1;
+  }
+}
+/* Skeleton de fotografía de perfil */
+.profile-photo-skeleton {
+  width: 100%;
+  height: 100%;
+  display: block;
+  flex: 0 0 100%;
+}
+
+.profile-photo-skeleton .skeleton {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #cbd8ce;
+}
+
+.profile-photo-skeleton .skeleton::after {
+  background: linear-gradient(
+    100deg,
+    transparent 15%,
+    rgba(255, 255, 255, 0.25) 35%,
+    rgba(255, 255, 255, 0.9) 50%,
+    rgba(255, 255, 255, 0.25) 65%,
+    transparent 85%
+  );
+}
