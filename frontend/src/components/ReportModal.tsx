@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Flag, Send, X } from 'lucide-react';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
+import { toFriendlyError } from '../utils/friendlyError';
 
 const QUICK_REASONS = [
   'Contenido inapropiado u ofensivo',
@@ -99,7 +100,7 @@ export default function ReportModal({
         onClose();
       }
     } catch (err: any) {
-      setError(err.message || 'No se pudo enviar el reporte.');
+      setError(toFriendlyError(err, 'No se pudo enviar el reporte. Por favor, intenta de nuevo.'));
     } finally {
       setSubmitting(false);
     }

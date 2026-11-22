@@ -411,6 +411,28 @@ export class ResourcesService {
     recursoId: string,
     texto: string,
   ): Promise<RecursoDocument> {
+    if (!Types.ObjectId.isValid(recursoId)) {
+      throw new BadRequestException('El recurso seleccionado no es válido.');
+    }
+    const cleanTexto = (texto || '').trim();
+    if (!cleanTexto) {
+      throw new BadRequestException('Escribe un comentario antes de enviarlo.');
+    }
+
+    const existing = await this.recursoModel.findById(recursoId).exec();
+    if (!existing) throw new NotFoundException('Recurso no encontrado');
+
+    const now = Date.now();
+    const last = existing.comentarios?.[existing.comentarios.length - 1];
+    if (
+      last &&
+      last.idUsuario.toString() === userId &&
+      last.texto === cleanTexto &&
+      now - new Date(last.fecha).getTime() < 5000
+    ) {
+      return existing;
+    }
+
     const updated = await this.recursoModel
       .findByIdAndUpdate(
         recursoId,
@@ -418,7 +440,7 @@ export class ResourcesService {
           $push: {
             comentarios: {
               idUsuario: new Types.ObjectId(userId),
-              texto,
+              texto: cleanTexto,
               fecha: new Date(),
             },
           },

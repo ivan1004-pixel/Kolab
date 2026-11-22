@@ -1,4 +1,5 @@
 import { assertNoScriptInjection } from '../utils/inputSecurity';
+import { toFriendlyError } from '../utils/friendlyError';
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/graphql';
 export const USE_MOCK: boolean = import.meta.env.VITE_USE_MOCK !== 'false';
@@ -10,23 +11,35 @@ export async function gqlRequest<T = any>(
 ): Promise<T> {
   assertNoScriptInjection(variables, 'formulario');
 
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ query, variables }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+  } catch (err) {
+    throw new Error(toFriendlyError(err));
+  }
 
   const payload = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(payload.message || 'Ocurrió un error al conectar con el servidor');
+    throw new Error(
+      toFriendlyError(payload.message, 'No se pudo completar la operación. Intenta de nuevo.'),
+    );
   }
 
   if (Array.isArray(payload.errors) && payload.errors.length > 0) {
-    throw new Error(payload.errors[0].message || 'Error en la operación GraphQL');
+    throw new Error(
+      toFriendlyError(
+        payload.errors[0].message,
+        'No se pudo completar la operación. Intenta de nuevo.',
+      ),
+    );
   }
 
   return payload.data as T;
@@ -40,16 +53,23 @@ export async function request<T = any>(
     assertNoScriptInjection(body, 'formulario');
   }
   const baseUrl = API_URL.replace(/\/graphql\/?$/, '');
-  const res = await fetch(`${baseUrl}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (err) {
+    throw new Error(toFriendlyError(err));
+  }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || 'Ocurrió un error, intenta de nuevo');
+  if (!res.ok) {
+    throw new Error(toFriendlyError(data.message, 'Ocurrió un inconveniente, intenta de nuevo.'));
+  }
   return data as T;
 }
 
@@ -61,17 +81,22 @@ export async function uploadResourceFile(
   const formData = new FormData();
   formData.append('file', file);
 
-  const res = await fetch(`${baseUrl}/uploads`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: formData,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/uploads`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+  } catch (err) {
+    throw new Error(toFriendlyError(err, 'No se pudo subir el archivo. Verifica tu conexión.'));
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.message || 'No se pudo subir el archivo al servidor.');
+    throw new Error(toFriendlyError(data.message, 'No se pudo subir el archivo al servidor.'));
   }
   return data;
 }

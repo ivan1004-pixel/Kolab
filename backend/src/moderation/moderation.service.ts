@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
@@ -30,15 +34,49 @@ export class ModerationService {
     private readonly brevoService: BrevoService,
   ) {}
 
+  private normalizeTipoObjetivo(raw: string): string {
+    const upper = (raw || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+    const aliases: Record<string, string> = {
+      RECURSO: 'RECURSO',
+      PREGUNTA: 'PREGUNTA',
+      RESPUESTA: 'RESPUESTA',
+      SOLICITUD_TUTORIA: 'SOLICITUD_TUTORIA',
+      SOLICITUDTUTORIA: 'SOLICITUD_TUTORIA',
+      TUTORIA: 'SOLICITUD_TUTORIA',
+      IA: 'IA',
+      CONSULTAIA: 'IA',
+      CONSULTA_IA: 'IA',
+    };
+    const normalized = aliases[upper];
+    if (!normalized) {
+      throw new BadRequestException(
+        'No se pudo identificar el tipo de contenido a reportar. Intenta de nuevo.',
+      );
+    }
+    return normalized;
+  }
+
   async crearReporte(
     userId: string,
     tipoObjetivo: string,
     idObjetivo: string,
     motivo: string,
   ): Promise<ReporteDocument> {
+    const normalizedTipo = this.normalizeTipoObjetivo(tipoObjetivo);
+    if (!Types.ObjectId.isValid(idObjetivo)) {
+      throw new BadRequestException(
+        'El contenido que intentas reportar no es válido o ya no existe.',
+      );
+    }
+    const cleanMotivo = (motivo || '').trim();
+    if (cleanMotivo.length < 3) {
+      throw new BadRequestException(
+        'Por favor describe brevemente el motivo del reporte.',
+      );
+    }
     return new this.reporteModel({
-      motivo,
-      tipoObjetivo,
+      motivo: cleanMotivo,
+      tipoObjetivo: normalizedTipo,
       idObjetivo: new Types.ObjectId(idObjetivo),
       idUsuarioReporta: new Types.ObjectId(userId),
     }).save();

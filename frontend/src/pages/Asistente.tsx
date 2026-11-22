@@ -186,7 +186,7 @@ export default function Asistente() {
     if (!token || !reportTarget) return;
     await gqlRequest(
       `mutation ReportarIA($id: ID!, $motivo: String!) {
-        reportarContenido(tipoObjetivo: "ConsultaIa", idObjetivo: $id, motivo: $motivo) { _id }
+        reportarContenido(tipoObjetivo: "IA", idObjetivo: $id, motivo: $motivo) { _id }
       }`,
       { id: reportTarget.id, motivo },
       token,

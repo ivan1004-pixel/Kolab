@@ -1,8 +1,10 @@
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Flag,
   ThumbsUp,
@@ -12,11 +14,13 @@ import { useAuth } from '../context/AuthContext';
 import { MODULES } from '../data/modules';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
+import { toFriendlyError } from '../utils/friendlyError';
 import ModuleBanner from '../components/ModuleBanner';
 import ReportModal from '../components/ReportModal';
 import { CardListSkeleton } from '../components/Skeleton';
 
 const MAX_LIKES_PER_USER = 5;
+const ANSWERS_STEP = 3;
 
 function formatDateTime(iso?: string): string {
   if (!iso) return '';
@@ -89,6 +93,8 @@ export default function Foro() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [creatingQuestion, setCreatingQuestion] = useState(false);
+  const creatingRef = useRef(false);
   const [reportTarget, setReportTarget] = useState<{ id: string; preview: string } | null>(null);
 
   const loadForo = useCallback(async () => {
@@ -162,13 +168,13 @@ export default function Foro() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!token) return;
+    if (!token || creatingRef.current) return;
     try {
       assertNoScriptInjection(form, 'foro');
     } catch (err: any) {
-      return setError(err.message);
+      return setError(toFriendlyError(err));
     }
-    if (form.texto.trim().length < 8) return setError('Escribe tu pregunta con un poco más de detalle');
+    if (form.texto.trim().length < 8) return setError('Escribe tu pregunta con un poco más de detalle (al menos 8 caracteres).');
     if (!form.idTema) return setError('Selecciona un tema para publicar tu pregunta.');
 
     const etiquetas = form.etiquetas
@@ -176,6 +182,8 @@ export default function Foro() {
       .map((t) => t.trim())
       .filter(Boolean);
 
+    creatingRef.current = true;
+    setCreatingQuestion(true);
     try {
       const res = await gqlRequest<{ crearPregunta: Omit<PreguntaItem, 'respuestas'> }>(
         `mutation CrearPregunta($idTema: ID!, $texto: String!, $fragmento: String, $etiquetas: [String!], $banco: Boolean) {
@@ -192,12 +200,20 @@ export default function Foro() {
         },
         token,
       );
-      setPreguntas((p) => [{ ...res.crearPregunta, respuestas: [] }, ...p]);
+      setPreguntas((p) =>
+        p.some((item) => item._id === res.crearPregunta._id)
+          ? p
+          : [{ ...res.crearPregunta, respuestas: [] }, ...p],
+      );
       setForm((f) => ({ ...f, texto: '', fragmento: '', etiquetas: '', esBancoColaborativo: false }));
       setError('');
+      setNotice('Pregunta publicada correctamente.');
       setShowForm(false);
     } catch (err: any) {
-      setError(err.message || 'No se pudo publicar la pregunta.');
+      setError(toFriendlyError(err, 'No se pudo publicar tu pregunta. Intenta de nuevo.'));
+    } finally {
+      creatingRef.current = false;
+      setCreatingQuestion(false);
     }
   }
 
@@ -213,38 +229,60 @@ export default function Foro() {
       token,
     );
     setPreguntas((p) =>
-      p.map((x) => (x._id === idPregunta ? { ...x, respuestas: [...x.respuestas, res.responderPregunta] } : x)),
+      p.map((x) => {
+        if (x._id !== idPregunta) return x;
+        if (x.respuestas.some((r) => r._id === res.responderPregunta._id)) return x;
+        return { ...x, respuestas: [...x.respuestas, res.responderPregunta] };
+      }),
     );
   }
 
   async function validar(qid: string, rid: string) {
     if (!token) return;
-    await gqlRequest(
-      `mutation MarcarRelevante($id: ID!) {
-        marcarRespuestaRelevante(respuestaId: $id) { _id esValida }
-      }`,
-      { id: rid },
-      token,
-    );
-    setPreguntas((p) =>
-      p.map((x) =>
-        x._id === qid
-          ? { ...x, resuelta: true, respuestas: x.respuestas.map((r) => (r._id === rid ? { ...r, esValida: true } : r)) }
-          : x,
-      ),
-    );
+    setError('');
+    try {
+      await gqlRequest(
+        `mutation MarcarRelevante($id: ID!) {
+          marcarRespuestaRelevante(respuestaId: $id) { _id esValida }
+        }`,
+        { id: rid },
+        token,
+      );
+      setPreguntas((p) =>
+        p.map((x) =>
+          x._id === qid
+            ? { ...x, resuelta: true, respuestas: x.respuestas.map((r) => (r._id === rid ? { ...r, esValida: true } : r)) }
+            : x,
+        ),
+      );
+      setNotice('Respuesta marcada como relevante.');
+    } catch (err: any) {
+      setError(toFriendlyError(err, 'No se pudo marcar esta respuesta como relevante.'));
+    }
   }
 
   async function cerrarResuelta(qid: string) {
     if (!token) return;
-    await gqlRequest(`mutation Cerrar($id: ID!) { cerrarPreguntaResuelta(preguntaId: $id) { _id resuelta } }`, { id: qid }, token);
-    setPreguntas((p) => p.map((x) => (x._id === qid ? { ...x, resuelta: true } : x)));
+    setError('');
+    try {
+      await gqlRequest(`mutation Cerrar($id: ID!) { cerrarPreguntaResuelta(preguntaId: $id) { _id resuelta } }`, { id: qid }, token);
+      setPreguntas((p) => p.map((x) => (x._id === qid ? { ...x, resuelta: true } : x)));
+      setNotice('Pregunta marcada como resuelta.');
+    } catch (err: any) {
+      setError(toFriendlyError(err, 'No se pudo cerrar la pregunta.'));
+    }
   }
 
   async function validarBanco(qid: string) {
     if (!token) return;
-    await gqlRequest(`mutation ValidarBanco($id: ID!) { validarPreguntaBanco(preguntaId: $id) { _id validadaPorDocente } }`, { id: qid }, token);
-    setPreguntas((p) => p.map((x) => (x._id === qid ? { ...x, validadaPorDocente: true } : x)));
+    setError('');
+    try {
+      await gqlRequest(`mutation ValidarBanco($id: ID!) { validarPreguntaBanco(preguntaId: $id) { _id validadaPorDocente } }`, { id: qid }, token);
+      setPreguntas((p) => p.map((x) => (x._id === qid ? { ...x, validadaPorDocente: true } : x)));
+      setNotice('Pregunta validada para el banco colaborativo.');
+    } catch (err: any) {
+      setError(toFriendlyError(err, 'No se pudo validar esta pregunta.'));
+    }
   }
 
   async function votarPregunta(qid: string) {
@@ -268,7 +306,7 @@ export default function Foro() {
         ),
       );
     } catch (err: any) {
-      setError(err.message || `Solo puedes dar un máximo de ${MAX_LIKES_PER_USER} likes por pregunta.`);
+      setError(toFriendlyError(err, `Solo puedes dar un máximo de ${MAX_LIKES_PER_USER} likes por pregunta.`));
     }
   }
 
@@ -300,7 +338,7 @@ export default function Foro() {
         ),
       );
     } catch (err: any) {
-      setError(err.message || `Solo puedes dar un máximo de ${MAX_LIKES_PER_USER} likes por respuesta.`);
+      setError(toFriendlyError(err, `Solo puedes dar un máximo de ${MAX_LIKES_PER_USER} likes por respuesta.`));
     }
   }
 
@@ -308,7 +346,7 @@ export default function Foro() {
     if (!token || !reportTarget) return;
     await gqlRequest(
       `mutation ReportarP($id: ID!, $motivo: String!) {
-        reportarContenido(tipoObjetivo: "Pregunta", idObjetivo: $id, motivo: $motivo) { _id }
+        reportarContenido(tipoObjetivo: "PREGUNTA", idObjetivo: $id, motivo: $motivo) { _id }
       }`,
       { id: reportTarget.id, motivo },
       token,
@@ -373,7 +411,11 @@ export default function Foro() {
             <span>Compartir también en el <strong>Banco Colaborativo de preguntas</strong> (RF-46)</span>
           </label>
           {error && <p className="form-error" role="alert">{error}</p>}
-          <div className="row"><button className="btn btn--primary" disabled={!form.idTema}>Publicar</button></div>
+          <div className="row">
+            <button type="submit" className="btn btn--primary" disabled={!form.idTema || creatingQuestion}>
+              {creatingQuestion ? 'Publicando…' : 'Publicar'}
+            </button>
+          </div>
         </form>
       )}
 
@@ -442,22 +484,36 @@ function Pregunta({
   onReportar: (qid: string, preview: string) => void;
 }) {
   const [texto, setTexto] = useState('');
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const [respError, setRespError] = useState('');
+  const [visibleAnswersCount, setVisibleAnswersCount] = useState(ANSWERS_STEP);
   const resuelta = p.resuelta || p.respuestas.some((r) => r.esValida);
   const puedeCerrar = !resuelta && (puedeValidar || String(p.idUsuario) === currentUserId);
   const pMyLikes = p.misVotos ?? 0;
   const pLikesMaxed = pMyLikes >= MAX_LIKES_PER_USER;
+  const visibleAnswers = p.respuestas.slice(0, visibleAnswersCount);
+  const hiddenAnswersCount = Math.max(0, p.respuestas.length - visibleAnswers.length);
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
-    if (!texto.trim()) return;
+    if (sendingRef.current) return;
+    const clean = texto.trim();
+    if (!clean) return;
     try {
-      assertNoScriptInjection(texto, 'respuesta');
+      assertNoScriptInjection(clean, 'respuesta');
       setRespError('');
-      await onResponder(p._id, texto.trim());
+      sendingRef.current = true;
+      setSending(true);
       setTexto('');
+      await onResponder(p._id, clean);
+      setVisibleAnswersCount((c) => Math.max(c, p.respuestas.length + 1));
     } catch (err: any) {
-      setRespError(err.message || 'No se pudo enviar tu respuesta.');
+      setTexto(clean);
+      setRespError(toFriendlyError(err, 'No se pudo enviar tu respuesta. Intenta de nuevo.'));
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
     }
   }
 
@@ -514,15 +570,10 @@ function Pregunta({
           className={`btn btn--ghost btn--sm forum-like-btn ${pMyLikes > 0 ? 'is-liked' : ''} ${pLikesMaxed ? 'is-maxed' : ''}`}
           onClick={() => onVotarPregunta(p._id)}
           disabled={pLikesMaxed}
-          title={
-            pLikesMaxed
-              ? `Alcanzaste el máximo de ${MAX_LIKES_PER_USER} likes en esta pregunta`
-              : `Dar like (${pMyLikes}/${MAX_LIKES_PER_USER} usados)`
-          }
+          title={pLikesMaxed ? 'Ya diste el máximo de likes en esta pregunta' : 'Marcar como útil'}
         >
           <ThumbsUp size={14} fill={pMyLikes > 0 ? 'currentColor' : 'none'} aria-hidden="true" />
           <span>Útil ({p.votosUtilidad})</span>
-          {pMyLikes > 0 && <span className="forum-like-cap">{pMyLikes}/{MAX_LIKES_PER_USER}</span>}
         </button>
         {puedeCerrar && (
           <button type="button" className="btn btn--ghost btn--sm" onClick={() => onCerrar(p._id)}>
@@ -547,7 +598,7 @@ function Pregunta({
 
       {p.respuestas.length > 0 && (
         <div className="answers">
-          {p.respuestas.map((r) => {
+          {visibleAnswers.map((r) => {
             const rMyLikes = r.misVotos ?? 0;
             const rLikesMaxed = rMyLikes >= MAX_LIKES_PER_USER;
             return (
@@ -582,15 +633,10 @@ function Pregunta({
                     className={`btn btn--ghost btn--sm forum-like-btn ${rMyLikes > 0 ? 'is-liked' : ''} ${rLikesMaxed ? 'is-maxed' : ''}`}
                     onClick={() => onVotarRespuesta(p._id, r._id)}
                     disabled={rLikesMaxed}
-                    title={
-                      rLikesMaxed
-                        ? `Alcanzaste el máximo de ${MAX_LIKES_PER_USER} likes en esta respuesta`
-                        : `Dar like (${rMyLikes}/${MAX_LIKES_PER_USER} usados)`
-                    }
+                    title={rLikesMaxed ? 'Ya diste el máximo de likes en esta respuesta' : 'Me parece útil'}
                   >
                     <ThumbsUp size={14} fill={rMyLikes > 0 ? 'currentColor' : 'none'} aria-hidden="true" />
                     <span>{r.votosUtilidad}</span>
-                    {rMyLikes > 0 && <span className="forum-like-cap">{rMyLikes}/{MAX_LIKES_PER_USER}</span>}
                   </button>
                   {puedeValidar && !r.esValida && (
                     <button
@@ -606,6 +652,40 @@ function Pregunta({
               </div>
             );
           })}
+
+          {p.respuestas.length > ANSWERS_STEP && (
+            <div className="row" style={{ marginTop: '0.25rem' }}>
+              {hiddenAnswersCount > ANSWERS_STEP && (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setVisibleAnswersCount((c) => c + ANSWERS_STEP)}
+                >
+                  <ChevronDown size={14} aria-hidden="true" />
+                  <span>Ver {ANSWERS_STEP} más</span>
+                </button>
+              )}
+              {hiddenAnswersCount > 0 ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setVisibleAnswersCount(p.respuestas.length)}
+                >
+                  <ChevronDown size={14} aria-hidden="true" />
+                  <span>Mostrar todas las respuestas ({p.respuestas.length})</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  onClick={() => setVisibleAnswersCount(ANSWERS_STEP)}
+                >
+                  <ChevronUp size={14} aria-hidden="true" />
+                  <span>Mostrar menos respuestas</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -615,10 +695,13 @@ function Pregunta({
           id={`r-${p._id}`}
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
+          disabled={sending}
           placeholder="Escribe una respuesta útil…"
           style={{ flex: 1, minHeight: 44, padding: '0 1rem', borderRadius: 14, border: '2px solid var(--borde)' }}
         />
-        <button className="btn btn--primary btn--sm">Responder</button>
+        <button type="submit" className="btn btn--primary btn--sm" disabled={sending || !texto.trim()}>
+          {sending ? 'Enviando…' : 'Responder'}
+        </button>
       </form>
       {respError && <p className="form-error" role="alert">{respError}</p>}
     </article>

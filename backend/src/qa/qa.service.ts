@@ -90,13 +90,33 @@ export class QaService {
     etiquetas: string[] = [],
     esBancoColaborativo = false,
   ): Promise<Pregunta> {
+    if (!Types.ObjectId.isValid(idTema)) {
+      throw new BadRequestException('Selecciona un tema válido para publicar tu pregunta.');
+    }
+    const cleanTexto = (texto || '').trim();
+    if (!cleanTexto) {
+      throw new BadRequestException('Escribe el texto de tu pregunta antes de publicar.');
+    }
+
     const userMap = await this.getUserInfoMap([userId]);
+    const recentDup = await this.preguntaModel
+      .findOne({
+        idUsuario: new Types.ObjectId(userId),
+        idTema: new Types.ObjectId(idTema),
+        texto: cleanTexto,
+        createdAt: { $gte: new Date(Date.now() - 5000) },
+      })
+      .exec();
+    if (recentDup) {
+      return this.enrichDoc(recentDup, userMap, userId);
+    }
+
     const author = userMap.get(userId);
     const p = await new this.preguntaModel({
-      texto,
+      texto: cleanTexto,
       idTema: new Types.ObjectId(idTema),
       fragmentoRecurso,
-      idRecurso: idRecurso ? new Types.ObjectId(idRecurso) : undefined,
+      idRecurso: idRecurso && Types.ObjectId.isValid(idRecurso) ? new Types.ObjectId(idRecurso) : undefined,
       etiquetas,
       esBancoColaborativo,
       idUsuario: new Types.ObjectId(userId),
@@ -107,7 +127,7 @@ export class QaService {
   }
 
   async listarPreguntas(idTema?: string, viewerUserId?: string): Promise<Pregunta[]> {
-    const filter = idTema ? { idTema: new Types.ObjectId(idTema) } : {};
+    const filter = idTema && Types.ObjectId.isValid(idTema) ? { idTema: new Types.ObjectId(idTema) } : {};
     const list = await this.preguntaModel.find(filter).sort({ createdAt: -1 }).exec();
     const userMap = await this.getUserInfoMap(list.map((p) => p.idUsuario));
     return list.map((p) => this.enrichDoc(p, userMap, viewerUserId));
@@ -118,14 +138,34 @@ export class QaService {
     idPregunta: string,
     texto: string,
   ): Promise<Respuesta> {
+    if (!Types.ObjectId.isValid(idPregunta)) {
+      throw new BadRequestException('La pregunta seleccionada no es válida.');
+    }
+    const cleanTexto = (texto || '').trim();
+    if (!cleanTexto) {
+      throw new BadRequestException('Escribe una respuesta antes de enviarla.');
+    }
+
     const pregunta = await this.preguntaModel.findById(idPregunta).exec();
-    if (!pregunta) throw new NotFoundException('Pregunta no encontrada');
+    if (!pregunta) throw new NotFoundException('La pregunta ya no está disponible.');
 
     const userMap = await this.getUserInfoMap([userId]);
+    const recentDup = await this.respuestaModel
+      .findOne({
+        idPregunta: pregunta._id,
+        idUsuario: new Types.ObjectId(userId),
+        texto: cleanTexto,
+        createdAt: { $gte: new Date(Date.now() - 5000) },
+      })
+      .exec();
+    if (recentDup) {
+      return this.enrichDoc(recentDup, userMap, userId);
+    }
+
     const author = userMap.get(userId);
 
     const respuesta = await new this.respuestaModel({
-      texto,
+      texto: cleanTexto,
       idPregunta: pregunta._id,
       idUsuario: new Types.ObjectId(userId),
       nombreAutor: author?.nombre,
@@ -136,12 +176,14 @@ export class QaService {
     await this.gamificationService.registrarActividadDiaria(userId, 15);
 
     if (pregunta.idUsuario.toString() !== userId) {
-      await this.moderationService.notificarUsuario(
-        pregunta.idUsuario.toString(),
-        TipoNotificacion.RESPUESTA_PREGUNTA,
-        'Nueva respuesta a tu duda',
-        `${author?.nombre || 'Un compañero'} respondió a tu pregunta: "${pregunta.texto.slice(0, 60)}..."`,
-      );
+      void this.moderationService
+        .notificarUsuario(
+          pregunta.idUsuario.toString(),
+          TipoNotificacion.RESPUESTA_PREGUNTA,
+          'Nueva respuesta a tu duda',
+          `${author?.nombre || 'Un compañero'} respondió a tu pregunta: "${pregunta.texto.slice(0, 60)}..."`,
+        )
+        .catch(() => {});
     }
 
     return this.enrichDoc(respuesta, userMap, userId);

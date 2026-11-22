@@ -655,10 +655,16 @@ export default function Recursos() {
     }
   }
 
+  const commentingRef = useRef(false);
+  const [commenting, setCommenting] = useState(false);
+
   async function handleComment(recursoId: string) {
-    if (!token) return;
+    if (!token || commentingRef.current) return;
     const texto = (commentById[recursoId] || '').trim();
     if (!texto) return;
+    commentingRef.current = true;
+    setCommenting(true);
+    setCommentById((prev) => ({ ...prev, [recursoId]: '' }));
     try {
       assertNoScriptInjection(texto, 'comentario');
       const res = await gqlRequest<{ comentarRecurso: { comentarios: ComentarioItem[] } }>(
@@ -669,10 +675,13 @@ export default function Recursos() {
         token,
       );
       setItems((prev) => prev.map((x) => (x._id === recursoId ? { ...x, comentarios: res.comentarRecurso.comentarios } : x)));
-      setCommentById((prev) => ({ ...prev, [recursoId]: '' }));
       setQuickFeedback('Comentario agregado.');
     } catch (err: any) {
+      setCommentById((prev) => ({ ...prev, [recursoId]: texto }));
       setError(err.message || 'No se pudo agregar el comentario.');
+    } finally {
+      commentingRef.current = false;
+      setCommenting(false);
     }
   }
 
@@ -703,7 +712,7 @@ export default function Recursos() {
     if (!token || !reportTarget) return;
     await gqlRequest(
       `mutation ReportarRec($id: ID!, $motivo: String!) {
-        reportarContenido(tipoObjetivo: "Recurso", idObjetivo: $id, motivo: $motivo) { _id }
+        reportarContenido(tipoObjetivo: "RECURSO", idObjetivo: $id, motivo: $motivo) { _id }
       }`,
       { id: reportTarget.id, motivo },
       token,
@@ -1439,8 +1448,8 @@ export default function Recursos() {
                       placeholder="Escribe un comentario…"
                       className="km-quick-dialog__input"
                     />
-                    <button type="submit" className="btn btn--primary btn--sm" disabled={!(commentById[x._id] || '').trim()}>
-                      Comentar
+                    <button type="submit" className="btn btn--primary btn--sm" disabled={commenting || !(commentById[x._id] || '').trim()}>
+                      {commenting ? 'Enviando…' : 'Comentar'}
                     </button>
                   </div>
                 </form>
