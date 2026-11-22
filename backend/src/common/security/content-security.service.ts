@@ -21,6 +21,7 @@ const SKIP_SCRIPT_FIELDS = new Set([
   'refreshToken',
   'token',
   'idToken',
+  'fotoUrl',
 ]);
 
 const SPANISH_PROFANITY_LIST = [

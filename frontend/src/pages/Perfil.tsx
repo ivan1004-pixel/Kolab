@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { MODULES } from '../data/modules';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
+import ImageCropModal from '../components/ImageCropModal';
 import ModuleBanner from '../components/ModuleBanner';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -37,7 +38,18 @@ export default function Perfil() {
     foto_url: user?.foto_url ?? '',
   });
   const [badgesCount, setBadgesCount] = useState(user?.insignias ?? 0);
-  const [msg, setMsg] = useState({ type: '', text: '' });
+  const [pendingCropSrc, setPendingCropSrc] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [photoMsg, setPhotoMsg] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
+  const [dataMsg, setDataMsg] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    setForm({
+      nombre: user?.nombre ?? '',
+      apellidos: user?.apellidos ?? '',
+      foto_url: user?.foto_url ?? '',
+    });
+  }, [user?.nombre, user?.apellidos, user?.foto_url]);
 
   useEffect(() => {
     if (USE_MOCK || !token) return;
@@ -57,51 +69,84 @@ export default function Perfil() {
     }));
   };
 
+  const formatSaveError = (err: any, fallback: string) => {
+    const raw = String(err?.message || '');
+    if (/NetworkError|Failed to fetch|fetch/i.test(raw)) {
+      return `${fallback} No hay conexión con el servidor (verifica que el backend esté activo).`;
+    }
+    return raw || fallback;
+  };
+
   const onPhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setMsg({ type: 'error', text: 'Selecciona un archivo de imagen válido.' });
+      setPhotoMsg({ type: 'error', text: 'No se pudo cargar: selecciona un archivo de imagen válido.' });
       e.target.value = '';
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setMsg({ type: 'error', text: 'La imagen no debe pesar más de 5 MB.' });
+      setPhotoMsg({ type: 'error', text: 'No se pudo cargar: la imagen no debe pesar más de 5 MB.' });
       e.target.value = '';
       return;
     }
 
     const reader = new FileReader();
     reader.onload = () => {
-      setForm((f) => ({ ...f, foto_url: String(reader.result || '') }));
-      setMsg({ type: '', text: '' });
+      setPendingCropSrc(String(reader.result || ''));
+      setPhotoMsg(null);
     };
     reader.onerror = () => {
-      setMsg({ type: 'error', text: 'No se pudo cargar la imagen.' });
+      setPhotoMsg({ type: 'error', text: 'No se pudo leer la imagen seleccionada.' });
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
+  async function handleCropConfirm(resultDataUrl: string) {
+    setForm((f) => ({ ...f, foto_url: resultDataUrl }));
+    setPendingCropSrc(null);
+    setSaving(true);
+    setPhotoMsg(null);
+    try {
+      await updateProfile({ foto_url: resultDataUrl });
+      setPhotoMsg({ type: 'ok', text: 'La imagen se subió y guardó correctamente.' });
+    } catch (err: any) {
+      setPhotoMsg({
+        type: 'error',
+        text: formatSaveError(err, 'No se pudo subir la imagen.'),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setDataMsg(null);
 
     if (!form.nombre.trim() || !form.apellidos.trim()) {
-      return setMsg({ type: 'error', text: 'Nombre y apellidos son obligatorios.' });
+      return setDataMsg({ type: 'error', text: 'No se pudieron actualizar los datos: nombre y apellidos son obligatorios.' });
     }
 
+    setSaving(true);
     try {
       assertNoScriptInjection({ nombre: form.nombre, apellidos: form.apellidos }, 'perfil');
       await updateProfile({
-        ...form,
         nombre: form.nombre.trim(),
         apellidos: form.apellidos.trim(),
+        foto_url: form.foto_url,
       });
-      setMsg({ type: 'ok', text: 'Cambios guardados correctamente.' });
+      setDataMsg({ type: 'ok', text: 'Tus datos se actualizaron correctamente.' });
     } catch (err: any) {
-      setMsg({ type: 'error', text: err.message });
+      setDataMsg({
+        type: 'error',
+        text: formatSaveError(err, 'No se pudieron actualizar tus datos.'),
+      });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -111,7 +156,8 @@ export default function Perfil() {
       apellidos: user?.apellidos ?? '',
       foto_url: user?.foto_url ?? '',
     });
-    setMsg({ type: '', text: '' });
+    setDataMsg(null);
+    setPhotoMsg(null);
   }
 
   return (
@@ -146,7 +192,15 @@ export default function Perfil() {
             />
           </label>
 
-          <p className="profile-photo-hint">Pasa el cursor sobre tu foto para cambiarla</p>
+          <p className="profile-photo-hint">Pasa el cursor sobre tu foto o usa el botón para subirla</p>
+          <label className="btn btn--ghost btn--sm" htmlFor="foto-perfil" style={{ cursor: 'pointer' }}>
+            Subir imagen
+          </label>
+          {photoMsg && (
+            <p className={photoMsg.type === 'ok' ? 'form-ok' : 'form-error'} role="status">
+              {photoMsg.text}
+            </p>
+          )}
 
           <h2>{user?.nombre} {user?.apellidos}</h2>
           <span className="chip chip--solid">{ROLE_LABELS[user?.rol ?? 'estudiante'] ?? 'Estudiante'}</span>
@@ -173,20 +227,30 @@ export default function Perfil() {
             </div>
           </div>
 
-          {msg.text && (
-            <p className={msg.type === 'ok' ? 'form-ok' : 'form-error'} role="status">
-              {msg.text}
+          {dataMsg && (
+            <p className={dataMsg.type === 'ok' ? 'form-ok' : 'form-error'} role="status">
+              {dataMsg.text}
             </p>
           )}
 
           <div className="row">
-            <button className="btn btn--primary" type="submit">Guardar</button>
-            <button type="button" className="btn btn--ghost" onClick={onCancel}>Cancelar</button>
+            <button className="btn btn--primary" type="submit" disabled={saving}>
+              {saving ? 'Guardando…' : 'Guardar'}
+            </button>
+            <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={saving}>Cancelar</button>
           </div>
         </form>
       </div>
 
       {user?.rol === 'admin' && <Cuentas />}
+
+      {pendingCropSrc && (
+        <ImageCropModal
+          src={pendingCropSrc}
+          onCancel={() => setPendingCropSrc(null)}
+          onConfirm={handleCropConfirm}
+        />
+      )}
     </>
   );
 }

@@ -8,8 +8,8 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  app.use(json({ limit: '1mb' }));
-  app.use(urlencoded({ extended: true, limit: '1mb' }));
+  app.use(json({ limit: '10mb' }));
+  app.use(urlencoded({ extended: true, limit: '10mb' }));
 
   app.use(
     helmet({

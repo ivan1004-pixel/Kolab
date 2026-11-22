@@ -17,6 +17,8 @@ const SKIP_KEYS = new Set([
   'token',
   'accessToken',
   'refreshToken',
+  'fotoUrl',
+  'foto_url',
 ]);
 
 export function hasScriptInjection(text: string): boolean {
