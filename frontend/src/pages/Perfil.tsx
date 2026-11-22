@@ -1,20 +1,54 @@
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { DEMO_USERS, ROLES } from '../data/demoUsers';
 import { MODULES } from '../data/modules';
+import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import ModuleBanner from '../components/ModuleBanner';
 
+const ROLE_LABELS: Record<string, string> = {
+  estudiante: 'Estudiante',
+  docente: 'Docente',
+  admin: 'Administrador',
+  ESTUDIANTE: 'Estudiante',
+  DOCENTE: 'Docente',
+  ADMINISTRADOR: 'Administrador',
+};
+
+const ROLE_TO_ENUM: Record<string, string> = {
+  estudiante: 'ESTUDIANTE',
+  docente: 'DOCENTE',
+  admin: 'ADMINISTRADOR',
+};
+
+interface CuentaItem {
+  _id: string;
+  nombre: string;
+  apellidos: string;
+  correo: string;
+  rol: string;
+}
+
 export default function Perfil() {
-  const { user, updateProfile } = useAuth();
+  const { user, token, updateProfile } = useAuth();
 
   const [form, setForm] = useState({
     nombre: user?.nombre ?? '',
     apellidos: user?.apellidos ?? '',
     foto_url: user?.foto_url ?? '',
   });
-
+  const [badgesCount, setBadgesCount] = useState(user?.insignias ?? 0);
   const [msg, setMsg] = useState({ type: '', text: '' });
+
+  useEffect(() => {
+    if (USE_MOCK || !token) return;
+    gqlRequest<{ misInsignias: Array<{ _id: string }> }>(
+      `query MisInsignias { misInsignias { _id } }`,
+      {},
+      token,
+    )
+      .then((res) => setBadgesCount(res.misInsignias?.length ?? 0))
+      .catch(() => {});
+  }, [token]);
 
   const onChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm((f) => ({
@@ -115,12 +149,12 @@ export default function Perfil() {
           <p className="profile-photo-hint">Pasa el cursor sobre tu foto para cambiarla</p>
 
           <h2>{user?.nombre} {user?.apellidos}</h2>
-          <span className="chip chip--solid">{ROLES[user?.rol ?? 'estudiante']}</span>
-          <p className="muted">{user?.carrera}</p>
+          <span className="chip chip--solid">{ROLE_LABELS[user?.rol ?? 'estudiante'] ?? 'Estudiante'}</span>
+          <p className="muted">{user?.carrera || 'Sin carrera asignada'}</p>
 
           <div className="row">
             <span className="chip chip--xp">{user?.xp ?? 0} XP</span>
-            <span className="chip chip--soft">{user?.insignias ?? 0} insignias</span>
+            <span className="chip chip--soft">{badgesCount} insignias</span>
           </div>
         </section>
 
@@ -158,73 +192,95 @@ export default function Perfil() {
 }
 
 function Cuentas() {
-  const [cuentas, setCuentas] = useState(
-    DEMO_USERS.map(({ id, nombre, apellidos, email, rol }) => ({
-      id,
-      nombre,
-      apellidos,
-      email,
-      rol,
-    })),
-  );
-
-  const [form, setForm] = useState({ nombre: '', email: '', rol: 'estudiante' });
+  const { token } = useAuth();
+  const [cuentas, setCuentas] = useState<CuentaItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ nombre: '', apellidos: '', correo: '', contrasena: '', rol: 'estudiante' });
   const [secError, setSecError] = useState('');
+  const [okMsg, setOkMsg] = useState('');
+
+  useEffect(() => {
+    if (USE_MOCK || !token) return;
+    setLoading(true);
+    gqlRequest<{ usuarios: CuentaItem[] }>(
+      `query UsuariosAdmin { usuarios { _id nombre apellidos correo rol } }`,
+      {},
+      token,
+    )
+      .then((res) => setCuentas(res.usuarios ?? []))
+      .catch((err: any) => setSecError(err.message || 'No se pudieron cargar las cuentas.'))
+      .finally(() => setLoading(false));
+  }, [token]);
 
   const onChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   };
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!form.nombre.trim() || !form.email.includes('@')) return;
+    setSecError('');
+    setOkMsg('');
+    if (!form.nombre.trim() || !form.apellidos.trim() || !form.correo.includes('@') || form.contrasena.length < 8) {
+      return setSecError('Completa nombre, apellidos, correo válido y contraseña de al menos 8 caracteres.');
+    }
     try {
       assertNoScriptInjection(form, 'cuentas');
-      setSecError('');
+      const res = await gqlRequest<{ adminCrearUsuario: CuentaItem }>(
+        `mutation AdminCrearUsuario($input: AdminCreateUsuarioInput!) {
+          adminCrearUsuario(input: $input) { _id nombre apellidos correo rol }
+        }`,
+        {
+          input: {
+            nombre: form.nombre.trim(),
+            apellidos: form.apellidos.trim(),
+            correo: form.correo.trim(),
+            contrasena: form.contrasena,
+            rol: ROLE_TO_ENUM[form.rol] ?? 'ESTUDIANTE',
+          },
+        },
+        token ?? undefined,
+      );
+      setCuentas((c) => [res.adminCrearUsuario, ...c]);
+      setForm({ nombre: '', apellidos: '', correo: '', contrasena: '', rol: 'estudiante' });
+      setOkMsg('Cuenta registrada correctamente.');
     } catch (err: any) {
-      return setSecError(err.message);
+      setSecError(err.message || 'No se pudo registrar la cuenta.');
     }
-
-    setCuentas((c) => [
-      ...c,
-      {
-        id: Date.now(),
-        nombre: form.nombre.trim(),
-        apellidos: '',
-        email: form.email.trim(),
-        rol: form.rol,
-      },
-    ]);
-
-    setForm({ nombre: '', email: '', rol: 'estudiante' });
   }
 
   return (
     <section className="card">
       <h2 className="card__title">Cuentas y roles · solo Administrador</h2>
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Usuario</th>
-              <th>Correo</th>
-              <th>Rol</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cuentas.map((c) => (
-              <tr key={c.id}>
-                <td>{c.nombre} {c.apellidos}</td>
-                <td>{c.email}</td>
-                <td><span className="chip chip--soft">{ROLES[c.rol]}</span></td>
+      {loading ? (
+        <p className="muted">Cargando cuentas registradas…</p>
+      ) : cuentas.length === 0 ? (
+        <p className="empty">No hay cuentas registradas para mostrar.</p>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Correo</th>
+                <th>Rol</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {cuentas.map((c) => (
+                <tr key={c._id}>
+                  <td>{c.nombre} {c.apellidos}</td>
+                  <td>{c.correo}</td>
+                  <td><span className="chip chip--soft">{ROLE_LABELS[c.rol] ?? c.rol}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {secError && <p className="form-error" role="alert">{secError}</p>}
+      {okMsg && <p className="form-ok" role="status">{okMsg}</p>}
 
       <form className="form-grid" onSubmit={onSubmit}>
         <div className="field">
@@ -233,16 +289,26 @@ function Cuentas() {
         </div>
 
         <div className="field">
-          <label htmlFor="c-email">Correo</label>
-          <input id="c-email" name="email" type="email" value={form.email} onChange={onChange} />
+          <label htmlFor="c-apellidos">Apellidos</label>
+          <input id="c-apellidos" name="apellidos" value={form.apellidos} onChange={onChange} />
+        </div>
+
+        <div className="field">
+          <label htmlFor="c-correo">Correo</label>
+          <input id="c-correo" name="correo" type="email" value={form.correo} onChange={onChange} />
+        </div>
+
+        <div className="field">
+          <label htmlFor="c-pass">Contraseña temporal</label>
+          <input id="c-pass" name="contrasena" type="password" value={form.contrasena} onChange={onChange} />
         </div>
 
         <div className="field">
           <label htmlFor="c-rol">Rol</label>
           <select id="c-rol" name="rol" value={form.rol} onChange={onChange}>
-            {Object.entries(ROLES).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
+            <option value="estudiante">Estudiante</option>
+            <option value="docente">Docente</option>
+            <option value="admin">Administrador</option>
           </select>
         </div>
 

@@ -1,101 +1,306 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import ModuleBanner from '../components/ModuleBanner';
 import { useAuth } from '../context/AuthContext';
 import { KolabModule } from '../data/modules';
+import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 
-const initial = [
-  { id: 1, carrera: 'Desarrollo de Software Multiplataforma', nombre: 'Bases de datos', clave: 'DSM-204', docente: 'Por asignar', temas: ['Modelo entidad-relación', 'Bases de datos relacionales', 'Consultas SQL'], inscritos: true },
-  { id: 2, carrera: 'Desarrollo de Software Multiplataforma', nombre: 'Aplicaciones web', clave: 'DSM-305', docente: 'Por asignar', temas: ['HTML y CSS', 'React', 'Consumo de API'], inscritos: true },
-  { id: 3, carrera: 'Desarrollo de Software Multiplataforma', nombre: 'Ciberseguridad', clave: 'DSM-401', docente: 'Por asignar', temas: ['Fundamentos', 'Análisis de vulnerabilidades'], inscritos: false },
-];
-const moduleInfo: KolabModule = { id: 2, path: '/curricular', short: 'Curricular', name: 'Gestión curricular y carga académica', desc: 'Carreras, asignaturas, temas y tus materias inscritas', c1: '#0f766e', c2: '#14b8a6' };
+const moduleInfo: KolabModule = {
+  id: 2,
+  path: '/curricular',
+  short: 'Curricular',
+  name: 'Gestión curricular y carga académica',
+  desc: 'Carreras, asignaturas, temas y tus materias inscritas',
+  c1: '#0f766e',
+  c2: '#14b8a6',
+};
+
+interface CarreraItem {
+  _id: string;
+  nombre: string;
+}
+
+interface AsignaturaItem {
+  _id: string;
+  nombre: string;
+  cuatrimestre?: string;
+  descripcion?: string;
+  idCarrera: string;
+}
+
+interface TemaItem {
+  _id: string;
+  titulo: string;
+  descripcion?: string;
+  idAsignatura: string;
+}
 
 export default function Curricular() {
-  const { user } = useAuth();
-  const [courses, setCourses] = useState<any[]>(() => {
-    try { return JSON.parse(localStorage.getItem('kolab.curricular') || 'null') || initial; } catch { return initial; }
-  });
-  const [selected, setSelected] = useState(courses[0]?.id ?? null);
+  const { user, token } = useAuth();
+  const [carreras, setCarreras] = useState<CarreraItem[]>([]);
+  const [courses, setCourses] = useState<AsignaturaItem[]>([]);
+  const [enrolledIds, setEnrolledIds] = useState<string[]>([]);
+  const [topics, setTopics] = useState<TemaItem[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter] = useState('Todas');
+  const [loading, setLoading] = useState(true);
+
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
-  const [career, setCareer] = useState('Desarrollo de Software Multiplataforma');
+  const [careerId, setCareerId] = useState('');
   const [topic, setTopic] = useState('');
   const [secError, setSecError] = useState('');
+
   const isAdmin = user?.rol === 'admin';
-  const visible = useMemo(() => courses.filter(c => filter === 'Todas' || (filter === 'Inscritas' ? c.inscritos : !c.inscritos)), [courses, filter]);
-  const current = courses.find(c => c.id === selected) || visible[0];
+  const canEditTopics = user?.rol === 'admin' || user?.rol === 'docente';
 
-  function save(next: any[]) {
-    setCourses(next);
-    localStorage.setItem('kolab.curricular', JSON.stringify(next));
-  }
-
-  function addCourse(e: FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    try {
-      assertNoScriptInjection({ name, career }, 'asignatura');
-      setSecError('');
-    } catch (err: any) {
-      return setSecError(err.message);
+  const loadAcademic = useCallback(async () => {
+    if (USE_MOCK || !token) {
+      setLoading(false);
+      return;
     }
-    save([...courses, { id: Date.now(), carrera: career, nombre: name.trim(), clave: `KOL-${courses.length + 1}`, docente: 'Por asignar', temas: [], inscritos: false }]);
-    setName('');
-    setShowForm(false);
-  }
+    setLoading(true);
+    setSecError('');
+    try {
+      const data = await gqlRequest<{
+        carreras: CarreraItem[];
+        asignaturas: AsignaturaItem[];
+        temas: TemaItem[];
+        miPerfil: { asignaturasInscritas: string[] };
+      }>(
+        `query CurricularData {
+          carreras { _id nombre }
+          asignaturas { _id nombre cuatrimestre descripcion idCarrera }
+          temas { _id titulo descripcion idAsignatura }
+          miPerfil { asignaturasInscritas }
+        }`,
+        {},
+        token,
+      );
+      setCarreras(data.carreras ?? []);
+      setCourses(data.asignaturas ?? []);
+      setTopics(data.temas ?? []);
+      setEnrolledIds(data.miPerfil?.asignaturasInscritas ?? []);
+      if (data.carreras?.length && !careerId) {
+        setCareerId(data.carreras[0]._id);
+      }
+      if (data.asignaturas?.length) {
+        setSelected((prev) => prev ?? data.asignaturas[0]._id);
+      }
+    } catch (err: any) {
+      setSecError(err.message || 'No se pudo cargar la información curricular.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token, careerId]);
 
-  function toggleEnroll(id: number) {
-    save(courses.map(c => c.id === id ? { ...c, inscritos: !c.inscritos } : c));
-  }
+  useEffect(() => {
+    loadAcademic();
+  }, [loadAcademic]);
 
-  function addTopic(e: FormEvent) {
+  const careerNameMap = useMemo(
+    () => new Map(carreras.map((c) => [c._id, c.nombre])),
+    [carreras],
+  );
+
+  const visible = useMemo(
+    () =>
+      courses.filter((c) => {
+        const isEnrolled = enrolledIds.includes(c._id);
+        return filter === 'Todas' || (filter === 'Inscritas' ? isEnrolled : !isEnrolled);
+      }),
+    [courses, enrolledIds, filter],
+  );
+
+  const current = courses.find((c) => c._id === selected) || visible[0] || null;
+  const currentTopics = useMemo(
+    () => (current ? topics.filter((t) => t.idAsignatura === current._id) : []),
+    [topics, current],
+  );
+
+  async function addCourse(e: FormEvent) {
     e.preventDefault();
-    if (!topic.trim() || !current) return;
+    if (!name.trim() || !careerId || !token) return;
+    try {
+      assertNoScriptInjection(name, 'asignatura');
+      setSecError('');
+      const res = await gqlRequest<{ crearAsignatura: AsignaturaItem }>(
+        `mutation CrearAsignatura($input: CreateAsignaturaInput!) {
+          crearAsignatura(input: $input) { _id nombre cuatrimestre descripcion idCarrera }
+        }`,
+        { input: { nombre: name.trim(), idCarrera: careerId } },
+        token,
+      );
+      setCourses((prev) => [...prev, res.crearAsignatura]);
+      setSelected(res.crearAsignatura._id);
+      setName('');
+      setShowForm(false);
+    } catch (err: any) {
+      setSecError(err.message || 'No se pudo registrar la asignatura.');
+    }
+  }
+
+  async function toggleEnroll(id: string) {
+    if (!token) return;
+    setSecError('');
+    try {
+      const res = await gqlRequest<{ inscribirAsignatura: { asignaturasInscritas: string[] } }>(
+        `mutation InscribirAsignatura($id: ID!) {
+          inscribirAsignatura(asignaturaId: $id) { asignaturasInscritas }
+        }`,
+        { id },
+        token,
+      );
+      setEnrolledIds(res.inscribirAsignatura.asignaturasInscritas ?? []);
+    } catch (err: any) {
+      setSecError(err.message || 'No se pudo actualizar tu inscripción.');
+    }
+  }
+
+  async function addTopic(e: FormEvent) {
+    e.preventDefault();
+    if (!topic.trim() || !current || !token) return;
     try {
       assertNoScriptInjection(topic, 'tema');
       setSecError('');
+      const res = await gqlRequest<{ crearTema: TemaItem }>(
+        `mutation CrearTema($input: CreateTemaInput!) {
+          crearTema(input: $input) { _id titulo descripcion idAsignatura }
+        }`,
+        { input: { titulo: topic.trim(), idAsignatura: current._id } },
+        token,
+      );
+      setTopics((prev) => [...prev, res.crearTema]);
+      setTopic('');
     } catch (err: any) {
-      return setSecError(err.message);
+      setSecError(err.message || 'No se pudo agregar el tema.');
     }
-    save(courses.map(c => c.id === current.id ? { ...c, temas: [...c.temas, topic.trim()] } : c));
-    setTopic('');
   }
 
-  return <>
-    <ModuleBanner module={moduleInfo}><span className="chip chip--soft">Módulo 2</span></ModuleBanner>
-    <div className="kolab-module">
-      <section className="km-toolbar">
-        <div><h2>Mis materias</h2><p className="muted">Consulta tus asignaturas y los temas de cada unidad.</p></div>
-        {isAdmin && <button className="btn btn--primary" onClick={() => setShowForm(v => !v)}>＋ Nueva asignatura</button>}
-      </section>
-      {secError && <p className="form-error" role="alert">{secError}</p>}
-      {showForm && isAdmin && <form className="card km-form" onSubmit={addCourse}>
-        <h3>Registrar asignatura</h3>
-        <div className="form-grid">
-          <div className="field"><label>Nombre de la asignatura</label><input value={name} onChange={e => setName(e.target.value)} required placeholder="Ej. Programación web"/></div>
-          <div className="field"><label>Carrera</label><input value={career} onChange={e => setCareer(e.target.value)} required/></div>
+  return (
+    <>
+      <ModuleBanner module={moduleInfo}><span className="chip chip--soft">Módulo 2</span></ModuleBanner>
+      <div className="kolab-module">
+        <section className="km-toolbar">
+          <div>
+            <h2>Mis materias</h2>
+            <p className="muted">Consulta tus asignaturas y los temas de cada unidad.</p>
+          </div>
+          {isAdmin && (
+            <button className="btn btn--primary" onClick={() => setShowForm((v) => !v)}>
+              ＋ Nueva asignatura
+            </button>
+          )}
+        </section>
+
+        {secError && <p className="form-error" role="alert">{secError}</p>}
+
+        {showForm && isAdmin && (
+          <form className="card km-form" onSubmit={addCourse}>
+            <h3>Registrar asignatura</h3>
+            <div className="form-grid">
+              <div className="field">
+                <label>Nombre de la asignatura</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  placeholder="Ej. Programación web"
+                />
+              </div>
+              <div className="field">
+                <label>Carrera</label>
+                <select value={careerId} onChange={(e) => setCareerId(e.target.value)} required>
+                  {carreras.length === 0 && <option value="">Sin carreras registradas</option>}
+                  {carreras.map((c) => (
+                    <option key={c._id} value={c._id}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="km-actions">
+              <button className="btn btn--primary" disabled={!careerId}>Guardar asignatura</button>
+              <button type="button" className="btn btn--ghost" onClick={() => setShowForm(false)}>Cancelar</button>
+            </div>
+          </form>
+        )}
+
+        <div className="km-tabs">
+          {['Todas', 'Inscritas', 'Disponibles'].map((x) => (
+            <button key={x} className={`km-tab ${filter === x ? 'active' : ''}`} onClick={() => setFilter(x)}>
+              {x}
+            </button>
+          ))}
         </div>
-        <div className="km-actions"><button className="btn btn--primary">Guardar asignatura</button><button type="button" className="btn btn--ghost" onClick={() => setShowForm(false)}>Cancelar</button></div>
-      </form>}
-      <div className="km-tabs">{['Todas', 'Inscritas', 'Disponibles'].map(x => <button key={x} className={`km-tab ${filter === x ? 'active' : ''}`} onClick={() => setFilter(x)}>{x}</button>)}</div>
-      <div className="km-grid">
-        <section className="km-course-list">
-          {visible.map((c, i) => <article key={c.id} className={`km-course ${current?.id === c.id ? 'selected' : ''}`}>
-            <button className="km-course-main" onClick={() => setSelected(c.id)}><span className="km-course-icon">{String.fromCharCode(65 + i)}</span><span><strong>{c.nombre}</strong><small>{c.clave} · {c.carrera}</small></span></button>
-            <div className="km-course-foot"><span className={`chip ${c.inscritos ? 'chip--soft' : 'chip--xp'}`}>{c.inscritos ? 'Inscrita' : 'Disponible'}</span><button className="btn btn--ghost btn--sm" onClick={() => toggleEnroll(c.id)}>{c.inscritos ? 'Desinscribirme' : 'Inscribirme'}</button></div>
-          </article>)}
-          {!visible.length && <p className="muted">No hay asignaturas en esta categoría.</p>}
-        </section>
-        <section className="card km-topics">
-          <div><span className="chip chip--soft">Temas y unidades</span><h2>{current?.nombre || 'Selecciona una asignatura'}</h2><p className="muted">{current?.carrera}</p></div>
-          {current?.temas?.length ? <ol className="km-topic-list">{current.temas.map((t: string, i: number) => <li key={`${t}-${i}`}><span>{i + 1}</span>{t}</li>)}</ol> : <p className="muted">Todavía no hay temas registrados.</p>}
-          {isAdmin && current && <form className="km-inline-form" onSubmit={addTopic}><input value={topic} onChange={e => setTopic(e.target.value)} placeholder="Nombre de unidad o tema" required/><button className="btn btn--primary btn--sm">Agregar tema</button></form>}
-          {!isAdmin && <p className="km-note">La administración curricular está disponible únicamente para el Administrador.</p>}
-        </section>
+
+        <div className="km-grid">
+          <section className="km-course-list">
+            {loading ? (
+              <p className="muted">Cargando asignaturas…</p>
+            ) : visible.length === 0 ? (
+              <p className="empty">
+                {courses.length === 0
+                  ? 'Aún no hay asignaturas registradas en la plataforma.'
+                  : 'No hay asignaturas en esta categoría.'}
+              </p>
+            ) : (
+              visible.map((c, i) => {
+                const enrolled = enrolledIds.includes(c._id);
+                return (
+                  <article key={c._id} className={`km-course ${current?._id === c._id ? 'selected' : ''}`}>
+                    <button className="km-course-main" onClick={() => setSelected(c._id)}>
+                      <span className="km-course-icon">{String.fromCharCode(65 + (i % 26))}</span>
+                      <span>
+                        <strong>{c.nombre}</strong>
+                        <small>{c.cuatrimestre || 'Asignatura'} · {careerNameMap.get(c.idCarrera) || 'Carrera'}</small>
+                      </span>
+                    </button>
+                    <div className="km-course-foot">
+                      <span className={`chip ${enrolled ? 'chip--soft' : 'chip--xp'}`}>
+                        {enrolled ? 'Inscrita' : 'Disponible'}
+                      </span>
+                      <button className="btn btn--ghost btn--sm" onClick={() => toggleEnroll(c._id)}>
+                        {enrolled ? 'Inscrita ✓' : 'Inscribirme'}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </section>
+
+          <section className="card km-topics">
+            <div>
+              <span className="chip chip--soft">Temas y unidades</span>
+              <h2>{current?.nombre || 'Selecciona una asignatura'}</h2>
+              <p className="muted">{current ? (careerNameMap.get(current.idCarrera) || '') : 'Explora el catálogo académico.'}</p>
+            </div>
+            {currentTopics.length > 0 ? (
+              <ol className="km-topic-list">
+                {currentTopics.map((t, i) => (
+                  <li key={t._id}><span>{i + 1}</span>{t.titulo}</li>
+                ))}
+              </ol>
+            ) : (
+              <p className="empty">Todavía no hay temas registrados para esta asignatura.</p>
+            )}
+            {canEditTopics && current && (
+              <form className="km-inline-form" onSubmit={addTopic}>
+                <input
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="Nombre de unidad o tema"
+                  required
+                />
+                <button className="btn btn--primary btn--sm">Agregar tema</button>
+              </form>
+            )}
+            {!canEditTopics && (
+              <p className="km-note">La administración curricular está disponible únicamente para Docentes y Administradores.</p>
+            )}
+          </section>
+        </div>
       </div>
-      {isAdmin && <section className="card km-admin-note"><h3>Administración curricular</h3><p className="muted">Como administrador puedes registrar asignaturas y organizar sus temas. La gestión de carreras e inscripciones institucionales se conectará posteriormente con el backend.</p></section>}
-    </div>
-  </>;
+    </>
+  );
 }

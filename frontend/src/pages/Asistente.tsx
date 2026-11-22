@@ -1,60 +1,17 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 
-const QUIZ_PRESETS = [
-  {
-    id: 'db-relacional',
-    topic: 'Bases de Datos Relacionales',
-    stepIndex: 2,
-    totalSteps: 5,
-    mcNumber: 2,
-    mcPrompt: '¿Qué garantiza una clave primaria (Primary Key) en una tabla?',
-    mcOptions: [
-      { id: 'A', label: 'A)', text: 'Permite valores duplicados si son nulos' },
-      { id: 'B', label: 'B)', text: 'Identifica de forma única cada registro y no acepta nulos' },
-      { id: 'C', label: 'C)', text: 'Conecta automáticamente con cualquier base externa' },
-    ],
-    correctOptionId: 'B',
-    openNumber: 3,
-    openPrompt: 'Explica con tus palabras para qué sirve una clave foránea.',
-    expectedKeywords: ['relacion', 'tabla', 'referencia', 'primaria', 'integridad', 'conecta', 'vincula'],
-  },
-  {
-    id: 'estructuras-datos',
-    topic: 'Estructuras de Datos',
-    stepIndex: 1,
-    totalSteps: 5,
-    mcNumber: 1,
-    mcPrompt: '¿Qué principio sigue una estructura de tipo Pila (Stack)?',
-    mcOptions: [
-      { id: 'A', label: 'A)', text: 'FIFO: el primero en entrar es el primero en salir' },
-      { id: 'B', label: 'B)', text: 'LIFO: el último en entrar es el primero en salir' },
-      { id: 'C', label: 'C)', text: 'Acceso aleatorio directo por índice numérico' },
-    ],
-    correctOptionId: 'B',
-    openNumber: 2,
-    openPrompt: 'Menciona un caso real donde usarías una Cola (Queue) en lugar de una Pila.',
-    expectedKeywords: ['turno', 'impresora', 'orden', 'llegada', 'primero', 'fifo', 'solicitud', 'fila'],
-  },
-  {
-    id: 'redes-http',
-    topic: 'Desarrollo Web y APIs',
-    stepIndex: 3,
-    totalSteps: 5,
-    mcNumber: 3,
-    mcPrompt: '¿Qué código de estado HTTP indica que un recurso fue creado con éxito?',
-    mcOptions: [
-      { id: 'A', label: 'A)', text: '200 OK' },
-      { id: 'B', label: 'B)', text: '201 Created' },
-      { id: 'C', label: 'C)', text: '404 Not Found' },
-    ],
-    correctOptionId: 'B',
-    openNumber: 4,
-    openPrompt: '¿Cuál es la diferencia principal entre una petición GET y una POST?',
-    expectedKeywords: ['consultar', 'obtener', 'leer', 'enviar', 'crear', 'cuerpo', 'body', 'datos'],
-  },
-];
+interface TemaItem {
+  _id: string;
+  titulo: string;
+}
+
+interface FuenteCitada {
+  tituloRecurso: string;
+  fragmento: string;
+}
 
 interface ChatMsg {
   id: string;
@@ -64,71 +21,62 @@ interface ChatMsg {
   isTeacherReviewed?: boolean;
 }
 
-const INITIAL_MESSAGES: ChatMsg[] = [
-  {
-    id: 'm1',
-    sender: 'student',
-    text: '¿Cuál es la diferencia entre una clave primaria y una clave foránea en bases de datos?',
-  },
-  {
-    id: 'm2',
-    sender: 'ai',
-    text: 'Según los apuntes de Modelado Relacional (Unidad 2), la clave primaria identifica de manera única cada fila de su propia tabla y nunca puede repetirse ni quedar vacía. En cambio, la clave foránea es un campo que apunta a la clave primaria de otra tabla para crear un vínculo seguro entre ambas.',
-    sourceLabel: 'Fuente: revisado por docente',
-    isTeacherReviewed: true,
-  },
-];
+interface Reactivo {
+  numero: number;
+  pregunta: string;
+  tipo: string;
+  opciones: string[];
+  respuestaCorrecta: string;
+  explicacion: string;
+}
+
+interface CuestionarioItem {
+  _id: string;
+  titulo: string;
+  idTema: string;
+  reactivos: Reactivo[];
+}
 
 export default function Asistente() {
-  const { user, updateProfile } = useAuth();
-  const [messages, setMessages] = useState<ChatMsg[]>(INITIAL_MESSAGES);
+  const { token } = useAuth();
+  const [temas, setTemas] = useState<TemaItem[]>([]);
+  const [selectedTemaId, setSelectedTemaId] = useState('');
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [questionInput, setQuestionInput] = useState('');
+  const [asking, setAsking] = useState(false);
   const [securityError, setSecurityError] = useState('');
-  const [quizIndex, setQuizIndex] = useState(0);
-  const [activeQuiz, setActiveQuiz] = useState(QUIZ_PRESETS[0]);
-  const [selectedOption, setSelectedOption] = useState('B');
-  const [openAnswer, setOpenAnswer] = useState('');
-  const [nliScore, setNliScore] = useState(70);
-  const [evaluationFeedback, setEvaluationFeedback] = useState<{ isCorrectMc: boolean; message: string } | null>(null);
 
-  function addXp(amount: number) {
-    updateProfile({ xp: (user?.xp ?? 0) + amount });
-  }
+  const [activeQuiz, setActiveQuiz] = useState<CuestionarioItem | null>(null);
+  const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [evaluationFeedback, setEvaluationFeedback] = useState<{ ok: boolean; message: string } | null>(null);
 
-  function buildMockAiReply(query: string): ChatMsg {
-    const q = query.toLowerCase();
-    let text =
-      'Con base en los materiales compartidos de tu carrera, este concepto se apoya en tres ideas clave: definir el problema con claridad, validar la estructura de datos o flujo y comprobar el resultado con casos de prueba.';
-    let sourceLabel = 'Fuente: revisado por docente';
-    let isTeacherReviewed = true;
-
-    if (q.includes('pila') || q.includes('cola') || q.includes('stack') || q.includes('queue')) {
-      text =
-        'En los apuntes de Estructuras de Datos (Semana 4), una Pila (LIFO) saca primero el último elemento agregado, ideal para deshacer acciones; mientras que una Cola (FIFO) atiende en orden de llegada, como en una lista de impresión.';
-    } else if (q.includes('http') || q.includes('api') || q.includes('get') || q.includes('post') || q.includes('rest')) {
-      text =
-        'De acuerdo con la guía de Desarrollo Web de la escuela, GET se utiliza para consultar recursos sin alterar su estado y POST envía información en el cuerpo de la petición para registrar o procesar datos nuevos.';
-    } else if (q.includes('normaliz') || q.includes('sql') || q.includes('tabla')) {
-      text =
-        'En la guía de Bases de Datos II, normalizar evita duplicar información separando entidades en tablas relacionadas mediante claves primarias y foráneas.';
-    } else if (q.length < 15) {
-      sourceLabel = 'Fuente: apunte de comunidad (sin revisar)';
-      isTeacherReviewed = false;
+  const loadTemas = useCallback(async () => {
+    if (USE_MOCK || !token) return;
+    try {
+      const data = await gqlRequest<{ temas: TemaItem[] }>(
+        `query AsistenteTemas { temas { _id titulo } }`,
+        {},
+        token,
+      );
+      const list = data.temas ?? [];
+      setTemas(list);
+      if (list.length > 0 && !selectedTemaId) {
+        setSelectedTemaId(list[0]._id);
+      }
+    } catch (err: any) {
+      setSecurityError(err.message || 'No se pudieron cargar los temas disponibles.');
     }
+  }, [token, selectedTemaId]);
 
-    return {
-      id: `ai-${Date.now()}`,
-      sender: 'ai',
-      text,
-      sourceLabel,
-      isTeacherReviewed,
-    };
-  }
+  useEffect(() => {
+    loadTemas();
+  }, [loadTemas]);
 
-  function handleSendQuestion(e: FormEvent) {
+  async function handleSendQuestion(e: FormEvent) {
     e.preventDefault();
     const trimmed = questionInput.trim();
-    if (!trimmed) return;
+    if (!trimmed || !selectedTemaId || !token) return;
     try {
       assertNoScriptInjection(trimmed, 'pregunta');
       setSecurityError('');
@@ -137,82 +85,108 @@ export default function Asistente() {
       return;
     }
 
-    const studentMsg: ChatMsg = {
-      id: `st-${Date.now()}`,
-      sender: 'student',
-      text: trimmed,
-    };
-    const aiMsg = buildMockAiReply(trimmed);
-
-    setMessages((prev) => [...prev, studentMsg, aiMsg]);
+    const studentMsg: ChatMsg = { id: `st-${Date.now()}`, sender: 'student', text: trimmed };
+    setMessages((prev) => [...prev, studentMsg]);
     setQuestionInput('');
-  }
+    setAsking(true);
 
-  function loadQuizPreset(nextIdx: number) {
-    const preset = QUIZ_PRESETS[nextIdx % QUIZ_PRESETS.length];
-    setQuizIndex(nextIdx % QUIZ_PRESETS.length);
-    setActiveQuiz(preset);
-    setSelectedOption('');
-    setOpenAnswer('');
-    setNliScore(0);
-    setEvaluationFeedback(null);
-  }
-
-  function handleNewQuiz() {
-    loadQuizPreset(quizIndex + 1);
-  }
-
-  function handleCreateQuizFromChat() {
-    const lastStudentMsg = [...messages]
-      .reverse()
-      .find((m) => m.sender === 'student');
-    const q = (lastStudentMsg?.text ?? '').toLowerCase();
-
-    if (q.includes('pila') || q.includes('cola') || q.includes('estructura')) {
-      loadQuizPreset(1);
-    } else if (q.includes('http') || q.includes('api') || q.includes('get') || q.includes('post')) {
-      loadQuizPreset(2);
-    } else {
-      loadQuizPreset(0);
+    try {
+      const res = await gqlRequest<{
+        consultarIa: {
+          _id: string;
+          respuestaIa: string;
+          esValida: boolean;
+          fuentesCitadas: FuenteCitada[];
+        };
+      }>(
+        `mutation ConsultarIa($idTema: ID!, $prompt: String!) {
+          consultarIa(idTema: $idTema, promptPregunta: $prompt) {
+            _id
+            respuestaIa
+            esValida
+            fuentesCitadas { tituloRecurso fragmento }
+          }
+        }`,
+        { idTema: selectedTemaId, prompt: trimmed },
+        token,
+      );
+      const fuentes = res.consultarIa.fuentesCitadas ?? [];
+      const aiMsg: ChatMsg = {
+        id: res.consultarIa._id,
+        sender: 'ai',
+        text: res.consultarIa.respuestaIa,
+        sourceLabel: fuentes.length > 0 ? `Fuente: ${fuentes[0].tituloRecurso}` : 'Sin fuentes citadas',
+        isTeacherReviewed: res.consultarIa.esValida && fuentes.length > 0,
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+    } catch (err: any) {
+      setSecurityError(err.message || 'No se pudo consultar al asistente de IA.');
+    } finally {
+      setAsking(false);
     }
   }
 
-  function handleGradeQuiz() {
-    try {
-      assertNoScriptInjection(openAnswer, 'respuesta abierta');
-      setSecurityError('');
-    } catch (err: any) {
-      setSecurityError(err.message);
+  async function handleGenerateQuiz() {
+    if (!selectedTemaId || !token) {
+      setSecurityError('Selecciona un tema primero para generar el cuestionario.');
       return;
     }
-
-    const isCorrectMc = selectedOption === activeQuiz.correctOptionId;
-
-    const normalized = openAnswer
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-
-    let computedNli = 0;
-    if (normalized.trim().length > 0) {
-      const matched = activeQuiz.expectedKeywords.filter((kw) =>
-        normalized.includes(kw),
-      ).length;
-      const ratio = matched / Math.min(3, activeQuiz.expectedKeywords.length);
-      computedNli = Math.min(96, Math.max(35, Math.round(35 + ratio * 60)));
+    setSecurityError('');
+    setEvaluationFeedback(null);
+    setGeneratingQuiz(true);
+    try {
+      const temaNombre = temas.find((t) => t._id === selectedTemaId)?.titulo || 'Práctica';
+      const res = await gqlRequest<{ generarCuestionarioIa: CuestionarioItem }>(
+        `mutation GenerarCuestionario($idTema: ID!, $titulo: String) {
+          generarCuestionarioIa(cantidadReactivos: 3, idTema: $idTema, titulo: $titulo) {
+            _id
+            titulo
+            idTema
+            reactivos { numero pregunta tipo opciones respuestaCorrecta explicacion }
+          }
+        }`,
+        { idTema: selectedTemaId, titulo: `Autoevaluación: ${temaNombre}` },
+        token,
+      );
+      setActiveQuiz(res.generarCuestionarioIa);
+      setAnswers({});
+    } catch (err: any) {
+      setSecurityError(err.message || 'No se pudo generar el cuestionario.');
+    } finally {
+      setGeneratingQuiz(false);
     }
+  }
 
-    setNliScore(computedNli);
-
-    const earnedXp = (isCorrectMc ? 10 : 0) + (computedNli >= 60 ? 15 : 5);
-    addXp(earnedXp);
-
-    setEvaluationFeedback({
-      isCorrectMc,
-      message: isCorrectMc
-        ? `Opción múltiple correcta. Similitud semántica NLI: ${computedNli}%. Ganaste +${earnedXp} XP.`
-        : `La opción correcta era ${activeQuiz.correctOptionId}. Similitud NLI: ${computedNli}%. Ganaste +${earnedXp} XP por practicar.`,
-    });
+  async function handleGradeQuiz() {
+    if (!activeQuiz || !token) return;
+    const ordered = activeQuiz.reactivos.map((r) => (answers[r.numero] ?? '').trim());
+    try {
+      assertNoScriptInjection(ordered, 'respuestas');
+      setSecurityError('');
+      const res = await gqlRequest<{
+        responderCuestionario: {
+          aciertos: number;
+          calificacion: number;
+          totalReactivos: number;
+          retroalimentacion: string;
+        };
+      }>(
+        `mutation ResponderCuestionario($id: ID!, $respuestas: [String!]!) {
+          responderCuestionario(cuestionarioId: $id, respuestas: $respuestas) {
+            aciertos calificacion totalReactivos retroalimentacion
+          }
+        }`,
+        { id: activeQuiz._id, respuestas: ordered },
+        token,
+      );
+      const r = res.responderCuestionario;
+      setEvaluationFeedback({
+        ok: r.calificacion >= 60,
+        message: `Calificación: ${Math.round(r.calificacion)}% (${r.aciertos}/${r.totalReactivos} aciertos). ${r.retroalimentacion}`,
+      });
+    } catch (err: any) {
+      setSecurityError(err.message || 'No se pudo calificar el cuestionario.');
+    }
   }
 
   return (
@@ -224,17 +198,16 @@ export default function Asistente() {
         <div className="banner-content">
           <span className="banner-pill">Módulo 5</span>
           <h1 className="banner-title">Asistente con IA (RAG) y autoevaluación</h1>
-          <p className="banner-subtitle">
-            Respuestas basadas en los materiales de tu escuela
-          </p>
+          <p className="banner-subtitle">Respuestas basadas en los materiales de tu escuela</p>
         </div>
 
         <button
           type="button"
           className="btn-banner-action"
-          onClick={handleNewQuiz}
+          onClick={handleGenerateQuiz}
+          disabled={generatingQuiz || !selectedTemaId}
         >
-          Nuevo cuestionario
+          {generatingQuiz ? 'Generando…' : 'Nuevo cuestionario'}
         </button>
       </section>
 
@@ -244,39 +217,50 @@ export default function Asistente() {
         <section className="kolab-card assistant-card" aria-label="Asistente académico">
           <header className="card-header-row">
             <h2 className="card-title">Asistente académico</h2>
-            <span className="chip-ia">IA</span>
+            <select
+              className="duel-select"
+              style={{ maxWidth: 220 }}
+              value={selectedTemaId}
+              onChange={(e) => setSelectedTemaId(e.target.value)}
+              aria-label="Tema de consulta"
+            >
+              {temas.length === 0 && <option value="">Sin temas disponibles</option>}
+              {temas.map((t) => (
+                <option key={t._id} value={t._id}>{t.titulo}</option>
+              ))}
+            </select>
           </header>
 
           <div className="chat-feed">
-            {messages.map((msg) =>
-              msg.sender === 'student' ? (
-                <div key={msg.id} className="chat-row chat-row-student">
-                  <div className="bubble-student">{msg.text}</div>
-                </div>
-              ) : (
-                <div key={msg.id} className="chat-row chat-row-ai">
-                  <div className="ai-avatar" aria-hidden="true">
-                    IA
+            {messages.length === 0 ? (
+              <p className="empty">
+                {temas.length === 0
+                  ? 'Aún no hay temas registrados para consultar con la IA.'
+                  : 'Haz una pregunta sobre el tema seleccionado para recibir ayuda basada en material autorizado.'}
+              </p>
+            ) : (
+              messages.map((msg) =>
+                msg.sender === 'student' ? (
+                  <div key={msg.id} className="chat-row chat-row-student">
+                    <div className="bubble-student">{msg.text}</div>
                   </div>
-                  <div className="ai-bubble-group">
-                    <div className="bubble-ai">
-                      <p className="bubble-ai-text">{msg.text}</p>
-                      {msg.sourceLabel && (
-                        <span
-                          className={`source-badge ${
-                            msg.isTeacherReviewed ? 'is-reviewed' : 'is-unreviewed'
-                          }`}
-                        >
-                          {msg.sourceLabel}
-                        </span>
-                      )}
+                ) : (
+                  <div key={msg.id} className="chat-row chat-row-ai">
+                    <div className="ai-avatar" aria-hidden="true">IA</div>
+                    <div className="ai-bubble-group">
+                      <div className="bubble-ai">
+                        <p className="bubble-ai-text">{msg.text}</p>
+                        {msg.sourceLabel && (
+                          <span className={`source-badge ${msg.isTeacherReviewed ? 'is-reviewed' : 'is-unreviewed'}`}>
+                            {msg.sourceLabel}
+                          </span>
+                        )}
+                      </div>
+                      <p className="ai-disclaimer">Respuesta generada por IA: no es una validación oficial</p>
                     </div>
-                    <p className="ai-disclaimer">
-                      Respuesta generada por IA: no es una validación oficial
-                    </p>
                   </div>
-                </div>
-              ),
+                ),
+              )
             )}
           </div>
 
@@ -288,17 +272,19 @@ export default function Asistente() {
               onChange={(e) => setQuestionInput(e.target.value)}
               placeholder="Escribe tu pregunta..."
               aria-label="Escribe tu pregunta"
+              disabled={!selectedTemaId || asking}
             />
             <div className="composer-actions">
-              <button type="submit" className="btn-indigo">
-                Enviar
+              <button type="submit" className="btn-indigo" disabled={!selectedTemaId || asking}>
+                {asking ? 'Consultando…' : 'Enviar'}
               </button>
               <button
                 type="button"
                 className="btn-outline-green"
-                onClick={handleCreateQuizFromChat}
+                onClick={handleGenerateQuiz}
+                disabled={!selectedTemaId || generatingQuiz}
               >
-                Crear cuestionario de esta consulta
+                Generar cuestionario del tema
               </button>
             </div>
           </form>
@@ -307,93 +293,61 @@ export default function Asistente() {
         <section className="kolab-card quiz-card" aria-label="Autoevaluación">
           <header className="card-header-row quiz-header-row">
             <h2 className="card-title">Autoevaluación</h2>
-            <span className="quiz-topic-chip">{activeQuiz.topic}</span>
+            {activeQuiz && <span className="quiz-topic-chip">{activeQuiz.titulo}</span>}
           </header>
 
-          <div
-            className="step-segments"
-            role="progressbar"
-            aria-valuenow={activeQuiz.stepIndex}
-            aria-valuemin={1}
-            aria-valuemax={activeQuiz.totalSteps}
-          >
-            {Array.from({ length: activeQuiz.totalSteps }).map((_, idx) => (
-              <span
-                key={idx}
-                className={`step-segment ${idx < activeQuiz.stepIndex ? 'is-filled' : ''}`}
-              />
-            ))}
-          </div>
+          {!activeQuiz ? (
+            <p className="empty">
+              Aún no hay un cuestionario activo. Selecciona un tema y pulsa «Nuevo cuestionario» para practicar.
+            </p>
+          ) : (
+            <>
+              {activeQuiz.reactivos.map((r) => (
+                <div className="quiz-block" key={r.numero}>
+                  <h3 className="quiz-question-title">{r.numero} · {r.tipo || 'Reactivo'}</h3>
+                  <p className="quiz-question-prompt">{r.pregunta}</p>
+                  {r.opciones && r.opciones.length > 0 ? (
+                    <div className="mc-options">
+                      {r.opciones.map((opt) => {
+                        const isSelected = answers[r.numero] === opt;
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            className={`mc-option ${isSelected ? 'is-selected' : ''}`}
+                            onClick={() => setAnswers((prev) => ({ ...prev, [r.numero]: opt }))}
+                            aria-pressed={isSelected}
+                          >
+                            <span>{opt}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <textarea
+                      className="open-answer-input"
+                      rows={3}
+                      value={answers[r.numero] ?? ''}
+                      onChange={(e) => setAnswers((prev) => ({ ...prev, [r.numero]: e.target.value }))}
+                      placeholder="Tu respuesta..."
+                    />
+                  )}
+                </div>
+              ))}
 
-          <div className="quiz-block">
-            <h3 className="quiz-question-title">
-              {activeQuiz.mcNumber} · Pregunta de opción múltiple
-            </h3>
-            <p className="quiz-question-prompt">{activeQuiz.mcPrompt}</p>
+              {evaluationFeedback && (
+                <div className={`quiz-feedback ${evaluationFeedback.ok ? 'is-good' : 'is-warn'}`}>
+                  {evaluationFeedback.message}
+                </div>
+              )}
 
-            <div className="mc-options">
-              {activeQuiz.mcOptions.map((opt) => {
-                const isSelected = selectedOption === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className={`mc-option ${isSelected ? 'is-selected' : ''}`}
-                    onClick={() => setSelectedOption(opt.id)}
-                    aria-pressed={isSelected}
-                  >
-                    <span className="mc-option-letter">{opt.label}</span>{' '}
-                    <span>{opt.text}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="quiz-block">
-            <h3 className="quiz-question-title">
-              {activeQuiz.openNumber} · Pregunta abierta
-            </h3>
-            <p className="quiz-question-prompt">{activeQuiz.openPrompt}</p>
-            <textarea
-              className="open-answer-input"
-              rows={3}
-              value={openAnswer}
-              onChange={(e) => setOpenAnswer(e.target.value)}
-              placeholder="Tu respuesta..."
-              aria-label="Tu respuesta"
-            />
-          </div>
-
-          <div className="nli-section">
-            <div className="nli-header">
-              <span className="nli-label">Similitud semántica (NLI)</span>
-              <span className="nli-percent">{nliScore}%</span>
-            </div>
-            <div className="nli-track">
-              <div className="nli-fill" style={{ width: `${nliScore}%` }} />
-            </div>
-          </div>
-
-          {evaluationFeedback && (
-            <div
-              className={`quiz-feedback ${
-                evaluationFeedback.isCorrectMc ? 'is-good' : 'is-warn'
-              }`}
-            >
-              {evaluationFeedback.message}
-            </div>
+              <div className="quiz-footer">
+                <button type="button" className="btn-indigo" onClick={handleGradeQuiz}>
+                  Calificar
+                </button>
+              </div>
+            </>
           )}
-
-          <div className="quiz-footer">
-            <button
-              type="button"
-              className="btn-indigo"
-              onClick={handleGradeQuiz}
-            >
-              Calificar
-            </button>
-          </div>
         </section>
       </div>
     </div>

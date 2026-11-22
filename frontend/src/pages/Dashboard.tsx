@@ -1,26 +1,64 @@
-import { CSSProperties } from 'react';
+import { CSSProperties, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MODULES } from '../data/modules';
-import { ROLES } from '../data/demoUsers';
+import { USE_MOCK, gqlRequest } from '../services/api';
+
+const ROLE_LABELS: Record<string, string> = {
+  estudiante: 'Estudiante',
+  docente: 'Docente',
+  admin: 'Administrador',
+};
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
+  const [badgesCount, setBadgesCount] = useState(user?.insignias ?? 0);
+  const [retosCount, setRetosCount] = useState(user?.retos ?? 0);
+
+  useEffect(() => {
+    if (USE_MOCK || !token) return;
+    let active = true;
+    gqlRequest<{
+      misInsignias: Array<{ _id: string }>;
+      retosComunitarios: Array<{ _id: string; completado: boolean }>;
+    }>(
+      `query DashboardStats {
+        misInsignias { _id }
+        retosComunitarios { _id completado }
+      }`,
+      {},
+      token,
+    )
+      .then((data) => {
+        if (!active) return;
+        setBadgesCount(data.misInsignias?.length ?? 0);
+        setRetosCount(data.retosComunitarios?.length ?? 0);
+      })
+      .catch(() => {
+        // Mantener valores base si falla la consulta
+      });
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
   const xp = user?.xp ?? 0;
   const pct = Math.round(((xp % 200) / 200) * 100);
 
   return (
     <>
       <section className="hero">
-        <span className="chip chip--solid" style={{ alignSelf: 'flex-start' }}>{ROLES[user?.rol ?? 'estudiante']}</span>
+        <span className="chip chip--solid" style={{ alignSelf: 'flex-start' }}>
+          {ROLE_LABELS[user?.rol ?? 'estudiante'] ?? 'Estudiante'}
+        </span>
         <h1>Hola, {user?.nombre}</h1>
         <p className="muted">Comparte, busca y confía en materiales revisados.</p>
       </section>
 
       <section className="stats" aria-label="Tu progreso">
         <div className="stat stat--xp"><span>XP total</span><strong>{xp}</strong></div>
-        <div className="stat stat--badges"><span>Insignias</span><strong>{user?.insignias ?? 0}</strong></div>
-        <div className="stat stat--retos"><span>Retos</span><strong>{user?.retos ?? 0}</strong></div>
+        <div className="stat stat--badges"><span>Insignias</span><strong>{badgesCount}</strong></div>
+        <div className="stat stat--retos"><span>Retos</span><strong>{retosCount}</strong></div>
       </section>
 
       <section className="card">

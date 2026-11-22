@@ -1,69 +1,189 @@
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MODULES } from '../data/modules';
+import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import ModuleBanner from '../components/ModuleBanner';
 
 interface RespuestaItem {
-  id: number;
-  autor: string;
+  _id: string;
+  idPregunta: string;
+  idUsuario: string;
   texto: string;
-  validada: boolean;
+  esValida: boolean;
+  votosUtilidad: number;
+  createdAt: string;
 }
 
 interface PreguntaItem {
-  id: number;
-  titulo: string;
-  detalle: string;
-  asignatura: string;
-  autor: string;
+  _id: string;
+  texto: string;
+  idTema: string;
+  idUsuario: string;
+  resuelta: boolean;
+  validadaPorDocente: boolean;
+  votosUtilidad: number;
+  etiquetas: string[];
+  fragmentoRecurso?: string;
+  createdAt: string;
   respuestas: RespuestaItem[];
 }
 
-const SEED: PreguntaItem[] = [
-  { id: 1, titulo: '¿Cuál es la diferencia entre clave primaria y foránea?', detalle: 'No me queda claro cuándo usar cada una.', asignatura: 'Bases de datos', autor: 'Estudiante', respuestas: [
-    { id: 1, autor: 'Compañero', texto: 'La primaria identifica un registro de forma única; la foránea apunta a la primaria de otra tabla.', validada: false },
-  ] },
-  { id: 2, titulo: '¿Cómo derivo una función compuesta?', detalle: 'Me pierdo con la regla de la cadena.', asignatura: 'Cálculo', autor: 'Estudiante', respuestas: [] },
-];
+interface TemaItem {
+  _id: string;
+  titulo: string;
+}
 
 export default function Foro() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [params] = useSearchParams();
   const q = (params.get('q') ?? '').toLowerCase();
-  const [preguntas, setPreguntas] = useState<PreguntaItem[]>(SEED);
-  const [form, setForm] = useState({ titulo: '', detalle: '', asignatura: '' });
+
+  const [preguntas, setPreguntas] = useState<PreguntaItem[]>([]);
+  const [temas, setTemas] = useState<TemaItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ texto: '', fragmento: '', idTema: '' });
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
 
-  const onChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const loadForo = useCallback(async () => {
+    if (USE_MOCK || !token) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const data = await gqlRequest<{
+        preguntas: Array<Omit<PreguntaItem, 'respuestas'>>;
+        temas: TemaItem[];
+      }>(
+        `query ForoData {
+          preguntas {
+            _id texto idTema idUsuario resuelta validadaPorDocente votosUtilidad etiquetas fragmentoRecurso createdAt
+          }
+          temas { _id titulo }
+        }`,
+        {},
+        token,
+      );
+      const rawPreguntas = data.preguntas ?? [];
+      const temaList = data.temas ?? [];
+      setTemas(temaList);
+      if (temaList.length > 0 && !form.idTema) {
+        setForm((f) => ({ ...f, idTema: temaList[0]._id }));
+      }
+
+      const respuestasList = await Promise.all(
+        rawPreguntas.map((p) =>
+          gqlRequest<{ respuestas: RespuestaItem[] }>(
+            `query Respuestas($id: ID!) {
+              respuestas(idPregunta: $id) { _id idPregunta idUsuario texto esValida votosUtilidad createdAt }
+            }`,
+            { id: p._id },
+            token,
+          )
+            .then((r) => r.respuestas ?? [])
+            .catch(() => []),
+        ),
+      );
+
+      setPreguntas(
+        rawPreguntas.map((p, idx) => ({
+          ...p,
+          respuestas: respuestasList[idx] ?? [],
+        })),
+      );
+    } catch (err: any) {
+      setError(err.message || 'No se pudieron cargar las preguntas del foro.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token, form.idTema]);
+
+  useEffect(() => {
+    loadForo();
+  }, [loadForo]);
+
+  const temaMap = useMemo(() => new Map(temas.map((t) => [t._id, t.titulo])), [temas]);
+
+  const onChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!token) return;
     try {
       assertNoScriptInjection(form, 'foro');
     } catch (err: any) {
       return setError(err.message);
     }
-    if (form.titulo.trim().length < 8) return setError('Escribe tu pregunta con un poco más de detalle');
-    setPreguntas((p) => [{ id: Date.now(), ...form, titulo: form.titulo.trim(), autor: user?.nombre ?? 'Estudiante', respuestas: [] }, ...p]);
-    setForm({ titulo: '', detalle: '', asignatura: '' });
-    setError('');
-    setShowForm(false);
+    if (form.texto.trim().length < 8) return setError('Escribe tu pregunta con un poco más de detalle');
+    if (!form.idTema) return setError('Selecciona un tema para publicar tu pregunta.');
+
+    try {
+      const res = await gqlRequest<{ crearPregunta: Omit<PreguntaItem, 'respuestas'> }>(
+        `mutation CrearPregunta($idTema: ID!, $texto: String!, $fragmento: String) {
+          crearPregunta(idTema: $idTema, texto: $texto, fragmentoRecurso: $fragmento) {
+            _id texto idTema idUsuario resuelta validadaPorDocente votosUtilidad etiquetas fragmentoRecurso createdAt
+          }
+        }`,
+        {
+          idTema: form.idTema,
+          texto: form.texto.trim(),
+          ...(form.fragmento.trim() ? { fragmento: form.fragmento.trim() } : {}),
+        },
+        token,
+      );
+      setPreguntas((p) => [{ ...res.crearPregunta, respuestas: [] }, ...p]);
+      setForm((f) => ({ ...f, texto: '', fragmento: '' }));
+      setError('');
+      setShowForm(false);
+    } catch (err: any) {
+      setError(err.message || 'No se pudo publicar la pregunta.');
+    }
   }
 
-  const responder = (id: number, texto: string) =>
-    setPreguntas((p) => p.map((x) => x.id === id
-      ? { ...x, respuestas: [...x.respuestas, { id: Date.now(), autor: user?.nombre ?? 'Estudiante', texto, validada: false }] } : x));
+  async function responder(idPregunta: string, texto: string) {
+    if (!token) return;
+    const res = await gqlRequest<{ responderPregunta: RespuestaItem }>(
+      `mutation Responder($idPregunta: ID!, $texto: String!) {
+        responderPregunta(idPregunta: $idPregunta, texto: $texto) {
+          _id idPregunta idUsuario texto esValida votosUtilidad createdAt
+        }
+      }`,
+      { idPregunta, texto },
+      token,
+    );
+    setPreguntas((p) =>
+      p.map((x) => (x._id === idPregunta ? { ...x, respuestas: [...x.respuestas, res.responderPregunta] } : x)),
+    );
+  }
 
-  const validar = (qid: number, rid: number) =>
-    setPreguntas((p) => p.map((x) => x.id === qid
-      ? { ...x, respuestas: x.respuestas.map((r) => (r.id === rid ? { ...r, validada: true } : r)) } : x));
+  async function validar(qid: string, rid: string) {
+    if (!token) return;
+    await gqlRequest(
+      `mutation MarcarRelevante($id: ID!) {
+        marcarRespuestaRelevante(respuestaId: $id) { _id esValida }
+      }`,
+      { id: rid },
+      token,
+    );
+    setPreguntas((p) =>
+      p.map((x) =>
+        x._id === qid
+          ? { ...x, resuelta: true, respuestas: x.respuestas.map((r) => (r._id === rid ? { ...r, esValida: true } : r)) }
+          : x,
+      ),
+    );
+  }
 
   const puedeValidar = user?.rol === 'docente' || user?.rol === 'admin';
-  const lista = preguntas.filter((x) => `${x.titulo} ${x.detalle} ${x.asignatura}`.toLowerCase().includes(q));
+  const lista = preguntas.filter((x) => {
+    const temaNombre = temaMap.get(x.idTema) ?? '';
+    return `${x.texto} ${x.fragmentoRecurso ?? ''} ${temaNombre}`.toLowerCase().includes(q);
+  });
 
   return (
     <>
@@ -77,89 +197,131 @@ export default function Foro() {
         <form className="card" onSubmit={onSubmit} noValidate>
           <h2 className="card__title">Nueva pregunta</h2>
           <div className="field">
-            <label htmlFor="titulo">Pregunta</label>
-            <input id="titulo" name="titulo" value={form.titulo} onChange={onChange} />
+            <label htmlFor="idTema">Tema</label>
+            <select id="idTema" name="idTema" value={form.idTema} onChange={onChange}>
+              {temas.length === 0 && <option value="">Sin temas disponibles</option>}
+              {temas.map((t) => (
+                <option key={t._id} value={t._id}>{t.titulo}</option>
+              ))}
+            </select>
           </div>
           <div className="field">
-            <label htmlFor="detalle">Detalle o fragmento que no entendiste</label>
-            <textarea id="detalle" name="detalle" value={form.detalle} onChange={onChange} />
+            <label htmlFor="texto">Pregunta</label>
+            <input id="texto" name="texto" value={form.texto} onChange={onChange} />
           </div>
           <div className="field">
-            <label htmlFor="asignatura">Asignatura</label>
-            <input id="asignatura" name="asignatura" value={form.asignatura} onChange={onChange} />
+            <label htmlFor="fragmento">Detalle o fragmento que no entendiste (opcional)</label>
+            <textarea id="fragmento" name="fragmento" value={form.fragmento} onChange={onChange} />
           </div>
           {error && <p className="form-error" role="alert">{error}</p>}
-          <div className="row"><button className="btn btn--primary">Publicar</button></div>
+          <div className="row"><button className="btn btn--primary" disabled={!form.idTema}>Publicar</button></div>
         </form>
       )}
 
       {q && <p className="muted">Resultados para “{params.get('q')}”</p>}
-      {lista.length === 0 && <p className="empty">No hay preguntas todavía. ¡Sé el primero en preguntar!</p>}
-      {lista.map((p) => <Pregunta key={p.id} p={p} puedeValidar={puedeValidar} onResponder={responder} onValidar={validar} />)}
+      {loading ? (
+        <p className="muted">Cargando preguntas del foro…</p>
+      ) : lista.length === 0 ? (
+        <p className="empty">
+          {preguntas.length === 0
+            ? 'No hay preguntas todavía. ¡Sé el primero en preguntar!'
+            : 'No se encontraron preguntas que coincidan con tu búsqueda.'}
+        </p>
+      ) : (
+        lista.map((p) => (
+          <Pregunta
+            key={p._id}
+            p={p}
+            temaNombre={temaMap.get(p.idTema) || 'Tema general'}
+            puedeValidar={puedeValidar}
+            onResponder={responder}
+            onValidar={validar}
+          />
+        ))
+      )}
     </>
   );
 }
 
 function Pregunta({
   p,
+  temaNombre,
   puedeValidar,
   onResponder,
   onValidar,
 }: {
   p: PreguntaItem;
+  temaNombre: string;
   puedeValidar: boolean;
-  onResponder: (id: number, texto: string) => void;
-  onValidar: (qid: number, rid: number) => void;
+  onResponder: (id: string, texto: string) => Promise<void>;
+  onValidar: (qid: string, rid: string) => Promise<void>;
 }) {
   const [texto, setTexto] = useState('');
   const [respError, setRespError] = useState('');
-  const resuelta = p.respuestas.some((r) => r.validada);
+  const resuelta = p.resuelta || p.respuestas.some((r) => r.esValida);
 
-  function enviar(e: FormEvent) {
+  async function enviar(e: FormEvent) {
     e.preventDefault();
     if (!texto.trim()) return;
     try {
       assertNoScriptInjection(texto, 'respuesta');
       setRespError('');
+      await onResponder(p._id, texto.trim());
+      setTexto('');
     } catch (err: any) {
-      return setRespError(err.message);
+      setRespError(err.message || 'No se pudo enviar tu respuesta.');
     }
-    onResponder(p.id, texto.trim());
-    setTexto('');
   }
 
   return (
     <article className="card question">
       <div className="question__head">
         <div>
-          <h2>{p.titulo}</h2>
-          <p className="muted">{p.asignatura || 'Sin asignatura'} · {p.autor}</p>
+          <span className="chip chip--soft">{temaNombre}</span>
+          <h2 style={{ marginTop: '0.4rem' }}>{p.texto}</h2>
+          {p.fragmentoRecurso && <p className="muted">{p.fragmentoRecurso}</p>}
         </div>
-        <span className={`chip ${resuelta ? 'chip--soft' : 'chip--danger'}`}>{resuelta ? 'Resuelta' : 'Sin resolver'}</span>
+        <span className={`chip ${resuelta ? 'chip--solid' : 'chip--xp'}`}>
+          {resuelta ? '✓ Resuelta' : 'Abierta'}
+        </span>
       </div>
-      {p.detalle && <p>{p.detalle}</p>}
 
-      <div className="answers">
-        {p.respuestas.map((r) => (
-          <div className="answer" key={r.id}>
-            <p>{r.texto}</p>
-            <div className="row">
-              <span className="muted">{r.autor}</span>
-              {r.validada
-                ? <span className="chip chip--solid">✓ Revisado por docente</span>
-                : puedeValidar && <button className="btn btn--ghost btn--sm" onClick={() => onValidar(p.id, r.id)}>Validar</button>}
+      {p.respuestas.length > 0 && (
+        <div className="answers">
+          {p.respuestas.map((r) => (
+            <div className="answer" key={r._id}>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <strong>Respuesta de la comunidad</strong>
+                {r.esValida && <span className="chip chip--solid">✓ Validada</span>}
+              </div>
+              <p>{r.texto}</p>
+              {puedeValidar && !r.esValida && (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm"
+                  style={{ alignSelf: 'flex-start' }}
+                  onClick={() => onValidar(p._id, r._id)}
+                >
+                  Validar respuesta
+                </button>
+              )}
             </div>
-          </div>
-        ))}
-        <form className="row" onSubmit={enviar}>
-          <div className="field" style={{ flex: 1, minWidth: 220 }}>
-            <label className="sr-only" htmlFor={`r-${p.id}`}>Tu respuesta</label>
-            <input id={`r-${p.id}`} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Escribe tu respuesta…" />
-          </div>
-          <button className="btn btn--primary btn--sm">Responder</button>
-        </form>
-        {respError && <p className="form-error" role="alert">{respError}</p>}
-      </div>
+          ))}
+        </div>
+      )}
+
+      <form className="row" onSubmit={enviar}>
+        <label className="sr-only" htmlFor={`r-${p._id}`}>Responder</label>
+        <input
+          id={`r-${p._id}`}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder="Escribe una respuesta útil…"
+          style={{ flex: 1, minHeight: 44, padding: '0 1rem', borderRadius: 14, border: '2px solid var(--borde)' }}
+        />
+        <button className="btn btn--primary btn--sm">Responder</button>
+      </form>
+      {respError && <p className="form-error" role="alert">{respError}</p>}
     </article>
   );
 }

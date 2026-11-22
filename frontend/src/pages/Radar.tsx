@@ -1,32 +1,91 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { USE_MOCK, gqlRequest } from '../services/api';
 
-const UNITS = [
-  { id: 'U1', label: 'U1', topic: 'Modelo Entidad-Relación', heightPct: 32, color: '#22C55E', unvalidatedCount: 4, avgScore: '8.9/10' },
-  { id: 'U2', label: 'U2', topic: 'Normalización 3FN', heightPct: 92, color: '#EF4444', unvalidatedCount: 14, avgScore: '7.4/10' },
-  { id: 'U3', label: 'U3', topic: 'Consultas SQL y JOINs', heightPct: 58, color: '#F59E0B', unvalidatedCount: 8, avgScore: '8.2/10' },
-  { id: 'U4', label: 'U4', topic: 'Índices y Vistas', heightPct: 22, color: '#22C55E', unvalidatedCount: 2, avgScore: '9.1/10' },
-];
+interface RadarItem {
+  idTema: string;
+  totalPreguntas: number;
+  preguntasSinResolver: number;
+  preguntaMasDebatidaSinSolucion?: {
+    _id: string;
+    texto: string;
+    votosUtilidad: number;
+  } | null;
+}
 
-const FREQUENT_QUESTIONS = [
-  { id: 'fq1', unitId: 'U2', question: '¿Cuándo aplicar 3FN en una tabla con dependencias transitivas?', count: 12, severity: 'high' },
-  { id: 'fq2', unitId: 'U3', question: '¿Cuál es la diferencia práctica entre INNER JOIN y LEFT JOIN?', count: 9, severity: 'mid' },
-  { id: 'fq3', unitId: 'U1', question: '¿Cómo resolver una relación muchos a muchos en el diagrama?', count: 5, severity: 'low' },
-];
+interface TemaItem {
+  _id: string;
+  titulo: string;
+}
 
-const DOUBT_CLUSTERS = [
-  { id: 'cl1', label: 'Normalización (12)', size: 112, color: '#FCA5A5', top: '14%', left: '10%' },
-  { id: 'cl2', label: 'JOINs SQL (9)', size: 74, color: '#FDE68A', top: '36%', left: '48%' },
-  { id: 'cl3', label: 'Cardinalidad (5)', size: 52, color: '#86EFAC', top: '12%', left: '74%' },
-  { id: 'cl4', label: 'Índices (3)', size: 36, color: '#A5B4FC', top: '62%', left: '80%' },
-];
+interface IntentoItem {
+  _id: string;
+  calificacion: number;
+}
 
 export default function Radar() {
-  const [selectedUnitId, setSelectedUnitId] = useState('U2');
-  const [selectedCluster, setSelectedCluster] = useState<string | null>(null);
+  const { token } = useAuth();
+  const [radar, setRadar] = useState<RadarItem[]>([]);
+  const [temas, setTemas] = useState<TemaItem[]>([]);
+  const [intentos, setIntentos] = useState<IntentoItem[]>([]);
+  const [selectedTemaId, setSelectedTemaId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
   const [pwaInstalled, setPwaInstalled] = useState(false);
   const [installNotice, setInstallNotice] = useState<string | null>(null);
 
-  const selectedUnit = UNITS.find((u) => u.id === selectedUnitId) ?? UNITS[1];
+  const loadRadar = useCallback(async () => {
+    if (USE_MOCK || !token) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await gqlRequest<{
+        radarDificultades: RadarItem[];
+        temas: TemaItem[];
+        miHistorialCuestionarios: IntentoItem[];
+      }>(
+        `query RadarData {
+          radarDificultades {
+            idTema
+            totalPreguntas
+            preguntasSinResolver
+            preguntaMasDebatidaSinSolucion { _id texto votosUtilidad }
+          }
+          temas { _id titulo }
+          miHistorialCuestionarios { _id calificacion }
+        }`,
+        {},
+        token,
+      );
+      const list = data.radarDificultades ?? [];
+      setRadar(list);
+      setTemas(data.temas ?? []);
+      setIntentos(data.miHistorialCuestionarios ?? []);
+      if (list.length > 0 && !selectedTemaId) {
+        setSelectedTemaId(list[0].idTema);
+      }
+    } catch {
+      // Silenciar error si aún no hay datos
+    } finally {
+      setLoading(false);
+    }
+  }, [token, selectedTemaId]);
+
+  useEffect(() => {
+    loadRadar();
+  }, [loadRadar]);
+
+  const temaMap = useMemo(() => new Map(temas.map((t) => [t._id, t.titulo])), [temas]);
+  const selectedUnit = radar.find((r) => r.idTema === selectedTemaId) ?? radar[0] ?? null;
+
+  const avgQuizScore = useMemo(() => {
+    if (intentos.length === 0) return 'Sin datos';
+    const sum = intentos.reduce((acc, i) => acc + i.calificacion, 0);
+    return `${(sum / intentos.length / 10).toFixed(1)}/10`;
+  }, [intentos]);
+
+  const maxQuestions = Math.max(1, ...radar.map((r) => r.totalPreguntas));
 
   function handleInstallClick() {
     setPwaInstalled(true);
@@ -44,7 +103,7 @@ export default function Radar() {
         <div className="banner-content">
           <span className="banner-pill">Módulo 8</span>
           <h1 className="banner-title">Radar de dificultades e infraestructura PWA</h1>
-          <p className="banner-subtitle">Dónde se atoran tus estudiantes y cómo instalar KOLAB</p>
+          <p className="banner-subtitle">Dónde se atoran los estudiantes y acceso sin conexión</p>
         </div>
 
         <button type="button" className="btn-banner-action" onClick={handleInstallClick}>
@@ -62,99 +121,98 @@ export default function Radar() {
       <div className="kpi-grid">
         <article className="kpi-card kpi-red">
           <span className="kpi-label">Tema con más dudas</span>
-          <strong className="kpi-value">{selectedUnit.topic}</strong>
+          <strong className="kpi-value">
+            {selectedUnit ? (temaMap.get(selectedUnit.idTema) || 'Tema') : 'Sin datos aún'}
+          </strong>
         </article>
         <article className="kpi-card kpi-amber">
-          <span className="kpi-label">Preguntas sin validar</span>
-          <strong className="kpi-value">{String(selectedUnit.unvalidatedCount).padStart(2, '0')}</strong>
+          <span className="kpi-label">Preguntas sin resolver</span>
+          <strong className="kpi-value">
+            {selectedUnit ? String(selectedUnit.preguntasSinResolver).padStart(2, '0') : '00'}
+          </strong>
         </article>
         <article className="kpi-card kpi-teal">
           <span className="kpi-label">Promedio de cuestionarios</span>
-          <strong className="kpi-value">{selectedUnit.avgScore}</strong>
+          <strong className="kpi-value">{avgQuizScore}</strong>
         </article>
       </div>
 
       <div className="module8-grid">
-        <section className="kolab-card" aria-label="Dificultad por unidad">
+        <section className="kolab-card" aria-label="Dificultad por tema">
           <header className="card-header-row quiz-header-row">
-            <h2 className="card-title">Dificultad por unidad</h2>
-            <span className="quiz-topic-chip">Unidad {selectedUnit.id}</span>
+            <h2 className="card-title">Dificultad por tema</h2>
+            {selectedUnit && <span className="quiz-topic-chip">{temaMap.get(selectedUnit.idTema) || 'Tema'}</span>}
           </header>
 
-          <div className="unit-chart">
-            {UNITS.map((unit) => {
-              const isSelected = unit.id === selectedUnitId;
-              return (
-                <button
-                  key={unit.id}
-                  type="button"
-                  className={`unit-bar-col ${isSelected ? 'is-selected' : ''}`}
-                  onClick={() => setSelectedUnitId(unit.id)}
-                  title={`${unit.id}: ${unit.topic}`}
-                >
-                  <div className="unit-bar-track">
-                    <div className="unit-bar-fill" style={{ height: `${unit.heightPct}%`, backgroundColor: unit.color }} />
-                  </div>
-                  <span className="unit-bar-label">{unit.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="kolab-card" aria-label="Grupos de dudas (clustering)">
-          <header className="card-header-row quiz-header-row">
-            <h2 className="card-title">Grupos de dudas (clustering)</h2>
-            {selectedCluster && <span className="quiz-topic-chip">{selectedCluster}</span>}
-          </header>
-
-          <div className="cluster-canvas">
-            {DOUBT_CLUSTERS.map((cluster) => (
-              <button
-                key={cluster.id}
-                type="button"
-                className="cluster-bubble"
-                style={{ width: `${cluster.size}px`, height: `${cluster.size}px`, backgroundColor: cluster.color, top: cluster.top, left: cluster.left }}
-                onClick={() => setSelectedCluster(cluster.label)}
-                title={cluster.label}
-                aria-label={cluster.label}
-              />
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <div className="module8-grid">
-        <section className="kolab-card" aria-label="Preguntas frecuentes">
-          <header className="card-header-row">
-            <h2 className="card-title">Preguntas frecuentes</h2>
-          </header>
-          <div className="faq-list">
-            {FREQUENT_QUESTIONS.map((item, idx) => (
-              <div key={item.id} className={`faq-row ${idx === 1 ? 'is-highlighted' : ''}`}>
-                <span className="faq-question">{item.question}</span>
-                <span className={`faq-count-pill severity-${item.severity}`}>{item.count}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="kolab-card" aria-label="PWA y almacenamiento">
-          <header className="card-header-row">
-            <h2 className="card-title">PWA y almacenamiento</h2>
-          </header>
-          <div className="pwa-box">
-            <div className="pwa-ring" aria-label="Uso de caché 42%"><div className="pwa-ring-inner">Caché</div></div>
-            <div className="pwa-info">
-              <span className="pwa-status-pill">Service Worker activo</span>
-              <p className="pwa-desc">Recursos consultados con carga rápida</p>
-              <button type="button" className="btn-outline-green" onClick={handleInstallClick}>
-                {pwaInstalled ? 'Instalado en dispositivo ✓' : 'Instalar en mi móvil'}
-              </button>
+          {loading ? (
+            <p className="muted">Calculando radar de dificultades…</p>
+          ) : radar.length === 0 ? (
+            <p className="empty">Todavía no hay suficientes preguntas registradas para generar el radar.</p>
+          ) : (
+            <div className="unit-chart">
+              {radar.map((item, idx) => {
+                const isSelected = item.idTema === selectedUnit?.idTema;
+                const heightPct = Math.max(18, Math.round((item.totalPreguntas / maxQuestions) * 100));
+                const color = item.preguntasSinResolver > 3 ? '#EF4444' : item.preguntasSinResolver > 0 ? '#F59E0B' : '#22C55E';
+                const label = temaMap.get(item.idTema) || `T${idx + 1}`;
+                return (
+                  <button
+                    key={item.idTema}
+                    type="button"
+                    className={`unit-bar-col ${isSelected ? 'is-selected' : ''}`}
+                    onClick={() => setSelectedTemaId(item.idTema)}
+                    title={`${label}: ${item.totalPreguntas} preguntas`}
+                  >
+                    <div className="unit-bar-track">
+                      <div className="unit-bar-fill" style={{ height: `${heightPct}%`, backgroundColor: color }} />
+                    </div>
+                    <span className="unit-bar-label">{label.slice(0, 8)}</span>
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          )}
+        </section>
+
+        <section className="kolab-card" aria-label="Preguntas sin resolver destacadas">
+          <header className="card-header-row">
+            <h2 className="card-title">Dudas más debatidas</h2>
+          </header>
+
+          {radar.filter((r) => r.preguntaMasDebatidaSinSolucion).length === 0 ? (
+            <p className="empty">No hay dudas pendientes de solución en este momento.</p>
+          ) : (
+            <div className="faq-list">
+              {radar
+                .filter((r) => r.preguntaMasDebatidaSinSolucion)
+                .map((item) => (
+                  <div key={item.idTema} className="faq-row">
+                    <span className="faq-question">{item.preguntaMasDebatidaSinSolucion!.texto}</span>
+                    <span className="faq-count-pill severity-mid">
+                      {item.preguntasSinResolver}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
         </section>
       </div>
+
+      <section className="kolab-card" aria-label="PWA y almacenamiento">
+        <header className="card-header-row">
+          <h2 className="card-title">PWA y almacenamiento</h2>
+        </header>
+        <div className="pwa-box">
+          <div className="pwa-ring" aria-label="Estado PWA"><div className="pwa-ring-inner">PWA</div></div>
+          <div className="pwa-info">
+            <span className="pwa-status-pill">Modo aplicación disponible</span>
+            <p className="pwa-desc">Instala KOLAB en tu dispositivo para acceder rápidamente.</p>
+            <button type="button" className="btn-outline-green" onClick={handleInstallClick}>
+              {pwaInstalled ? 'Instalado en dispositivo ✓' : 'Instalar en mi móvil'}
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

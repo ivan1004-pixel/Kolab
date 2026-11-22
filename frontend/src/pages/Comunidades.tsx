@@ -1,197 +1,207 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 
-const INITIAL_GROUPS = [
-  {
-    id: 'g1',
-    initial: 'B',
-    name: 'Bases de Datos UTVT',
-    topic: 'SQL y Modelado',
-    badgeColor: '#157F3C',
-    members: [
-      { id: 'u1', name: 'Sofía Ramírez', role: 'Líder', xp: 420, avatarColor: '#FACC15' },
-      { id: 'u2', name: 'Diego Morales', role: 'Colaborador', xp: 310, avatarColor: '#A5B4FC' },
-      { id: 'u3', name: 'Valeria Cruz', role: 'Integrante', xp: 185, avatarColor: '#86EFAC' },
-    ],
-  },
-  {
-    id: 'g2',
-    initial: 'E',
-    name: 'Estructuras y Grafos',
-    topic: 'Algoritmos',
-    badgeColor: '#2563EB',
-    members: [
-      { id: 'u4', name: 'Mateo Hernández', role: 'Líder', xp: 390, avatarColor: '#FACC15' },
-      { id: 'u5', name: 'Camila Ortiz', role: 'Colaborador', xp: 275, avatarColor: '#A5B4FC' },
-      { id: 'u6', name: 'Iván Pérez', role: 'Integrante', xp: 140, avatarColor: '#86EFAC' },
-    ],
-  },
-  {
-    id: 'g3',
-    initial: 'D',
-    name: 'Desarrollo Web API',
-    topic: 'React y GraphQL',
-    badgeColor: '#D97706',
-    members: [
-      { id: 'u7', name: 'Andrea López', role: 'Líder', xp: 450, avatarColor: '#FACC15' },
-      { id: 'u8', name: 'Luis Navarro', role: 'Colaborador', xp: 295, avatarColor: '#A5B4FC' },
-      { id: 'u9', name: 'Fernanda Silva', role: 'Integrante', xp: 210, avatarColor: '#86EFAC' },
-    ],
-  },
-];
-
-interface ChallengeItem {
-  id: string;
-  title: string;
-  resource: string;
-  xpReward: number;
-  completed?: boolean;
+interface MiembroItem {
+  idUsuario: string;
+  rolGrupo: string;
+  fechaUnion: string;
 }
 
-const INITIAL_CHALLENGES: ChallengeItem[] = [
-  {
-    id: 'c1',
-    title: 'Resumen de Normalización 3FN',
-    resource: 'Apunte: Modelado Relacional U2',
-    xpReward: 30,
-  },
-  {
-    id: 'c2',
-    title: '5 consultas con INNER JOIN',
-    resource: 'Guía práctica: SQL UTVT',
-    xpReward: 25,
-  },
-];
+interface GrupoItem {
+  _id: string;
+  nombre: string;
+  descripcion?: string;
+  esPrivado: boolean;
+  idTema: string;
+  miembros: MiembroItem[];
+}
+
+interface RetoItem {
+  _id: string;
+  titulo: string;
+  descripcion?: string;
+  idGrupo: string;
+  metaCantidad: number;
+  progresoActual: number;
+  xpRecompensa: number;
+  completado: boolean;
+}
+
+interface TemaItem {
+  _id: string;
+  titulo: string;
+}
+
+interface InsigniaItem {
+  _id: string;
+  idInsignia: string;
+  fechaObtencion: string;
+}
+
+const GROUP_COLORS = ['#157F3C', '#2563EB', '#D97706', '#0F766E', '#4338CA'];
 
 export default function Comunidades() {
-  const { user, updateProfile } = useAuth();
-  const xp = user?.xp ?? 120;
+  const { user, token } = useAuth();
+  const xp = user?.xp ?? 0;
 
-  const [groups, setGroups] = useState(INITIAL_GROUPS);
-  const [selectedGroupId, setSelectedGroupId] = useState(INITIAL_GROUPS[0].id);
-  const [challenges, setChallenges] = useState<ChallengeItem[]>(INITIAL_CHALLENGES);
+  const [groups, setGroups] = useState<GrupoItem[]>([]);
+  const [temas, setTemas] = useState<TemaItem[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [challenges, setChallenges] = useState<RetoItem[]>([]);
+  const [insignias, setInsignias] = useState<InsigniaItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
-  const [newGroupTopic, setNewGroupTopic] = useState('');
+  const [newGroupTemaId, setNewGroupTemaId] = useState('');
 
   const [showNewChallengeForm, setShowNewChallengeForm] = useState(false);
   const [newChallengeTitle, setNewChallengeTitle] = useState('');
-  const [newChallengeResource, setNewChallengeResource] = useState('');
+  const [newChallengeDesc, setNewChallengeDesc] = useState('');
 
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
-  const selectedGroup =
-    groups.find((g) => g.id === selectedGroupId) ?? groups[0];
-
-  const xpProgress = Math.min(100, Math.max(10, Math.round(((xp % 200) / 200) * 100) || 62));
-  const teamBadgeUnlocked = xp >= 150;
-
-  function addXp(amount: number) {
-    updateProfile({ xp: (user?.xp ?? 0) + amount });
-  }
-
-  function handleCreateGroup(e: FormEvent) {
-    e.preventDefault();
-    const name = newGroupName.trim();
-    const topic = newGroupTopic.trim();
-    if (!name || !topic) return;
-    try {
-      assertNoScriptInjection({ name, topic }, 'grupo');
-    } catch (err: any) {
-      setStatusNotice(err.message);
+  const loadComunidades = useCallback(async () => {
+    if (USE_MOCK || !token) {
+      setLoading(false);
       return;
     }
-
-    const created = {
-      id: `g-${Date.now()}`,
-      initial: name[0].toUpperCase(),
-      name,
-      topic,
-      badgeColor: '#0F766E',
-      members: [
-        {
-          id: `u-${Date.now()}`,
-          name: user?.nombre ?? 'Tú (Estudiante)',
-          role: 'Líder',
-          xp,
-          avatarColor: '#FACC15',
-        },
-      ],
-    };
-
-    setGroups((prev) => [created, ...prev]);
-    setSelectedGroupId(created.id);
-    setNewGroupName('');
-    setNewGroupTopic('');
-    setShowNewGroupForm(false);
-    addXp(15);
-    setStatusNotice(`Grupo "${name}" creado. Ganaste +15 XP.`);
-  }
-
-  function handleInviteMember() {
-    const sampleNames = ['Carlos Vega', 'Paola Méndez', 'Jorge Ríos', 'Elena Castro'];
-    const nextName = sampleNames[selectedGroup.members.length % sampleNames.length];
-    const newMember = {
-      id: `m-${Date.now()}`,
-      name: nextName,
-      role: 'Integrante',
-      xp: 110,
-      avatarColor: '#86EFAC',
-    };
-
-    setGroups((prev) =>
-      prev.map((g) =>
-        g.id === selectedGroup.id
-          ? { ...g, members: [...g.members, newMember] }
-          : g,
-      ),
-    );
-    setStatusNotice(`Invitación enviada a ${nextName} para unirse a ${selectedGroup.name}.`);
-  }
-
-  function handleAcceptRequest() {
-    addXp(10);
-    setStatusNotice(`Te uniste activamente a ${selectedGroup.name}. +10 XP.`);
-  }
-
-  function handleCreateChallenge(e: FormEvent) {
-    e.preventDefault();
-    const title = newChallengeTitle.trim();
-    const resource = newChallengeResource.trim();
-    if (!title) return;
+    setLoading(true);
     try {
-      assertNoScriptInjection({ title, resource }, 'reto');
+      const data = await gqlRequest<{
+        gruposEstudio: GrupoItem[];
+        temas: TemaItem[];
+        misInsignias: InsigniaItem[];
+      }>(
+        `query ComunidadesData {
+          gruposEstudio {
+            _id nombre descripcion esPrivado idTema
+            miembros { idUsuario rolGrupo fechaUnion }
+          }
+          temas { _id titulo }
+          misInsignias { _id idInsignia fechaObtencion }
+        }`,
+        {},
+        token,
+      );
+      const grpList = data.gruposEstudio ?? [];
+      const temaList = data.temas ?? [];
+      setGroups(grpList);
+      setTemas(temaList);
+      setInsignias(data.misInsignias ?? []);
+      if (grpList.length > 0 && !selectedGroupId) {
+        setSelectedGroupId(grpList[0]._id);
+      }
+      if (temaList.length > 0 && !newGroupTemaId) {
+        setNewGroupTemaId(temaList[0]._id);
+      }
     } catch (err: any) {
-      setStatusNotice(err.message);
+      setStatusNotice(err.message || 'No se pudieron cargar las comunidades.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token, selectedGroupId, newGroupTemaId]);
+
+  useEffect(() => {
+    loadComunidades();
+  }, [loadComunidades]);
+
+  useEffect(() => {
+    if (USE_MOCK || !token || !selectedGroupId) {
+      setChallenges([]);
       return;
     }
+    gqlRequest<{ retosComunitarios: RetoItem[] }>(
+      `query RetosGrupo($idGrupo: ID) {
+        retosComunitarios(idGrupo: $idGrupo) {
+          _id titulo descripcion idGrupo metaCantidad progresoActual xpRecompensa completado
+        }
+      }`,
+      { idGrupo: selectedGroupId },
+      token,
+    )
+      .then((res) => setChallenges(res.retosComunitarios ?? []))
+      .catch(() => setChallenges([]));
+  }, [token, selectedGroupId]);
 
-    const created: ChallengeItem = {
-      id: `c-${Date.now()}`,
-      title,
-      resource: resource || 'Apunte de la comunidad',
-      xpReward: 20,
-    };
+  const temaMap = useMemo(() => new Map(temas.map((t) => [t._id, t.titulo])), [temas]);
+  const selectedGroup = groups.find((g) => g._id === selectedGroupId) ?? groups[0] ?? null;
 
-    setChallenges((prev) => [...prev, created]);
-    setNewChallengeTitle('');
-    setNewChallengeResource('');
-    setShowNewChallengeForm(false);
-    addXp(10);
-    setStatusNotice(`Reto "${title}" publicado. +10 XP.`);
+  const xpProgress = Math.round(((xp % 200) / 200) * 100);
+
+  async function handleCreateGroup(e: FormEvent) {
+    e.preventDefault();
+    const nombre = newGroupName.trim();
+    if (!nombre || !newGroupTemaId || !token) return;
+    try {
+      assertNoScriptInjection(nombre, 'grupo');
+      const res = await gqlRequest<{ crearGrupoEstudio: GrupoItem }>(
+        `mutation CrearGrupo($nombre: String!, $idTema: ID!) {
+          crearGrupoEstudio(nombre: $nombre, idTema: $idTema, esPrivado: false) {
+            _id nombre descripcion esPrivado idTema
+            miembros { idUsuario rolGrupo fechaUnion }
+          }
+        }`,
+        { nombre, idTema: newGroupTemaId },
+        token,
+      );
+      setGroups((prev) => [res.crearGrupoEstudio, ...prev]);
+      setSelectedGroupId(res.crearGrupoEstudio._id);
+      setNewGroupName('');
+      setShowNewGroupForm(false);
+      setStatusNotice(`Grupo "${nombre}" creado correctamente.`);
+    } catch (err: any) {
+      setStatusNotice(err.message || 'No se pudo crear el grupo.');
+    }
   }
 
-  function handleCompleteChallenge(challengeId: string) {
-    const target = challenges.find((c) => c.id === challengeId);
-    if (!target || target.completed) return;
+  async function handleJoinGroup() {
+    if (!selectedGroup || !token) return;
+    try {
+      const res = await gqlRequest<{ unirseAGrupo: GrupoItem }>(
+        `mutation Unirse($id: ID!) {
+          unirseAGrupo(grupoId: $id) {
+            _id miembros { idUsuario rolGrupo fechaUnion }
+          }
+        }`,
+        { id: selectedGroup._id },
+        token,
+      );
+      setGroups((prev) =>
+        prev.map((g) => (g._id === selectedGroup._id ? { ...g, miembros: res.unirseAGrupo.miembros } : g)),
+      );
+      setStatusNotice(`Te uniste a ${selectedGroup.nombre}.`);
+    } catch (err: any) {
+      setStatusNotice(err.message || 'No se pudo unir al grupo.');
+    }
+  }
 
-    setChallenges((prev) =>
-      prev.map((c) => (c.id === challengeId ? { ...c, completed: true } : c)),
-    );
-    addXp(target.xpReward);
-    setStatusNotice(`¡Reto "${target.title}" completado! Ganaste +${target.xpReward} XP.`);
+  async function handleCreateChallenge(e: FormEvent) {
+    e.preventDefault();
+    const titulo = newChallengeTitle.trim();
+    const descripcion = newChallengeDesc.trim() || 'Reto semanal de la comunidad';
+    if (!titulo || !selectedGroup || !token) return;
+    try {
+      assertNoScriptInjection({ titulo, descripcion }, 'reto');
+      const res = await gqlRequest<{ crearRetoComunitario: RetoItem }>(
+        `mutation CrearReto($idGrupo: ID!, $titulo: String!, $descripcion: String!) {
+          crearRetoComunitario(idGrupo: $idGrupo, titulo: $titulo, descripcion: $descripcion, metaCantidad: 5, xpRecompensa: 25) {
+            _id titulo descripcion idGrupo metaCantidad progresoActual xpRecompensa completado
+          }
+        }`,
+        { idGrupo: selectedGroup._id, titulo, descripcion },
+        token,
+      );
+      setChallenges((prev) => [...prev, res.crearRetoComunitario]);
+      setNewChallengeTitle('');
+      setNewChallengeDesc('');
+      setShowNewChallengeForm(false);
+      setStatusNotice(`Reto "${titulo}" publicado.`);
+    } catch (err: any) {
+      setStatusNotice(err.message || 'No se pudo publicar el reto.');
+    }
   }
 
   return (
@@ -206,11 +216,7 @@ export default function Comunidades() {
           <p className="banner-subtitle">Estudia en equipo, gana XP e insignias</p>
         </div>
 
-        <button
-          type="button"
-          className="btn-banner-action"
-          onClick={() => setShowNewGroupForm((v) => !v)}
-        >
+        <button type="button" className="btn-banner-action" onClick={() => setShowNewGroupForm((v) => !v)}>
           + Crear grupo
         </button>
       </section>
@@ -226,26 +232,21 @@ export default function Comunidades() {
               onChange={(e) => setNewGroupName(e.target.value)}
               required
             />
-            <input
-              type="text"
+            <select
               className="composer-input"
-              placeholder="Tema principal (ej. Integrales)"
-              value={newGroupTopic}
-              onChange={(e) => setNewGroupTopic(e.target.value)}
+              value={newGroupTemaId}
+              onChange={(e) => setNewGroupTemaId(e.target.value)}
               required
-            />
+            >
+              {temas.length === 0 && <option value="">Sin temas registrados</option>}
+              {temas.map((t) => (
+                <option key={t._id} value={t._id}>{t.titulo}</option>
+              ))}
+            </select>
           </div>
           <div className="inline-form-actions">
-            <button type="submit" className="btn-green">
-              Guardar grupo
-            </button>
-            <button
-              type="button"
-              className="btn-outline-green"
-              onClick={() => setShowNewGroupForm(false)}
-            >
-              Cancelar
-            </button>
+            <button type="submit" className="btn-green" disabled={!newGroupTemaId}>Guardar grupo</button>
+            <button type="button" className="btn-outline-green" onClick={() => setShowNewGroupForm(false)}>Cancelar</button>
           </div>
         </form>
       )}
@@ -253,14 +254,7 @@ export default function Comunidades() {
       {statusNotice && (
         <div className="module6-notice" role="status">
           <span>{statusNotice}</span>
-          <button
-            type="button"
-            className="notice-close"
-            onClick={() => setStatusNotice(null)}
-            aria-label="Cerrar aviso"
-          >
-            ×
-          </button>
+          <button type="button" className="notice-close" onClick={() => setStatusNotice(null)} aria-label="Cerrar aviso">×</button>
         </div>
       )}
 
@@ -270,28 +264,32 @@ export default function Comunidades() {
             <h2 className="card-title">Grupos de estudio</h2>
           </header>
 
-          <div className="group-list">
-            {groups.map((group) => {
-              const isSelected = group.id === selectedGroup.id;
-              return (
-                <button
-                  key={group.id}
-                  type="button"
-                  className={`group-item ${isSelected ? 'is-selected' : ''}`}
-                  onClick={() => setSelectedGroupId(group.id)}
-                >
-                  <span
-                    className="group-avatar"
-                    style={{ backgroundColor: group.badgeColor }}
+          {loading ? (
+            <p className="muted">Cargando comunidades…</p>
+          ) : groups.length === 0 ? (
+            <p className="empty">No hay comunidades creadas todavía. ¡Crea el primer grupo de estudio!</p>
+          ) : (
+            <div className="group-list">
+              {groups.map((group, idx) => {
+                const isSelected = group._id === selectedGroup?._id;
+                const temaNombre = temaMap.get(group.idTema) || 'Tema';
+                return (
+                  <button
+                    key={group._id}
+                    type="button"
+                    className={`group-item ${isSelected ? 'is-selected' : ''}`}
+                    onClick={() => setSelectedGroupId(group._id)}
                   >
-                    {group.initial}
-                  </span>
-                  <span className="group-name">{group.name}</span>
-                  <span className="group-topic-pill">{group.topic}</span>
-                </button>
-              );
-            })}
-          </div>
+                    <span className="group-avatar" style={{ backgroundColor: GROUP_COLORS[idx % GROUP_COLORS.length] }}>
+                      {group.nombre[0]?.toUpperCase() || 'G'}
+                    </span>
+                    <span className="group-name">{group.nombre}</span>
+                    <span className="group-topic-pill">{temaNombre}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <section className="kolab-card members-card" aria-label="Integrantes del grupo">
@@ -299,47 +297,35 @@ export default function Comunidades() {
             <h2 className="card-title">Integrantes del grupo</h2>
           </header>
 
-          <div className="member-list">
-            {selectedGroup.members.map((member, idx) => (
-              <div
-                key={member.id}
-                className={`member-row ${idx === 1 ? 'is-highlighted' : ''}`}
-              >
-                <div className="member-info">
-                  <span
-                    className="member-avatar"
-                    style={{ backgroundColor: member.avatarColor }}
-                    aria-hidden="true"
-                  />
-                  <span className="member-name">{member.name}</span>
+          {!selectedGroup ? (
+            <p className="empty">Selecciona o crea un grupo para ver sus integrantes.</p>
+          ) : selectedGroup.miembros.length === 0 ? (
+            <p className="empty">Este grupo aún no tiene integrantes registrados.</p>
+          ) : (
+            <div className="member-list">
+              {selectedGroup.miembros.map((member, idx) => (
+                <div key={`${member.idUsuario}-${idx}`} className="member-row">
+                  <div className="member-info">
+                    <span className="member-avatar" style={{ backgroundColor: '#86EFAC' }} aria-hidden="true" />
+                    <span className="member-name">Integrante #{idx + 1}</span>
+                  </div>
+                  <div className="member-meta">
+                    <span className={`role-pill ${member.rolGrupo === 'LIDER' ? 'role-leader' : 'role-member'}`}>
+                      {member.rolGrupo}
+                    </span>
+                  </div>
                 </div>
+              ))}
+            </div>
+          )}
 
-                <div className="member-meta">
-                  <span
-                    className={`role-pill ${
-                      member.role === 'Líder'
-                        ? 'role-leader'
-                        : member.role === 'Colaborador'
-                          ? 'role-collab'
-                          : 'role-member'
-                    }`}
-                  >
-                    {member.role}
-                  </span>
-                  <span className="member-xp">{member.xp} XP</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="members-actions">
-            <button type="button" className="btn-green" onClick={handleInviteMember}>
-              Invitar
-            </button>
-            <button type="button" className="btn-outline-green" onClick={handleAcceptRequest}>
-              Aceptar
-            </button>
-          </div>
+          {selectedGroup && (
+            <div className="members-actions">
+              <button type="button" className="btn-outline-green" onClick={handleJoinGroup}>
+                Unirme al grupo
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="kolab-card challenges-card" aria-label="Retos comunitarios">
@@ -347,32 +333,30 @@ export default function Comunidades() {
             <h2 className="card-title">Retos comunitarios</h2>
           </header>
 
-          <div className="challenge-list">
-            {challenges.map((challenge, idx) => (
-              <button
-                key={challenge.id}
-                type="button"
-                className={`challenge-item ${challenge.completed ? 'is-done' : ''}`}
-                onClick={() => handleCompleteChallenge(challenge.id)}
-                title={
-                  challenge.completed
-                    ? 'Reto completado'
-                    : 'Haz clic para completar este reto y ganar XP'
-                }
-              >
-                <span className="challenge-num">{idx + 1}</span>
-                <div className="challenge-body">
-                  <span className="challenge-title">{challenge.title}</span>
-                  <span className="challenge-resource">{challenge.resource}</span>
+          {!selectedGroup ? (
+            <p className="empty">Selecciona un grupo para ver sus retos.</p>
+          ) : challenges.length === 0 ? (
+            <p className="empty">Este grupo aún no tiene retos semanales activos.</p>
+          ) : (
+            <div className="challenge-list">
+              {challenges.map((challenge, idx) => (
+                <div key={challenge._id} className={`challenge-item ${challenge.completado ? 'is-done' : ''}`}>
+                  <span className="challenge-num">{idx + 1}</span>
+                  <div className="challenge-body">
+                    <span className="challenge-title">{challenge.titulo}</span>
+                    <span className="challenge-resource">
+                      {challenge.descripcion || `Meta: ${challenge.progresoActual}/${challenge.metaCantidad}`}
+                    </span>
+                  </div>
+                  <span className="challenge-xp-pill">
+                    {challenge.completado ? 'Listo' : `+${challenge.xpRecompensa} XP`}
+                  </span>
                 </div>
-                <span className="challenge-xp-pill">
-                  {challenge.completed ? 'Listo' : `+${challenge.xpReward} XP`}
-                </span>
-              </button>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
-          {showNewChallengeForm && (
+          {showNewChallengeForm && selectedGroup && (
             <form className="challenge-mini-form" onSubmit={handleCreateChallenge}>
               <input
                 type="text"
@@ -385,70 +369,46 @@ export default function Comunidades() {
               <input
                 type="text"
                 className="composer-input"
-                placeholder="Recurso de referencia..."
-                value={newChallengeResource}
-                onChange={(e) => setNewChallengeResource(e.target.value)}
+                placeholder="Descripción breve..."
+                value={newChallengeDesc}
+                onChange={(e) => setNewChallengeDesc(e.target.value)}
               />
               <div className="inline-form-actions">
-                <button type="submit" className="btn-sol">
-                  Publicar
-                </button>
-                <button
-                  type="button"
-                  className="btn-outline-green"
-                  onClick={() => setShowNewChallengeForm(false)}
-                >
-                  Cancelar
-                </button>
+                <button type="submit" className="btn-sol">Publicar</button>
+                <button type="button" className="btn-outline-green" onClick={() => setShowNewChallengeForm(false)}>Cancelar</button>
               </div>
             </form>
           )}
 
-          <div className="challenges-footer">
-            <button
-              type="button"
-              className="btn-sol btn-full"
-              onClick={() => setShowNewChallengeForm((v) => !v)}
-            >
-              + Publicar reto
-            </button>
-          </div>
+          {selectedGroup && (
+            <div className="challenges-footer">
+              <button type="button" className="btn-sol btn-full" onClick={() => setShowNewChallengeForm((v) => !v)}>
+                + Publicar reto
+              </button>
+            </div>
+          )}
         </section>
       </div>
 
       <section className="kolab-card badges-card" aria-label="Mis insignias y progreso">
         <header className="card-header-row">
           <h2 className="card-title">Mis insignias y progreso</h2>
+          <span className="chip chip--soft">{insignias.length} obtenidas</span>
         </header>
 
         <div className="badges-layout">
-          <div className="badges-row">
-            <div className="badge-item">
-              <div className="badge-medal badge-amber">★</div>
-              <span className="badge-label">Primer aporte</span>
+          {insignias.length === 0 ? (
+            <p className="empty">Aún no has desbloqueado insignias. Participa en comunidades y retos para ganarlas.</p>
+          ) : (
+            <div className="badges-row">
+              {insignias.map((ins, idx) => (
+                <div className="badge-item" key={ins._id}>
+                  <div className="badge-medal badge-green">★</div>
+                  <span className="badge-label">Insignia #{idx + 1}</span>
+                </div>
+              ))}
             </div>
-
-            <div className="badge-item">
-              <div className="badge-medal badge-green">★</div>
-              <span className="badge-label">Compañero colaborador</span>
-            </div>
-
-            <div className="badge-item">
-              <div className="badge-medal badge-indigo">★</div>
-              <span className="badge-label">Experto del tema</span>
-            </div>
-
-            <div className="badge-item">
-              <div
-                className={`badge-medal ${
-                  teamBadgeUnlocked ? 'badge-green' : 'badge-locked'
-                }`}
-              >
-                ★
-              </div>
-              <span className="badge-label">Trabajo en equipo</span>
-            </div>
-          </div>
+          )}
 
           <div className="xp-progress-box">
             <div className="xp-progress-header">
