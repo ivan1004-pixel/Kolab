@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -12,6 +13,7 @@ import {
 import { TipoNotificacion } from '../common/enums/kolab.enums';
 import { GamificationService } from '../gamification/gamification.service';
 import { ModerationService } from '../moderation/moderation.service';
+import { Usuario, UsuarioDocument } from '../users/schemas/usuario.schema';
 import {
   Etiqueta,
   EtiquetaDocument,
@@ -21,6 +23,8 @@ import {
   Respuesta,
   RespuestaDocument,
 } from './schemas/qa.schema';
+
+const MAX_LIKES_PER_USER = 5;
 
 @Injectable()
 export class QaService {
@@ -33,9 +37,49 @@ export class QaService {
     private readonly etiquetaModel: Model<EtiquetaDocument>,
     @InjectModel(IntentoCuestionario.name)
     private readonly intentoModel: Model<IntentoCuestionarioDocument>,
+    @InjectModel(Usuario.name)
+    private readonly usuarioModel: Model<UsuarioDocument>,
     private readonly gamificationService: GamificationService,
     private readonly moderationService: ModerationService,
   ) {}
+
+  private async getUserInfoMap(
+    ids: Array<Types.ObjectId | string>,
+  ): Promise<Map<string, { nombre: string; fotoUrl?: string }>> {
+    const unique = Array.from(new Set(ids.map((id) => id.toString()))).filter((id) =>
+      Types.ObjectId.isValid(id),
+    );
+    if (unique.length === 0) return new Map();
+    const users = await this.usuarioModel
+      .find(
+        { _id: { $in: unique.map((id) => new Types.ObjectId(id)) } },
+        { nombre: 1, apellidos: 1, fotoUrl: 1 },
+      )
+      .lean()
+      .exec();
+    const map = new Map<string, { nombre: string; fotoUrl?: string }>();
+    for (const u of users) {
+      const fullName = `${u.nombre || ''} ${u.apellidos || ''}`.trim() || 'Usuario Kolab';
+      map.set(u._id.toString(), { nombre: fullName, fotoUrl: u.fotoUrl || undefined });
+    }
+    return map;
+  }
+
+  private enrichDoc<T extends { idUsuario: Types.ObjectId; votosPorUsuario?: Record<string, number>; nombreAutor?: string; fotoAutor?: string }>(
+    doc: T & { toObject?: () => any },
+    userMap: Map<string, { nombre: string; fotoUrl?: string }>,
+    viewerUserId?: string,
+  ): any {
+    const obj = typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
+    const author = userMap.get(obj.idUsuario.toString());
+    const misVotos = viewerUserId ? Number(obj.votosPorUsuario?.[viewerUserId] || 0) : 0;
+    return {
+      ...obj,
+      nombreAutor: author?.nombre || obj.nombreAutor || 'Usuario Kolab',
+      fotoAutor: author?.fotoUrl || obj.fotoAutor || undefined,
+      misVotos,
+    };
+  }
 
   async crearPregunta(
     userId: string,
@@ -45,7 +89,9 @@ export class QaService {
     idRecurso?: string,
     etiquetas: string[] = [],
     esBancoColaborativo = false,
-  ): Promise<PreguntaDocument> {
+  ): Promise<Pregunta> {
+    const userMap = await this.getUserInfoMap([userId]);
+    const author = userMap.get(userId);
     const p = await new this.preguntaModel({
       texto,
       idTema: new Types.ObjectId(idTema),
@@ -54,27 +100,36 @@ export class QaService {
       etiquetas,
       esBancoColaborativo,
       idUsuario: new Types.ObjectId(userId),
+      nombreAutor: author?.nombre,
+      fotoAutor: author?.fotoUrl,
     }).save();
-    return p;
+    return this.enrichDoc(p, userMap, userId);
   }
 
-  async listarPreguntas(idTema?: string): Promise<PreguntaDocument[]> {
+  async listarPreguntas(idTema?: string, viewerUserId?: string): Promise<Pregunta[]> {
     const filter = idTema ? { idTema: new Types.ObjectId(idTema) } : {};
-    return this.preguntaModel.find(filter).sort({ createdAt: -1 }).exec();
+    const list = await this.preguntaModel.find(filter).sort({ createdAt: -1 }).exec();
+    const userMap = await this.getUserInfoMap(list.map((p) => p.idUsuario));
+    return list.map((p) => this.enrichDoc(p, userMap, viewerUserId));
   }
 
   async responderPregunta(
     userId: string,
     idPregunta: string,
     texto: string,
-  ): Promise<RespuestaDocument> {
+  ): Promise<Respuesta> {
     const pregunta = await this.preguntaModel.findById(idPregunta).exec();
     if (!pregunta) throw new NotFoundException('Pregunta no encontrada');
+
+    const userMap = await this.getUserInfoMap([userId]);
+    const author = userMap.get(userId);
 
     const respuesta = await new this.respuestaModel({
       texto,
       idPregunta: pregunta._id,
       idUsuario: new Types.ObjectId(userId),
+      nombreAutor: author?.nombre,
+      fotoAutor: author?.fotoUrl,
       xpGanada: 15,
     }).save();
 
@@ -85,18 +140,20 @@ export class QaService {
         pregunta.idUsuario.toString(),
         TipoNotificacion.RESPUESTA_PREGUNTA,
         'Nueva respuesta a tu duda',
-        `Alguien respondió a tu pregunta: "${pregunta.texto.slice(0, 60)}..."`,
+        `${author?.nombre || 'Un compañero'} respondió a tu pregunta: "${pregunta.texto.slice(0, 60)}..."`,
       );
     }
 
-    return respuesta;
+    return this.enrichDoc(respuesta, userMap, userId);
   }
 
-  async listarRespuestas(idPregunta: string): Promise<RespuestaDocument[]> {
-    return this.respuestaModel
+  async listarRespuestas(idPregunta: string, viewerUserId?: string): Promise<Respuesta[]> {
+    const list = await this.respuestaModel
       .find({ idPregunta: new Types.ObjectId(idPregunta) })
       .sort({ esValida: -1, votosUtilidad: -1, createdAt: 1 })
       .exec();
+    const userMap = await this.getUserInfoMap(list.map((r) => r.idUsuario));
+    return list.map((r) => this.enrichDoc(r, userMap, viewerUserId));
   }
 
   async marcarRespuestaRelevante(
@@ -156,28 +213,54 @@ export class QaService {
     return p;
   }
 
-  async votarUtilidadPregunta(preguntaId: string): Promise<PreguntaDocument> {
+  async votarUtilidadPregunta(preguntaId: string, userId: string): Promise<Pregunta> {
+    const key = `votosPorUsuario.${userId}`;
     const p = await this.preguntaModel
-      .findByIdAndUpdate(
-        preguntaId,
-        { $inc: { votosUtilidad: 1 } },
+      .findOneAndUpdate(
+        {
+          _id: preguntaId,
+          $or: [{ [key]: { $exists: false } }, { [key]: { $lt: MAX_LIKES_PER_USER } }],
+        },
+        { $inc: { votosUtilidad: 1, [key]: 1 } },
         { new: true },
       )
       .exec();
-    if (!p) throw new NotFoundException('Pregunta no encontrada');
-    return p;
+
+    if (!p) {
+      const exists = await this.preguntaModel.exists({ _id: preguntaId });
+      if (!exists) throw new NotFoundException('Pregunta no encontrada');
+      throw new BadRequestException(
+        `Has alcanzado el máximo de ${MAX_LIKES_PER_USER} likes permitidos por usuario en esta pregunta.`,
+      );
+    }
+
+    const userMap = await this.getUserInfoMap([p.idUsuario]);
+    return this.enrichDoc(p, userMap, userId);
   }
 
-  async votarUtilidadRespuesta(respuestaId: string): Promise<RespuestaDocument> {
+  async votarUtilidadRespuesta(respuestaId: string, userId: string): Promise<Respuesta> {
+    const key = `votosPorUsuario.${userId}`;
     const r = await this.respuestaModel
-      .findByIdAndUpdate(
-        respuestaId,
-        { $inc: { votosUtilidad: 1 } },
+      .findOneAndUpdate(
+        {
+          _id: respuestaId,
+          $or: [{ [key]: { $exists: false } }, { [key]: { $lt: MAX_LIKES_PER_USER } }],
+        },
+        { $inc: { votosUtilidad: 1, [key]: 1 } },
         { new: true },
       )
       .exec();
-    if (!r) throw new NotFoundException('Respuesta no encontrada');
-    return r;
+
+    if (!r) {
+      const exists = await this.respuestaModel.exists({ _id: respuestaId });
+      if (!exists) throw new NotFoundException('Respuesta no encontrada');
+      throw new BadRequestException(
+        `Has alcanzado el máximo de ${MAX_LIKES_PER_USER} likes permitidos por usuario en esta respuesta.`,
+      );
+    }
+
+    const userMap = await this.getUserInfoMap([r.idUsuario]);
+    return this.enrichDoc(r, userMap, userId);
   }
 
   /**

@@ -1,8 +1,10 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FileDown, Flag, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import { downloadCsv, escapeHtml, exportHtmlToPdf } from '../utils/exportUtils';
+import ReportModal from '../components/ReportModal';
 import Skeleton, { RowListSkeleton } from '../components/Skeleton';
 
 interface TemaItem {
@@ -62,6 +64,7 @@ export default function Asistente() {
   const [asking, setAsking] = useState(false);
   const [securityError, setSecurityError] = useState('');
   const [statusOk, setStatusOk] = useState('');
+  const [reportTarget, setReportTarget] = useState<{ id: string; preview: string } | null>(null);
 
   const [quizCount, setQuizCount] = useState(5);
   const [activeQuiz, setActiveQuiz] = useState<CuestionarioItem | null>(null);
@@ -179,23 +182,16 @@ export default function Asistente() {
     }
   }
 
-  async function handleReportAi(consultaId: string) {
-    if (!token) return;
-    const motivo = window.prompt('Describe el error encontrado en la respuesta de IA:');
-    if (!motivo?.trim()) return;
-    try {
-      assertNoScriptInjection(motivo, 'reporte IA');
-      await gqlRequest(
-        `mutation ReportarIA($id: ID!, $motivo: String!) {
-          reportarContenido(tipoObjetivo: "ConsultaIa", idObjetivo: $id, motivo: $motivo) { _id }
-        }`,
-        { id: consultaId, motivo: motivo.trim() },
-        token,
-      );
-      await handleRateAi(consultaId, false);
-    } catch (err: any) {
-      setSecurityError(err.message || 'No se pudo reportar la respuesta.');
-    }
+  async function submitAiReport(motivo: string) {
+    if (!token || !reportTarget) return;
+    await gqlRequest(
+      `mutation ReportarIA($id: ID!, $motivo: String!) {
+        reportarContenido(tipoObjetivo: "ConsultaIa", idObjetivo: $id, motivo: $motivo) { _id }
+      }`,
+      { id: reportTarget.id, motivo },
+      token,
+    );
+    await handleRateAi(reportTarget.id, false);
   }
 
   async function handleGenerateQuiz() {
@@ -377,17 +373,24 @@ export default function Asistente() {
                           className={`btn btn--sm ${msg.rated === true ? 'btn--primary' : 'btn--ghost'}`}
                           onClick={() => handleRateAi(msg.id, true)}
                         >
-                          👍 Útil
+                          <ThumbsUp size={14} aria-hidden="true" />
+                          <span>Útil</span>
                         </button>
                         <button
                           type="button"
                           className={`btn btn--sm ${msg.rated === false ? 'btn--danger' : 'btn--ghost'}`}
                           onClick={() => handleRateAi(msg.id, false)}
                         >
-                          👎 No útil
+                          <ThumbsDown size={14} aria-hidden="true" />
+                          <span>No útil</span>
                         </button>
-                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleReportAi(msg.id)}>
-                          🚩 Reportar
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--sm"
+                          onClick={() => setReportTarget({ id: msg.id, preview: msg.text })}
+                        >
+                          <Flag size={14} aria-hidden="true" />
+                          <span>Reportar</span>
                         </button>
                         <button
                           type="button"
@@ -399,7 +402,8 @@ export default function Asistente() {
                             )
                           }
                         >
-                          PDF
+                          <FileDown size={14} aria-hidden="true" />
+                          <span>PDF</span>
                         </button>
                       </div>
                       <p className="ai-disclaimer">Contenido generado por IA (RF-76): no sustituye validación docente oficial</p>
@@ -550,6 +554,14 @@ export default function Asistente() {
           </div>
         )}
       </section>
+
+      <ReportModal
+        open={Boolean(reportTarget)}
+        targetLabel="Respuesta del Asistente IA"
+        targetPreview={reportTarget?.preview}
+        onClose={() => setReportTarget(null)}
+        onSubmit={submitAiReport}
+      />
     </div>
   );
 }

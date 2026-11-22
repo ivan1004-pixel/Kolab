@@ -42,6 +42,14 @@ export class Pregunta {
   @Prop({ type: Types.ObjectId, ref: 'Usuario', required: true })
   idUsuario: Types.ObjectId;
 
+  @Field({ nullable: true })
+  @Prop()
+  nombreAutor?: string;
+
+  @Field({ nullable: true })
+  @Prop()
+  fotoAutor?: string;
+
   @Field(() => ID)
   @Prop({ type: Types.ObjectId, ref: 'Tema', required: true })
   idTema: Types.ObjectId;
@@ -57,6 +65,12 @@ export class Pregunta {
   @Field(() => Int)
   @Prop({ default: 0 })
   votosUtilidad: number;
+
+  @Prop({ type: Object, default: {} })
+  votosPorUsuario?: Record<string, number>;
+
+  @Field(() => Int, { defaultValue: 0 })
+  misVotos?: number;
 
   @Field()
   @Prop({ default: false })
@@ -95,6 +109,12 @@ export class Respuesta {
   @Prop({ default: 0 })
   votosUtilidad: number;
 
+  @Prop({ type: Object, default: {} })
+  votosPorUsuario?: Record<string, number>;
+
+  @Field(() => Int, { defaultValue: 0 })
+  misVotos?: number;
+
   @Field(() => ID)
   @Prop({ type: Types.ObjectId, ref: 'Pregunta', required: true })
   idPregunta: Types.ObjectId;
@@ -102,6 +122,14 @@ export class Respuesta {
   @Field(() => ID)
   @Prop({ type: Types.ObjectId, ref: 'Usuario', required: true })
   idUsuario: Types.ObjectId;
+
+  @Field({ nullable: true })
+  @Prop()
+  nombreAutor?: string;
+
+  @Field({ nullable: true })
+  @Prop()
+  fotoAutor?: string;
 
   @Field()
   createdAt: Date;

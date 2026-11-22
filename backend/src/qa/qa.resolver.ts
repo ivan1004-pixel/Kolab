@@ -48,9 +48,10 @@ export class QaResolver {
   @Query(() => [Pregunta])
   @UseGuards(GqlAuthGuard)
   async preguntas(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('idTema', { type: () => ID, nullable: true }) idTema?: string,
   ): Promise<Pregunta[]> {
-    return this.qaService.listarPreguntas(idTema);
+    return this.qaService.listarPreguntas(idTema, user.userId);
   }
 
   @Mutation(() => Respuesta, { description: 'RF-16: Responder una pregunta' })
@@ -66,9 +67,10 @@ export class QaResolver {
   @Query(() => [Respuesta])
   @UseGuards(GqlAuthGuard)
   async respuestas(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('idPregunta', { type: () => ID }) idPregunta: string,
   ): Promise<Respuesta[]> {
-    return this.qaService.listarRespuestas(idPregunta);
+    return this.qaService.listarRespuestas(idPregunta, user.userId);
   }
 
   @Mutation(() => Respuesta, {
@@ -108,22 +110,24 @@ export class QaResolver {
     return this.qaService.validarPreguntaBanco(preguntaId);
   }
 
-  @Mutation(() => Pregunta, { description: 'RF-48: Votar utilidad de pregunta' })
+  @Mutation(() => Pregunta, { description: 'RF-48: Votar utilidad de pregunta (máximo 5 por usuario)' })
   @UseGuards(GqlAuthGuard)
   async votarPregunta(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('preguntaId', { type: () => ID }) preguntaId: string,
   ): Promise<Pregunta> {
-    return this.qaService.votarUtilidadPregunta(preguntaId);
+    return this.qaService.votarUtilidadPregunta(preguntaId, user.userId);
   }
 
   @Mutation(() => Respuesta, {
-    description: 'RF-48: Votar utilidad de respuesta',
+    description: 'RF-48: Votar utilidad de respuesta (máximo 5 por usuario)',
   })
   @UseGuards(GqlAuthGuard)
   async votarRespuesta(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('respuestaId', { type: () => ID }) respuestaId: string,
   ): Promise<Respuesta> {
-    return this.qaService.votarUtilidadRespuesta(respuestaId);
+    return this.qaService.votarUtilidadRespuesta(respuestaId, user.userId);
   }
 
   @Query(() => [RadarDificultadTema], {

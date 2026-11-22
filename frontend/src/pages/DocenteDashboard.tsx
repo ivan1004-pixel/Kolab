@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { CheckCircle2, FileText, Sparkles, Star, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest, uploadResourceFile } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
@@ -682,11 +683,17 @@ export default function DocenteDashboard() {
                       </div>
                     </div>
                     <span className={`chip ${r.estadoValidacion === 'REVISADO_DOCENTE' ? 'chip--soft' : r.estadoValidacion === 'ARCHIVADO' ? 'chip--danger' : 'chip--xp'}`}>
-                      {r.estadoValidacion === 'REVISADO_DOCENTE'
-                        ? r.esMaterialOficial ? '★ Material Oficial' : '✓ Revisado por docente'
-                        : r.estadoValidacion === 'ARCHIVADO'
-                          ? 'Archivado'
-                          : 'Pendiente'}
+                      {r.estadoValidacion === 'REVISADO_DOCENTE' ? (
+                        r.esMaterialOficial ? (
+                          <><Sparkles size={12} aria-hidden="true" /> Material Oficial</>
+                        ) : (
+                          <><CheckCircle2 size={12} aria-hidden="true" /> Revisado por docente</>
+                        )
+                      ) : r.estadoValidacion === 'ARCHIVADO' ? (
+                        'Archivado'
+                      ) : (
+                        'Pendiente'
+                      )}
                     </span>
                   </div>
 
@@ -700,7 +707,8 @@ export default function DocenteDashboard() {
                         rel="noopener noreferrer"
                         className="btn btn--ghost btn--sm"
                       >
-                        📄 Abrir / revisar archivo adjunto
+                        <FileText size={14} aria-hidden="true" />
+                        <span>Abrir / revisar archivo adjunto</span>
                       </a>
                     </div>
                   )}
@@ -729,11 +737,13 @@ export default function DocenteDashboard() {
                       </div>
                       <div className="row">
                         <button type="button" className="btn btn--primary btn--sm" onClick={() => handleValidateResource(r._id, 'REVISADO_DOCENTE')}>
-                          ✓ Aprobar ("Revisado por docente")
+                          <CheckCircle2 size={14} aria-hidden="true" />
+                          <span>Aprobar ("Revisado por docente")</span>
                         </button>
                         {r.estadoValidacion !== 'ARCHIVADO' && (
                           <button type="button" className="btn btn--danger btn--sm" onClick={() => handleValidateResource(r._id, 'ARCHIVADO')}>
-                            ✕ Archivar (error grave / plagio)
+                            <XCircle size={14} aria-hidden="true" />
+                            <span>Archivar (error grave / plagio)</span>
                           </button>
                         )}
                       </div>
@@ -788,7 +798,8 @@ export default function DocenteDashboard() {
             </div>
             <div className="row">
               <button type="submit" className="btn btn--primary" disabled={uploadingOfficial || !offFile || !offTopicId}>
-                {uploadingOfficial ? 'Publicando…' : '★ Publicar material oficial'}
+                <Sparkles size={15} aria-hidden="true" />
+                <span>{uploadingOfficial ? 'Publicando…' : 'Publicar material oficial'}</span>
               </button>
               <Link className="btn btn--ghost btn--sm" to="/curricular">Gestionar temas</Link>
             </div>
@@ -806,12 +817,16 @@ export default function DocenteDashboard() {
                   <article key={r._id} className="td-item">
                     <div className="td-item__head">
                       <strong>{r.titulo}</strong>
-                      <span className="chip chip--soft">★ Oficial</span>
+                      <span className="chip chip--soft">
+                        <Sparkles size={12} aria-hidden="true" /> Oficial
+                      </span>
                     </div>
                     <div className="td-item__meta">
                       <span>{topicMap.get(r.idTema) || 'Tema'}</span>
                       <span>· {r.tipoArchivo.toUpperCase()}</span>
-                      <span>· ★ {r.promedioCalificacion.toFixed(1)} ({r.totalCalificaciones})</span>
+                      <span className="inline-icon-row">
+                        · <Star size={12} fill="#eab308" color="#eab308" aria-hidden="true" /> {r.promedioCalificacion.toFixed(1)} ({r.totalCalificaciones})
+                      </span>
                     </div>
                     {r.descripcion && <p className="muted">{r.descripcion}</p>}
 
@@ -823,7 +838,8 @@ export default function DocenteDashboard() {
                         rel="noopener noreferrer"
                         className="btn btn--ghost btn--sm"
                       >
-                        📄 Abrir / revisar archivo adjunto
+                        <FileText size={14} aria-hidden="true" />
+                        <span>Abrir / revisar archivo adjunto</span>
                       </a>
                     </div>
                   )}
@@ -854,7 +870,11 @@ export default function DocenteDashboard() {
                     <div className="td-item__head">
                       <span className="chip chip--soft">{topicMap.get(p.idTema) || 'Tema'}</span>
                       <div className="row">
-                        {p.validadaPorDocente && <span className="chip chip--solid">✓ Revisada por docente</span>}
+                        {p.validadaPorDocente && (
+                          <span className="chip chip--solid">
+                            <CheckCircle2 size={12} aria-hidden="true" /> Revisada por docente
+                          </span>
+                        )}
                         {p.resuelta ? <span className="chip chip--soft">Resuelta</span> : <span className="chip chip--xp">Abierta</span>}
                       </div>
                     </div>
@@ -879,7 +899,9 @@ export default function DocenteDashboard() {
                             <div className="row" style={{ justifyContent: 'space-between' }}>
                               <span className="muted">{r.votosUtilidad} votos</span>
                               {r.esValida ? (
-                                <span className="chip chip--solid">★ Relevante</span>
+                                <span className="chip chip--solid">
+                                  <Star size={12} fill="currentColor" aria-hidden="true" /> Relevante
+                                </span>
                               ) : (
                                 <button type="button" className="btn btn--primary btn--sm" onClick={() => handleMarkRelevant(r._id)}>
                                   Marcar relevante
@@ -910,7 +932,11 @@ export default function DocenteDashboard() {
                     <div className="td-item__head">
                       <span className="chip chip--soft">{topicMap.get(c.idTema) || 'Tema'}</span>
                       <span className={`chip ${c.correccionDocente ? 'chip--soft' : 'chip--danger'}`}>
-                        {c.correccionDocente ? '✓ Corregida' : 'Requiere revisión'}
+                        {c.correccionDocente ? (
+                          <><CheckCircle2 size={12} aria-hidden="true" /> Corregida</>
+                        ) : (
+                          'Requiere revisión'
+                        )}
                       </span>
                     </div>
                     <p><strong>Pregunta:</strong> {c.promptPregunta}</p>

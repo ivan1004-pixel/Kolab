@@ -1326,3 +1326,219 @@ dialog.km-quick-dialog::backdrop {
   background: #123622;
   color: #e8f3e6;
 }
+
+/* =========================================
+   MODAL DE REPORTE KOLAB + FORO AUTOR/LIKES + ICONOS INLINE
+   ========================================= */
+.inline-icon-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.icon-flame {
+  color: #ea580c;
+  flex-shrink: 0;
+}
+
+.km-report-head-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.km-report-icon-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #fee2e2;
+  color: #b91c1c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.km-report-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+  background: var(--menta);
+  color: var(--bosque);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.km-report-preview svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #d97706;
+}
+
+.km-report-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.km-report-chip {
+  padding: 0.42rem 0.8rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--borde);
+  background: var(--blanco);
+  color: var(--tinta);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.km-report-chip:hover {
+  border-color: var(--verde);
+  background: var(--menta);
+}
+
+.km-report-chip.is-selected {
+  background: #fee2e2;
+  border-color: #dc2626;
+  color: #991b1b;
+}
+
+.km-report-textarea {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border-radius: 14px;
+  border: 1.5px solid var(--borde);
+  background: var(--blanco);
+  color: var(--tinta);
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 86px;
+}
+
+.km-report-textarea:focus {
+  outline: none;
+  border-color: var(--verde);
+}
+
+/* Autor con foto, fecha y hora en preguntas/respuestas del Foro */
+.forum-author {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.forum-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1.5px solid var(--borde);
+  background: var(--menta);
+  color: var(--bosque);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.forum-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.forum-author__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.forum-author__meta strong {
+  font-size: 0.88rem;
+  line-height: 1.2;
+  color: var(--tinta);
+}
+
+.forum-author__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.76rem;
+  color: var(--texto-suave);
+}
+
+.forum-like-btn.is-liked {
+  border-color: var(--verde);
+  color: var(--verde);
+  background: var(--menta);
+}
+
+.forum-like-btn.is-maxed {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.forum-like-cap {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.05rem 0.38rem;
+  border-radius: 999px;
+  background: rgb(21 127 60 / 0.14);
+}
+
+:root[data-theme="dark"] .km-report-icon-badge {
+  background: #4c1d24;
+  color: #fca5a5;
+}
+
+:root[data-theme="dark"] .km-report-preview {
+  background: #123622;
+  color: #d1fae5;
+}
+
+:root[data-theme="dark"] .km-report-chip {
+  background: #123622;
+  border-color: #315b40;
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .km-report-chip:hover {
+  border-color: #6bc45b;
+  background: #1a4b30;
+}
+
+:root[data-theme="dark"] .km-report-chip.is-selected {
+  background: #4c1d24;
+  border-color: #f87171;
+  color: #fecaca;
+}
+
+:root[data-theme="dark"] .km-report-textarea {
+  background: #123622;
+  border-color: #315b40;
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .forum-avatar {
+  background: #174a2c;
+  border-color: #315b40;
+  color: #a7f3d0;
+}
+
+:root[data-theme="dark"] .forum-author__meta strong {
+  color: #e8f3e6;
+}
+
+:root[data-theme="dark"] .forum-like-btn.is-liked {
+  background: #174a2c;
+  border-color: #6bc45b;
+  color: #86efac;
+}

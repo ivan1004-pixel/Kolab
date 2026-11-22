@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { downloadCsv, escapeHtml, exportHtmlToPdf } from '../utils/exportUtils';
@@ -149,7 +150,13 @@ export default function Radar() {
         </div>
 
         <button type="button" className="btn-banner-action" onClick={handleInstallClick}>
-          {pwa.isInstalled ? 'KOLAB instalado ✓' : pwa.canInstall ? 'Instalar KOLAB' : 'Cómo instalar PWA'}
+          {pwa.isInstalled ? (
+            <span className="inline-icon-row"><CheckCircle2 size={15} aria-hidden="true" /> KOLAB instalado</span>
+          ) : pwa.canInstall ? (
+            'Instalar KOLAB'
+          ) : (
+            'Cómo instalar PWA'
+          )}
         </button>
       </section>
 
@@ -316,7 +323,13 @@ export default function Radar() {
             </p>
             <div className="row">
               <button type="button" className="btn-outline-green" onClick={handleInstallClick}>
-                {pwa.isInstalled ? 'Instalado en dispositivo ✓' : pwa.canInstall ? 'Instalar en mi dispositivo' : 'Cómo instalar'}
+                {pwa.isInstalled ? (
+                  <span className="inline-icon-row"><CheckCircle2 size={15} aria-hidden="true" /> Instalado en dispositivo</span>
+                ) : pwa.canInstall ? (
+                  'Instalar en mi dispositivo'
+                ) : (
+                  'Cómo instalar'
+                )}
               </button>
               {pwa.cachedCount > 0 && (
                 <button type="button" className="btn btn--ghost btn--sm" onClick={handleClearCache}>

@@ -387,10 +387,10 @@ type Mutation {
   """
   verifyEmail(token: String!): AuthPayload!
 
-  """RF-48: Votar utilidad de pregunta"""
+  """RF-48: Votar utilidad de pregunta (máximo 5 por usuario)"""
   votarPregunta(preguntaId: ID!): Pregunta!
 
-  """RF-48: Votar utilidad de respuesta"""
+  """RF-48: Votar utilidad de respuesta (máximo 5 por usuario)"""
   votarRespuesta(respuestaId: ID!): Respuesta!
 }
 
@@ -427,10 +427,13 @@ type Pregunta {
   createdAt: DateTime!
   esBancoColaborativo: Boolean!
   etiquetas: [String!]!
+  fotoAutor: String
   fragmentoRecurso: String
   idRecurso: ID
   idTema: ID!
   idUsuario: ID!
+  misVotos: Int!
+  nombreAutor: String
   resuelta: Boolean!
   texto: String!
   validadaPorDocente: Boolean!
@@ -593,8 +596,11 @@ type Respuesta {
   _id: ID!
   createdAt: DateTime!
   esValida: Boolean!
+  fotoAutor: String
   idPregunta: ID!
   idUsuario: ID!
+  misVotos: Int!
+  nombreAutor: String
   texto: String!
   votosUtilidad: Int!
   xpGanada: Int!

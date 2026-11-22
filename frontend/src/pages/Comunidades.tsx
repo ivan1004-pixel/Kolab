@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Award, Flame } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
@@ -439,7 +440,12 @@ export default function Comunidades() {
                     <td><strong>{i + 1}</strong></td>
                     <td>{r.nombre} {r.apellidos}</td>
                     <td>{r.grupo || 'General'}</td>
-                    <td>🔥 {r.rachaActual}d</td>
+                    <td>
+                      <span className="inline-icon-row">
+                        <Flame size={14} className="icon-flame" aria-hidden="true" />
+                        <span>{r.rachaActual}d</span>
+                      </span>
+                    </td>
                     <td><span className="chip chip--xp">{r.xpTotal} XP</span></td>
                   </tr>
                 ))}
@@ -462,7 +468,9 @@ export default function Comunidades() {
             <div className="badges-row">
               {insignias.map((ins, idx) => (
                 <div className="badge-item" key={ins._id} title={ins.descripcionInsignia || ''}>
-                  <div className="badge-medal badge-green">★</div>
+                  <div className="badge-medal badge-green">
+                    <Award size={18} aria-hidden="true" />
+                  </div>
                   <span className="badge-label">{ins.nombreInsignia || `Insignia #${idx + 1}`}</span>
                 </div>
               ))}

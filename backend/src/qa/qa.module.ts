@@ -4,6 +4,7 @@ import {
   IntentoCuestionario,
   IntentoCuestionarioSchema,
 } from '../ai/schemas/ai.schema';
+import { Usuario, UsuarioSchema } from '../users/schemas/usuario.schema';
 import { QaResolver } from './qa.resolver';
 import { QaService } from './qa.service';
 import {
@@ -22,6 +23,7 @@ import {
       { name: Respuesta.name, schema: RespuestaSchema },
       { name: Etiqueta.name, schema: EtiquetaSchema },
       { name: IntentoCuestionario.name, schema: IntentoCuestionarioSchema },
+      { name: Usuario.name, schema: UsuarioSchema },
     ]),
   ],
   providers: [QaService, QaResolver],

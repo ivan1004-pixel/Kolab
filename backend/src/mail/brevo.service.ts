@@ -224,7 +224,7 @@ export class BrevoService {
                       <tr>${digitCells}</tr>
                     </table>
                     <div style="margin-top:12px;font-size:12px;color:#396847;font-weight:600;">
-                      ⏱ Este código y el enlace expiran en <strong>15 minutos</strong>
+                      Este código y el enlace expiran en <strong>15 minutos</strong>
                     </div>
                   </td>
                 </tr>
@@ -254,7 +254,7 @@ export class BrevoService {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:460px;margin:0 auto 24px auto;background:#caeefd;border-radius:12px;text-align:left;">
                 <tr>
                   <td style="padding:14px 16px;">
-                    <div style="font-size:12px;font-weight:700;color:#001f28;margin-bottom:2px;">🛡️ Espacio Kolab Protegido</div>
+                    <div style="font-size:12px;font-weight:700;color:#001f28;margin-bottom:2px;">Espacio Kolab Protegido</div>
                     <div style="font-size:12px;line-height:1.5;color:#3f493f;">
                       Este registro fue solicitado para <strong>${toEmail}</strong>. Si tú no iniciaste este proceso, puedes ignorar este mensaje de forma segura.
                     </div>
@@ -334,7 +334,7 @@ export class BrevoService {
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td width="38" valign="top" style="padding-bottom:12px;">
-                          <div style="width:30px;height:30px;line-height:30px;text-align:center;border-radius:9999px;background:#ffffff;color:#00642b;font-weight:800;font-size:14px;border:1px solid #caeefd;">✓</div>
+                          <div style="width:30px;height:30px;line-height:30px;text-align:center;border-radius:9999px;background:#ffffff;color:#00642b;font-weight:800;font-size:13px;border:1px solid #caeefd;">1</div>
                         </td>
                         <td valign="top" style="padding-bottom:12px;">
                           <div style="font-size:14px;font-weight:700;color:#001f28;">Perfil configurado</div>
@@ -343,7 +343,7 @@ export class BrevoService {
                       </tr>
                       <tr>
                         <td width="38" valign="top" style="padding-bottom:12px;">
-                          <div style="width:30px;height:30px;line-height:30px;text-align:center;border-radius:9999px;background:#ffffff;color:#00642b;font-weight:800;font-size:14px;border:1px solid #caeefd;">★</div>
+                          <div style="width:30px;height:30px;line-height:30px;text-align:center;border-radius:9999px;background:#ffffff;color:#00642b;font-weight:800;font-size:13px;border:1px solid #caeefd;">2</div>
                         </td>
                         <td valign="top" style="padding-bottom:12px;">
                           <div style="font-size:14px;font-weight:700;color:#001f28;">Gana XP y mantén tu racha</div>
@@ -352,7 +352,7 @@ export class BrevoService {
                       </tr>
                       <tr>
                         <td width="38" valign="top">
-                          <div style="width:30px;height:30px;line-height:30px;text-align:center;border-radius:9999px;background:#ffffff;color:#00642b;font-weight:800;font-size:14px;border:1px solid #caeefd;">⚡</div>
+                          <div style="width:30px;height:30px;line-height:30px;text-align:center;border-radius:9999px;background:#ffffff;color:#00642b;font-weight:800;font-size:13px;border:1px solid #caeefd;">3</div>
                         </td>
                         <td valign="top">
                           <div style="font-size:14px;font-weight:700;color:#001f28;">Asistente Gemini AI &amp; Tableros</div>

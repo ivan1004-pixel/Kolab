@@ -1,19 +1,49 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import {
+  Check,
+  CheckCircle2,
+  Clock,
+  Flag,
+  ThumbsUp,
+  UserRound,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { MODULES } from '../data/modules';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import ModuleBanner from '../components/ModuleBanner';
+import ReportModal from '../components/ReportModal';
 import { CardListSkeleton } from '../components/Skeleton';
+
+const MAX_LIKES_PER_USER = 5;
+
+function formatDateTime(iso?: string): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const day = date.toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const time = date.toLocaleTimeString('es-MX', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${day} · ${time}`;
+}
 
 interface RespuestaItem {
   _id: string;
   idPregunta: string;
   idUsuario: string;
+  nombreAutor?: string;
+  fotoAutor?: string;
   texto: string;
   esValida: boolean;
   votosUtilidad: number;
+  misVotos?: number;
   createdAt: string;
 }
 
@@ -22,10 +52,13 @@ interface PreguntaItem {
   texto: string;
   idTema: string;
   idUsuario: string;
+  nombreAutor?: string;
+  fotoAutor?: string;
   resuelta: boolean;
   esBancoColaborativo: boolean;
   validadaPorDocente: boolean;
   votosUtilidad: number;
+  misVotos?: number;
   etiquetas: string[];
   fragmentoRecurso?: string;
   createdAt: string;
@@ -56,6 +89,7 @@ export default function Foro() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ id: string; preview: string } | null>(null);
 
   const loadForo = useCallback(async () => {
     if (USE_MOCK || !token) {
@@ -71,7 +105,7 @@ export default function Foro() {
       }>(
         `query ForoData {
           preguntas {
-            _id texto idTema idUsuario resuelta esBancoColaborativo validadaPorDocente votosUtilidad etiquetas fragmentoRecurso createdAt
+            _id texto idTema idUsuario nombreAutor fotoAutor resuelta esBancoColaborativo validadaPorDocente votosUtilidad misVotos etiquetas fragmentoRecurso createdAt
           }
           temas { _id titulo }
         }`,
@@ -89,7 +123,7 @@ export default function Foro() {
         rawPreguntas.map((p) =>
           gqlRequest<{ respuestas: RespuestaItem[] }>(
             `query Respuestas($id: ID!) {
-              respuestas(idPregunta: $id) { _id idPregunta idUsuario texto esValida votosUtilidad createdAt }
+              respuestas(idPregunta: $id) { _id idPregunta idUsuario nombreAutor fotoAutor texto esValida votosUtilidad misVotos createdAt }
             }`,
             { id: p._id },
             token,
@@ -146,7 +180,7 @@ export default function Foro() {
       const res = await gqlRequest<{ crearPregunta: Omit<PreguntaItem, 'respuestas'> }>(
         `mutation CrearPregunta($idTema: ID!, $texto: String!, $fragmento: String, $etiquetas: [String!], $banco: Boolean) {
           crearPregunta(idTema: $idTema, texto: $texto, fragmentoRecurso: $fragmento, etiquetas: $etiquetas, esBancoColaborativo: $banco) {
-            _id texto idTema idUsuario resuelta esBancoColaborativo validadaPorDocente votosUtilidad etiquetas fragmentoRecurso createdAt
+            _id texto idTema idUsuario nombreAutor fotoAutor resuelta esBancoColaborativo validadaPorDocente votosUtilidad misVotos etiquetas fragmentoRecurso createdAt
           }
         }`,
         {
@@ -172,7 +206,7 @@ export default function Foro() {
     const res = await gqlRequest<{ responderPregunta: RespuestaItem }>(
       `mutation Responder($idPregunta: ID!, $texto: String!) {
         responderPregunta(idPregunta: $idPregunta, texto: $texto) {
-          _id idPregunta idUsuario texto esValida votosUtilidad createdAt
+          _id idPregunta idUsuario nombreAutor fotoAutor texto esValida votosUtilidad misVotos createdAt
         }
       }`,
       { idPregunta, texto },
@@ -215,43 +249,71 @@ export default function Foro() {
 
   async function votarPregunta(qid: string) {
     if (!token) return;
-    const res = await gqlRequest<{ votarPregunta: { votosUtilidad: number } }>(
-      `mutation VotarP($id: ID!) { votarPregunta(preguntaId: $id) { votosUtilidad } }`,
-      { id: qid },
-      token,
-    );
-    setPreguntas((p) => p.map((x) => (x._id === qid ? { ...x, votosUtilidad: res.votarPregunta.votosUtilidad } : x)));
+    setError('');
+    try {
+      const res = await gqlRequest<{ votarPregunta: { votosUtilidad: number; misVotos: number } }>(
+        `mutation VotarP($id: ID!) { votarPregunta(preguntaId: $id) { votosUtilidad misVotos } }`,
+        { id: qid },
+        token,
+      );
+      setPreguntas((p) =>
+        p.map((x) =>
+          x._id === qid
+            ? {
+                ...x,
+                votosUtilidad: res.votarPregunta.votosUtilidad,
+                misVotos: res.votarPregunta.misVotos,
+              }
+            : x,
+        ),
+      );
+    } catch (err: any) {
+      setError(err.message || `Solo puedes dar un máximo de ${MAX_LIKES_PER_USER} likes por pregunta.`);
+    }
   }
 
   async function votarRespuesta(qid: string, rid: string) {
     if (!token) return;
-    const res = await gqlRequest<{ votarRespuesta: { votosUtilidad: number } }>(
-      `mutation VotarR($id: ID!) { votarRespuesta(respuestaId: $id) { votosUtilidad } }`,
-      { id: rid },
-      token,
-    );
-    setPreguntas((p) =>
-      p.map((x) =>
-        x._id === qid
-          ? { ...x, respuestas: x.respuestas.map((r) => (r._id === rid ? { ...r, votosUtilidad: res.votarRespuesta.votosUtilidad } : r)) }
-          : x,
-      ),
-    );
+    setError('');
+    try {
+      const res = await gqlRequest<{ votarRespuesta: { votosUtilidad: number; misVotos: number } }>(
+        `mutation VotarR($id: ID!) { votarRespuesta(respuestaId: $id) { votosUtilidad misVotos } }`,
+        { id: rid },
+        token,
+      );
+      setPreguntas((p) =>
+        p.map((x) =>
+          x._id === qid
+            ? {
+                ...x,
+                respuestas: x.respuestas.map((r) =>
+                  r._id === rid
+                    ? {
+                        ...r,
+                        votosUtilidad: res.votarRespuesta.votosUtilidad,
+                        misVotos: res.votarRespuesta.misVotos,
+                      }
+                    : r,
+                ),
+              }
+            : x,
+        ),
+      );
+    } catch (err: any) {
+      setError(err.message || `Solo puedes dar un máximo de ${MAX_LIKES_PER_USER} likes por respuesta.`);
+    }
   }
 
-  async function reportarPregunta(qid: string) {
-    if (!token) return;
-    const motivo = window.prompt('Motivo del reporte (contenido inapropiado o inexacto):');
-    if (!motivo?.trim()) return;
-    assertNoScriptInjection(motivo, 'reporte');
+  async function submitReport(motivo: string) {
+    if (!token || !reportTarget) return;
     await gqlRequest(
       `mutation ReportarP($id: ID!, $motivo: String!) {
         reportarContenido(tipoObjetivo: "Pregunta", idObjetivo: $id, motivo: $motivo) { _id }
       }`,
-      { id: qid, motivo: motivo.trim() },
+      { id: reportTarget.id, motivo },
       token,
     );
-    setNotice('Pregunta reportada a moderación.');
+    setNotice('Pregunta reportada a moderación. Gracias por ayudar a mantener la comunidad segura.');
   }
 
   const puedeValidar = user?.rol === 'docente' || user?.rol === 'admin';
@@ -270,7 +332,8 @@ export default function Foro() {
             className={`btn btn--sm ${onlyBank ? 'btn--primary' : 'btn--ghost'}`}
             onClick={() => setOnlyBank((b) => !b)}
           >
-            {onlyBank ? '✓ Banco colaborativo' : 'Ver banco colaborativo'}
+            {onlyBank && <Check size={14} aria-hidden="true" />}
+            <span>{onlyBank ? 'Banco colaborativo' : 'Ver banco colaborativo'}</span>
           </button>
           <button className="btn btn--action" onClick={() => setShowForm((s) => !s)}>
             {showForm ? 'Cerrar' : 'Nueva pregunta'}
@@ -278,6 +341,7 @@ export default function Foro() {
         </div>
       </ModuleBanner>
 
+      {error && <p className="form-error" role="alert">{error}</p>}
       {notice && <p className="form-ok" role="status">{notice}</p>}
 
       {showForm && (
@@ -336,10 +400,18 @@ export default function Foro() {
             onValidarBanco={validarBanco}
             onVotarPregunta={votarPregunta}
             onVotarRespuesta={votarRespuesta}
-            onReportar={reportarPregunta}
+            onReportar={(qid, preview) => setReportTarget({ id: qid, preview })}
           />
         ))
       )}
+
+      <ReportModal
+        open={Boolean(reportTarget)}
+        targetLabel="Pregunta del foro"
+        targetPreview={reportTarget?.preview}
+        onClose={() => setReportTarget(null)}
+        onSubmit={submitReport}
+      />
     </>
   );
 }
@@ -367,12 +439,14 @@ function Pregunta({
   onValidarBanco: (qid: string) => Promise<void>;
   onVotarPregunta: (qid: string) => Promise<void>;
   onVotarRespuesta: (qid: string, rid: string) => Promise<void>;
-  onReportar: (qid: string) => Promise<void>;
+  onReportar: (qid: string, preview: string) => void;
 }) {
   const [texto, setTexto] = useState('');
   const [respError, setRespError] = useState('');
   const resuelta = p.resuelta || p.respuestas.some((r) => r.esValida);
   const puedeCerrar = !resuelta && (puedeValidar || String(p.idUsuario) === currentUserId);
+  const pMyLikes = p.misVotos ?? 0;
+  const pLikesMaxed = pMyLikes >= MAX_LIKES_PER_USER;
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -391,10 +465,31 @@ function Pregunta({
     <article className="card question">
       <div className="question__head">
         <div>
+          <div className="forum-author" style={{ marginBottom: '0.45rem' }}>
+            <div className="forum-avatar">
+              {p.fotoAutor ? (
+                <img src={p.fotoAutor} alt={p.nombreAutor || 'Usuario'} />
+              ) : (
+                <UserRound size={16} aria-hidden="true" />
+              )}
+            </div>
+            <div className="forum-author__meta">
+              <strong>{p.nombreAutor || 'Estudiante Kolab'}</strong>
+              <span className="forum-author__time">
+                <Clock size={12} aria-hidden="true" />
+                <span>{formatDateTime(p.createdAt)}</span>
+              </span>
+            </div>
+          </div>
+
           <div className="row">
             <span className="chip chip--soft">{temaNombre}</span>
             {p.esBancoColaborativo && <span className="chip chip--xp">Banco colaborativo</span>}
-            {p.validadaPorDocente && <span className="chip chip--solid">✓ Revisada por docente</span>}
+            {p.validadaPorDocente && (
+              <span className="chip chip--solid">
+                <CheckCircle2 size={13} aria-hidden="true" /> Revisada por docente
+              </span>
+            )}
           </div>
           <h2 style={{ marginTop: '0.4rem' }}>{p.texto}</h2>
           {p.fragmentoRecurso && <p className="muted">Fragmento: “{p.fragmentoRecurso}”</p>}
@@ -405,17 +500,34 @@ function Pregunta({
           )}
         </div>
         <span className={`chip ${resuelta ? 'chip--solid' : 'chip--xp'}`}>
-          {resuelta ? '✓ Resuelta' : 'Abierta'}
+          {resuelta ? (
+            <><CheckCircle2 size={13} aria-hidden="true" /> Resuelta</>
+          ) : (
+            'Abierta'
+          )}
         </span>
       </div>
 
       <div className="row">
-        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onVotarPregunta(p._id)}>
-          👍 Útil ({p.votosUtilidad})
+        <button
+          type="button"
+          className={`btn btn--ghost btn--sm forum-like-btn ${pMyLikes > 0 ? 'is-liked' : ''} ${pLikesMaxed ? 'is-maxed' : ''}`}
+          onClick={() => onVotarPregunta(p._id)}
+          disabled={pLikesMaxed}
+          title={
+            pLikesMaxed
+              ? `Alcanzaste el máximo de ${MAX_LIKES_PER_USER} likes en esta pregunta`
+              : `Dar like (${pMyLikes}/${MAX_LIKES_PER_USER} usados)`
+          }
+        >
+          <ThumbsUp size={14} fill={pMyLikes > 0 ? 'currentColor' : 'none'} aria-hidden="true" />
+          <span>Útil ({p.votosUtilidad})</span>
+          {pMyLikes > 0 && <span className="forum-like-cap">{pMyLikes}/{MAX_LIKES_PER_USER}</span>}
         </button>
         {puedeCerrar && (
           <button type="button" className="btn btn--ghost btn--sm" onClick={() => onCerrar(p._id)}>
-            ✓ Cerrar resuelta
+            <CheckCircle2 size={14} aria-hidden="true" />
+            <span>Cerrar resuelta</span>
           </button>
         )}
         {puedeValidar && !p.validadaPorDocente && (
@@ -423,36 +535,77 @@ function Pregunta({
             Validar para banco
           </button>
         )}
-        <button type="button" className="btn btn--ghost btn--sm" onClick={() => onReportar(p._id)}>
-          🚩 Reportar
+        <button
+          type="button"
+          className="btn btn--ghost btn--sm"
+          onClick={() => onReportar(p._id, p.texto)}
+        >
+          <Flag size={14} aria-hidden="true" />
+          <span>Reportar</span>
         </button>
       </div>
 
       {p.respuestas.length > 0 && (
         <div className="answers">
-          {p.respuestas.map((r) => (
-            <div className="answer" key={r._id}>
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <strong>Respuesta de la comunidad</strong>
-                {r.esValida && <span className="chip chip--solid">✓ Relevante</span>}
-              </div>
-              <p>{r.texto}</p>
-              <div className="row">
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => onVotarRespuesta(p._id, r._id)}>
-                  👍 ({r.votosUtilidad})
-                </button>
-                {puedeValidar && !r.esValida && (
+          {p.respuestas.map((r) => {
+            const rMyLikes = r.misVotos ?? 0;
+            const rLikesMaxed = rMyLikes >= MAX_LIKES_PER_USER;
+            return (
+              <div className="answer" key={r._id}>
+                <div className="row" style={{ justifyContent: 'space-between' }}>
+                  <div className="forum-author">
+                    <div className="forum-avatar">
+                      {r.fotoAutor ? (
+                        <img src={r.fotoAutor} alt={r.nombreAutor || 'Usuario'} />
+                      ) : (
+                        <UserRound size={16} aria-hidden="true" />
+                      )}
+                    </div>
+                    <div className="forum-author__meta">
+                      <strong>{r.nombreAutor || 'Estudiante Kolab'}</strong>
+                      <span className="forum-author__time">
+                        <Clock size={12} aria-hidden="true" />
+                        <span>{formatDateTime(r.createdAt)}</span>
+                      </span>
+                    </div>
+                  </div>
+                  {r.esValida && (
+                    <span className="chip chip--solid">
+                      <CheckCircle2 size={13} aria-hidden="true" /> Relevante
+                    </span>
+                  )}
+                </div>
+                <p style={{ marginTop: '0.2rem' }}>{r.texto}</p>
+                <div className="row">
                   <button
                     type="button"
-                    className="btn btn--primary btn--sm"
-                    onClick={() => onValidar(p._id, r._id)}
+                    className={`btn btn--ghost btn--sm forum-like-btn ${rMyLikes > 0 ? 'is-liked' : ''} ${rLikesMaxed ? 'is-maxed' : ''}`}
+                    onClick={() => onVotarRespuesta(p._id, r._id)}
+                    disabled={rLikesMaxed}
+                    title={
+                      rLikesMaxed
+                        ? `Alcanzaste el máximo de ${MAX_LIKES_PER_USER} likes en esta respuesta`
+                        : `Dar like (${rMyLikes}/${MAX_LIKES_PER_USER} usados)`
+                    }
                   >
-                    Marcar relevante
+                    <ThumbsUp size={14} fill={rMyLikes > 0 ? 'currentColor' : 'none'} aria-hidden="true" />
+                    <span>{r.votosUtilidad}</span>
+                    {rMyLikes > 0 && <span className="forum-like-cap">{rMyLikes}/{MAX_LIKES_PER_USER}</span>}
                   </button>
-                )}
+                  {puedeValidar && !r.esValida && (
+                    <button
+                      type="button"
+                      className="btn btn--primary btn--sm"
+                      onClick={() => onValidar(p._id, r._id)}
+                    >
+                      <Check size={14} aria-hidden="true" />
+                      <span>Marcar relevante</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

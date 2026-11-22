@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import { CardListSkeleton } from '../components/Skeleton';
+import ReportModal from '../components/ReportModal';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest, uploadResourceFile } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
@@ -175,6 +176,7 @@ export default function Recursos() {
   // Quick Modal de detalle y opciones (native <dialog>)
   const detailDialogRef = useRef<HTMLDialogElement | null>(null);
   const [detailResourceId, setDetailResourceId] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<{ id: string; title: string } | null>(null);
   const [quickFeedback, setQuickFeedback] = useState('');
   const [relatedMap, setRelatedMap] = useState<Record<string, RecursoItem[]>>({});
   const [commentById, setCommentById] = useState<Record<string, string>>({});
@@ -697,23 +699,17 @@ export default function Recursos() {
     }
   }
 
-  async function handleReport(recursoId: string) {
-    if (!token) return;
-    const motivo = window.prompt('Describe el motivo del reporte (contenido inapropiado o inexacto):');
-    if (!motivo?.trim()) return;
-    try {
-      assertNoScriptInjection(motivo, 'reporte');
-      await gqlRequest(
-        `mutation ReportarRec($id: ID!, $motivo: String!) {
-          reportarContenido(tipoObjetivo: "Recurso", idObjetivo: $id, motivo: $motivo) { _id }
-        }`,
-        { id: recursoId, motivo: motivo.trim() },
-        token,
-      );
-      setMessage('Reporte enviado a moderación.');
-    } catch (err: any) {
-      setError(err.message || 'No se pudo enviar el reporte.');
-    }
+  async function submitResourceReport(motivo: string) {
+    if (!token || !reportTarget) return;
+    await gqlRequest(
+      `mutation ReportarRec($id: ID!, $motivo: String!) {
+        reportarContenido(tipoObjetivo: "Recurso", idObjetivo: $id, motivo: $motivo) { _id }
+      }`,
+      { id: reportTarget.id, motivo },
+      token,
+    );
+    setMessage('Reporte enviado a moderación.');
+    setQuickFeedback('Reporte enviado a moderación.');
   }
 
   function handleExportPdf(x: RecursoItem) {
@@ -1287,9 +1283,9 @@ export default function Recursos() {
                   <label>Calificación mínima</label>
                   <select value={minRating} onChange={(e) => setMinRating(Number(e.target.value))}>
                     <option value={0}>Todas</option>
-                    <option value={3}>3 ★ o más</option>
-                    <option value={4}>4 ★ o más</option>
-                    <option value={5}>Solo 5 ★</option>
+                    <option value={3}>3 estrellas o más</option>
+                    <option value={4}>4 estrellas o más</option>
+                    <option value={5}>Solo 5 estrellas</option>
                   </select>
                 </div>
                 <div className="field">
@@ -1454,8 +1450,9 @@ export default function Recursos() {
                     <span className="km-quick-dialog__label">Relacionados del tema</span>
                     <div className="td-tags">
                       {relatedMap[x._id].map((rel) => (
-                        <span key={rel._id} className="td-tag">
-                          {rel.titulo} ({rel.promedioCalificacion.toFixed(1)} ★)
+                        <span key={rel._id} className="td-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          {rel.titulo} ({rel.promedioCalificacion.toFixed(1)}
+                          <Star size={11} fill="#eab308" color="#eab308" aria-hidden="true" />)
                         </span>
                       ))}
                     </div>
@@ -1476,7 +1473,14 @@ export default function Recursos() {
                       <span>Abrir documento</span>
                     </a>
                   )}
-                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleReport(x._id)}>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => {
+                      closeQuickModal();
+                      setReportTarget({ id: x._id, title: x.titulo });
+                    }}
+                  >
                     <Flag size={14} aria-hidden="true" />
                     <span>Reportar</span>
                   </button>
@@ -1495,6 +1499,14 @@ export default function Recursos() {
           );
         })()}
       </dialog>
+
+      <ReportModal
+        open={Boolean(reportTarget)}
+        targetLabel="Recurso académico"
+        targetPreview={reportTarget?.title}
+        onClose={() => setReportTarget(null)}
+        onSubmit={submitResourceReport}
+      />
 
       {/* ==================== MODAL ANIMADO DE SUBIDA Y CONFIRMACIÓN ==================== */}
       {uploadModal.open && (

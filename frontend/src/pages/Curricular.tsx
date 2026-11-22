@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Check } from 'lucide-react';
 import ModuleBanner from '../components/ModuleBanner';
 import { RowListSkeleton } from '../components/Skeleton';
 import { useAuth } from '../context/AuthContext';
@@ -327,7 +328,11 @@ export default function Curricular() {
                       </span>
                       <div className="row">
                         <button className="btn btn--ghost btn--sm" onClick={() => toggleEnroll(c._id)}>
-                          {enrolled ? 'Inscrita ✓' : 'Inscribirme'}
+                          {enrolled ? (
+                            <><Check size={14} aria-hidden="true" /><span>Inscrita</span></>
+                          ) : (
+                            'Inscribirme'
+                          )}
                         </button>
                         {isAdmin && (
                           <button type="button" className="btn btn--danger btn--sm" onClick={() => deleteCourse(c._id)}>

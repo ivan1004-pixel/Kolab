@@ -1,5 +1,6 @@
 import { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { CheckCircle2, Flame, Snowflake, Sparkles, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { MODULES } from '../data/modules';
 import { USE_MOCK, gqlRequest } from '../services/api';
@@ -267,7 +268,11 @@ export default function Dashboard() {
           {loadingStats ? (
             <Skeleton width="84px" height="28px" />
           ) : (
-            <strong>{retosCount} · 🔥 {rachaActual}d</strong>
+            <strong className="inline-icon-row">
+              <span>{retosCount} ·</span>
+              <Flame size={20} className="icon-flame" aria-hidden="true" />
+              <span>{rachaActual}d</span>
+            </strong>
           )}
         </div>
       </section>
@@ -287,7 +292,8 @@ export default function Dashboard() {
           <Link className="btn btn--primary btn--sm" to="/foro">Ir al foro</Link>
           <Link className="btn btn--ghost btn--sm" to="/perfil">Mi perfil</Link>
           <button type="button" className="btn btn--ghost btn--sm" onClick={handleFreezeStreak} disabled={comodines <= 0}>
-            ❄️ Congelar racha ({comodines})
+            <Snowflake size={14} aria-hidden="true" />
+            <span>Congelar racha ({comodines})</span>
           </button>
         </div>
         {streakMsg && <p className="form-ok" role="status">{streakMsg}</p>}
@@ -388,10 +394,18 @@ export default function Dashboard() {
                 <div key={r._id} className="td-item">
                   <div className="td-item__head">
                     <strong>{r.titulo}</strong>
-                    <span className="chip chip--soft">{r.esMaterialOficial ? '★ Oficial' : '✓ Validado'}</span>
+                    <span className="chip chip--soft">
+                      {r.esMaterialOficial ? (
+                        <><Sparkles size={12} aria-hidden="true" /> Oficial</>
+                      ) : (
+                        <><CheckCircle2 size={12} aria-hidden="true" /> Validado</>
+                      )}
+                    </span>
                   </div>
-                  <span className="muted">
-                    {topicMap.get(r.idTema) || 'Tema'} · {r.nombreAutor || 'Autor'} · ★ {r.promedioCalificacion.toFixed(1)}
+                  <span className="muted inline-icon-row">
+                    <span>{topicMap.get(r.idTema) || 'Tema'} · {r.nombreAutor || 'Autor'} ·</span>
+                    <Star size={12} fill="#eab308" color="#eab308" aria-hidden="true" />
+                    <span>{r.promedioCalificacion.toFixed(1)}</span>
                   </span>
                 </div>
               ))}
