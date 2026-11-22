@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kolab-pwa-v1';
+const CACHE_NAME = 'kolab-pwa-v2';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -29,7 +29,14 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/graphql')) return;
+  if (
+    url.pathname.startsWith('/graphql') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/node_modules/') ||
+    url.pathname.startsWith('/@')
+  ) {
+    return;
+  }
 
   if (request.mode === 'navigate') {
     event.respondWith(

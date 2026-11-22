@@ -108,17 +108,17 @@
   color: #d1fae5;
 }
 
-/* Formularios */
-:root[data-theme="dark"] input,
-:root[data-theme="dark"] select,
-:root[data-theme="dark"] textarea {
+/* Formularios (excluyendo la pantalla de Login que mantiene su propio tema) */
+:root[data-theme="dark"] .shell input,
+:root[data-theme="dark"] .shell select,
+:root[data-theme="dark"] .shell textarea {
   background: #174a2c;
   color: #ffffff;
   border-color: #477451;
 }
 
-:root[data-theme="dark"] input::placeholder,
-:root[data-theme="dark"] textarea::placeholder {
+:root[data-theme="dark"] .shell input::placeholder,
+:root[data-theme="dark"] .shell textarea::placeholder {
   color: #b5c9ba;
 }
 

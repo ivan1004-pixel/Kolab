@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
+import { RowListSkeleton } from '../components/Skeleton';
 
 interface SolicitudItem {
   _id: string;
@@ -194,7 +195,7 @@ export default function Tutorias() {
           </header>
 
           {loading ? (
-            <p className="muted">Cargando solicitudes…</p>
+            <RowListSkeleton count={4} />
           ) : requests.length === 0 ? (
             <p className="empty">No hay solicitudes de tutoría o duelos pendientes en este momento.</p>
           ) : (

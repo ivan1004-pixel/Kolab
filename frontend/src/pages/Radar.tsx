@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
+import { ChartSkeleton } from '../components/Skeleton';
 import {
   clearPwaCache,
   PwaState,
@@ -180,7 +181,7 @@ export default function Radar() {
           </header>
 
           {loading ? (
-            <p className="muted">Calculando radar de dificultades…</p>
+            <ChartSkeleton bars={6} />
           ) : radar.length === 0 ? (
             <p className="empty">Todavía no hay suficientes preguntas registradas para generar el radar.</p>
           ) : (

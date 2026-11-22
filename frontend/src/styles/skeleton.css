@@ -64,6 +64,78 @@
     animation: none;
   }
 }
+
+:root[data-theme="dark"] .skeleton::after {
+  background: linear-gradient(
+    100deg,
+    transparent 15%,
+    rgb(255 255 255 / 8%) 35%,
+    rgb(255 255 255 / 18%) 50%,
+    rgb(255 255 255 / 8%) 65%,
+    transparent 85%
+  );
+}
+
+.skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.skeleton-card-box {
+  background: var(--blanco, #ffffff);
+  border: 1px solid var(--borde, #dce5df);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--borde, #dce5df);
+  border-radius: 14px;
+  background: var(--blanco, #ffffff);
+}
+
+.skeleton-row__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  height: 170px;
+  padding: 12px 8px 4px;
+}
+
+.skeleton-bar-col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Skeleton para la fotografía de perfil */
 .profile-photo-skeleton {
   width: 100%;

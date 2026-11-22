@@ -5,6 +5,7 @@ import { MODULES } from '../data/modules';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import ModuleBanner from '../components/ModuleBanner';
+import { CardListSkeleton } from '../components/Skeleton';
 
 interface RespuestaItem {
   _id: string;
@@ -220,7 +221,7 @@ export default function Foro() {
 
       {q && <p className="muted">Resultados para “{params.get('q')}”</p>}
       {loading ? (
-        <p className="muted">Cargando preguntas del foro…</p>
+        <CardListSkeleton count={3} />
       ) : lista.length === 0 ? (
         <p className="empty">
           {preguntas.length === 0

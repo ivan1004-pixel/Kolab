@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import ModuleBanner from '../components/ModuleBanner';
+import { CardListSkeleton } from '../components/Skeleton';
 import { useAuth } from '../context/AuthContext';
 import { KolabModule } from '../data/modules';
 import { USE_MOCK, gqlRequest } from '../services/api';
@@ -291,7 +292,7 @@ export default function Recursos() {
 
         <section className="km-resource-grid">
           {loading ? (
-            <div className="card"><p className="muted">Cargando recursos…</p></div>
+            <CardListSkeleton count={3} bare />
           ) : filtered.length === 0 ? (
             <div className="card">
               <p className="empty">

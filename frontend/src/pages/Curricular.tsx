@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import ModuleBanner from '../components/ModuleBanner';
+import { RowListSkeleton } from '../components/Skeleton';
 import { useAuth } from '../context/AuthContext';
 import { KolabModule } from '../data/modules';
 import { USE_MOCK, gqlRequest } from '../services/api';
@@ -236,7 +237,7 @@ export default function Curricular() {
         <div className="km-grid">
           <section className="km-course-list">
             {loading ? (
-              <p className="muted">Cargando asignaturas…</p>
+              <RowListSkeleton count={4} />
             ) : visible.length === 0 ? (
               <p className="empty">
                 {courses.length === 0

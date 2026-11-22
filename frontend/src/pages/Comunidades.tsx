@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
+import { RowListSkeleton } from '../components/Skeleton';
 
 interface MiembroItem {
   idUsuario: string;
@@ -265,7 +266,7 @@ export default function Comunidades() {
           </header>
 
           {loading ? (
-            <p className="muted">Cargando comunidades…</p>
+            <RowListSkeleton count={4} />
           ) : groups.length === 0 ? (
             <p className="empty">No hay comunidades creadas todavía. ¡Crea el primer grupo de estudio!</p>
           ) : (

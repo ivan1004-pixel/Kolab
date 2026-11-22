@@ -67,9 +67,13 @@ const SCRIPT_INJECTION_PATTERNS: RegExp[] = [
   /\b(import\s+(os|sys|subprocess|shutil)|from\s+(os|sys|subprocess)\s+import|__import__\s*\(|subprocess\.(run|Popen|call))\b/i,
 ];
 
+const OBJECT_ID_REGEX = /^[a-f\d]{24}$/i;
+const PURGOMALUM_COOLDOWN_MS = 5 * 60 * 1000;
+
 @Injectable()
 export class ContentSecurityService {
   private readonly logger = new Logger(ContentSecurityService.name);
+  private purgoMalumUnavailableUntil = 0;
 
   async validatePayload(value: unknown, fieldName = ''): Promise<void> {
     if (value === null || value === undefined) return;
@@ -125,13 +129,21 @@ export class ContentSecurityService {
       );
     }
 
-    // Consumo de API externa (PurgoMalum) para palabras altisonantes adicionales
+    if (OBJECT_ID_REGEX.test(text.trim())) {
+      return;
+    }
+
+    // Consumo de API externa (PurgoMalum) con circuit-breaker para evitar lentitud y spam en logs
+    if (Date.now() < this.purgoMalumUnavailableUntil) {
+      return;
+    }
+
     try {
       const url = `https://www.purgomalum.com/service/containsprofanity?text=${encodeURIComponent(
         normalized,
       )}`;
 
-      const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(1500) });
       if (res.ok) {
         const body = (await res.text()).trim().toLowerCase();
         if (body === 'true') {
@@ -139,12 +151,23 @@ export class ContentSecurityService {
             'Tu mensaje contiene palabras altisonantes no permitidas en Kolab.',
           );
         }
+        return;
       }
+
+      this.markPurgoMalumUnavailable();
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
+      this.markPurgoMalumUnavailable();
+    }
+  }
+
+  private markPurgoMalumUnavailable(): void {
+    const now = Date.now();
+    if (now >= this.purgoMalumUnavailableUntil) {
       this.logger.warn(
-        'API de filtrado de palabras altisonantes no disponible, aplicando filtro local de respaldo.',
+        'API de filtrado de palabras altisonantes no disponible, aplicando filtro local de respaldo durante los próximos 5 min.',
       );
     }
+    this.purgoMalumUnavailableUntil = now + PURGOMALUM_COOLDOWN_MS;
   }
 }

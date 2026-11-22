@@ -5,7 +5,7 @@ import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import ImageCropModal from '../components/ImageCropModal';
 import ModuleBanner from '../components/ModuleBanner';
-import Skeleton from '../components/Skeleton';
+import Skeleton, { RowListSkeleton } from '../components/Skeleton';
 
 const ROLE_LABELS: Record<string, string> = {
   estudiante: 'Estudiante',
@@ -177,8 +177,8 @@ export default function Perfil() {
 {isPhotoLoading ? (
   <Skeleton
     variant="circle"
-    width="190px"
-    height="190px"
+    width="100%"
+    height="100%"
     className="profile-photo-skeleton"
   />
 ) : form.foto_url ? (
@@ -335,7 +335,7 @@ function Cuentas() {
       <h2 className="card__title">Cuentas y roles · solo Administrador</h2>
 
       {loading ? (
-        <p className="muted">Cargando cuentas registradas…</p>
+        <RowListSkeleton count={4} />
       ) : cuentas.length === 0 ? (
         <p className="empty">No hay cuentas registradas para mostrar.</p>
       ) : (

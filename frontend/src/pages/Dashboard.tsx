@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MODULES } from '../data/modules';
 import { USE_MOCK, gqlRequest } from '../services/api';
+import Skeleton from '../components/Skeleton';
 
 const ROLE_LABELS: Record<string, string> = {
   estudiante: 'Estudiante',
@@ -14,10 +15,15 @@ export default function Dashboard() {
   const { user, token } = useAuth();
   const [badgesCount, setBadgesCount] = useState(user?.insignias ?? 0);
   const [retosCount, setRetosCount] = useState(user?.retos ?? 0);
+  const [loadingStats, setLoadingStats] = useState(!USE_MOCK && Boolean(token));
 
   useEffect(() => {
-    if (USE_MOCK || !token) return;
+    if (USE_MOCK || !token) {
+      setLoadingStats(false);
+      return;
+    }
     let active = true;
+    setLoadingStats(true);
     gqlRequest<{
       misInsignias: Array<{ _id: string }>;
       retosComunitarios: Array<{ _id: string; completado: boolean }>;
@@ -36,6 +42,9 @@ export default function Dashboard() {
       })
       .catch(() => {
         // Mantener valores base si falla la consulta
+      })
+      .finally(() => {
+        if (active) setLoadingStats(false);
       });
     return () => {
       active = false;
@@ -57,8 +66,14 @@ export default function Dashboard() {
 
       <section className="stats" aria-label="Tu progreso">
         <div className="stat stat--xp"><span>XP total</span><strong>{xp}</strong></div>
-        <div className="stat stat--badges"><span>Insignias</span><strong>{badgesCount}</strong></div>
-        <div className="stat stat--retos"><span>Retos</span><strong>{retosCount}</strong></div>
+        <div className="stat stat--badges">
+          <span>Insignias</span>
+          {loadingStats ? <Skeleton width="44px" height="28px" /> : <strong>{badgesCount}</strong>}
+        </div>
+        <div className="stat stat--retos">
+          <span>Retos</span>
+          {loadingStats ? <Skeleton width="44px" height="28px" /> : <strong>{retosCount}</strong>}
+        </div>
       </section>
 
       <section className="card">

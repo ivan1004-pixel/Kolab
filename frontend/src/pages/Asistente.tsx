@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
+import Skeleton from '../components/Skeleton';
 
 interface TemaItem {
   _id: string;
@@ -40,6 +41,7 @@ interface CuestionarioItem {
 export default function Asistente() {
   const { token } = useAuth();
   const [temas, setTemas] = useState<TemaItem[]>([]);
+  const [loadingTemas, setLoadingTemas] = useState(!USE_MOCK && Boolean(token));
   const [selectedTemaId, setSelectedTemaId] = useState('');
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [questionInput, setQuestionInput] = useState('');
@@ -52,7 +54,11 @@ export default function Asistente() {
   const [evaluationFeedback, setEvaluationFeedback] = useState<{ ok: boolean; message: string } | null>(null);
 
   const loadTemas = useCallback(async () => {
-    if (USE_MOCK || !token) return;
+    if (USE_MOCK || !token) {
+      setLoadingTemas(false);
+      return;
+    }
+    setLoadingTemas(true);
     try {
       const data = await gqlRequest<{ temas: TemaItem[] }>(
         `query AsistenteTemas { temas { _id titulo } }`,
@@ -66,6 +72,8 @@ export default function Asistente() {
       }
     } catch (err: any) {
       setSecurityError(err.message || 'No se pudieron cargar los temas disponibles.');
+    } finally {
+      setLoadingTemas(false);
     }
   }, [token, selectedTemaId]);
 
@@ -217,18 +225,22 @@ export default function Asistente() {
         <section className="kolab-card assistant-card" aria-label="Asistente académico">
           <header className="card-header-row">
             <h2 className="card-title">Asistente académico</h2>
-            <select
-              className="duel-select"
-              style={{ maxWidth: 220 }}
-              value={selectedTemaId}
-              onChange={(e) => setSelectedTemaId(e.target.value)}
-              aria-label="Tema de consulta"
-            >
-              {temas.length === 0 && <option value="">Sin temas disponibles</option>}
-              {temas.map((t) => (
-                <option key={t._id} value={t._id}>{t.titulo}</option>
-              ))}
-            </select>
+            {loadingTemas && temas.length === 0 ? (
+              <Skeleton width="200px" height="38px" />
+            ) : (
+              <select
+                className="duel-select"
+                style={{ maxWidth: 220 }}
+                value={selectedTemaId}
+                onChange={(e) => setSelectedTemaId(e.target.value)}
+                aria-label="Tema de consulta"
+              >
+                {temas.length === 0 && <option value="">Sin temas disponibles</option>}
+                {temas.map((t) => (
+                  <option key={t._id} value={t._id}>{t.titulo}</option>
+                ))}
+              </select>
+            )}
           </header>
 
           <div className="chat-feed">
