@@ -1,6 +1,6 @@
 
-import { FormEvent, useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet } from 'react-router-dom';
 import {
   House,
   UserRound,
@@ -15,7 +15,6 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { MODULES } from '../data/modules';
-import { assertNoScriptInjection } from '../utils/inputSecurity';
 import Logo from './Logo';
 import NotificationBell from './NotificationBell';
 
@@ -31,23 +30,10 @@ export default function Layout() {
     localStorage.setItem('kolab.theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState('');
 
   const nivel = Math.floor((user?.xp ?? 0) / 200) + 1;
   const close = () => setOpen(false);
-
-  function onSearch(e: FormEvent) {
-    e.preventDefault();
-
-    try {
-      assertNoScriptInjection(q, 'búsqueda');
-      navigate(`/foro?q=${encodeURIComponent(q.trim())}`);
-    } catch {
-      setQ('');
-    }
-  }
 
   function getModuleIcon(id: number) {
     switch (id) {
@@ -168,19 +154,6 @@ export default function Layout() {
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-
-          <form className="search" role="search" onSubmit={onSearch}>
-            <label className="sr-only" htmlFor="q">
-              Buscar
-            </label>
-
-            <input
-              id="q"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar recursos, dudas, grupos…"
-            />
-          </form>
 
           <span className="topbar__spacer" />
 

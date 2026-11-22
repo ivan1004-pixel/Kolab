@@ -18,6 +18,7 @@ async function bootstrap() {
     helmet({
       contentSecurityPolicy:
         process.env.NODE_ENV === 'production' ? undefined : false,
+      frameguard: false,
       crossOriginEmbedderPolicy: false,
       crossOriginResourcePolicy: { policy: 'cross-origin' },
       crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },

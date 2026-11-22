@@ -463,6 +463,20 @@ export class ResourcesService {
       return col.save();
     }
 
+    const alreadySaved = col.recursos.some(
+      (id) => id.toString() === recursoId,
+    );
+
+    if (esFavoritos && alreadySaved) {
+      return (await this.coleccionModel
+        .findByIdAndUpdate(
+          col._id,
+          { $pull: { recursos: new Types.ObjectId(recursoId) } },
+          { new: true },
+        )
+        .exec())!;
+    }
+
     return (await this.coleccionModel
       .findByIdAndUpdate(
         col._id,

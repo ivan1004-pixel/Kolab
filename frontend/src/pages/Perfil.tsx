@@ -2,8 +2,10 @@ import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import {
   Award,
   Bell,
+  Bookmark,
   BookOpen,
   CheckCircle2,
+  ExternalLink,
   Flame,
   Mail,
   ShieldCheck,
@@ -49,6 +51,15 @@ interface CarreraOption {
   nombre: string;
 }
 
+interface FavoritoRecursoItem {
+  _id: string;
+  titulo: string;
+  archivoUrl?: string;
+  tipoArchivo: string;
+  nombreAutor?: string;
+  estadoValidacion: string;
+}
+
 interface AuditLogItem {
   _id: string;
   accion: string;
@@ -77,6 +88,7 @@ export default function Perfil() {
   const [badgesCount, setBadgesCount] = useState(user?.insignias ?? 0);
   const [myResourcesCount, setMyResourcesCount] = useState(0);
   const [mySolvedCount, setMySolvedCount] = useState(0);
+  const [favoriteResources, setFavoriteResources] = useState<FavoritoRecursoItem[]>([]);
   const [pendingCropSrc, setPendingCropSrc] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
@@ -106,13 +118,15 @@ export default function Perfil() {
     gqlRequest<{
       misInsignias: Array<{ _id: string }>;
       carreras: CarreraOption[];
-      recursos: Array<{ _id: string; idUsuario: string }>;
+      recursos: Array<FavoritoRecursoItem & { idUsuario: string }>;
+      misColecciones: Array<{ _id: string; nombre: string; esFavoritos: boolean; recursos: string[] }>;
       preguntas: Array<{ _id: string; idUsuario: string; resuelta: boolean }>;
     }>(
       `query PerfilStats {
         misInsignias { _id }
         carreras { _id nombre }
-        recursos { _id idUsuario }
+        recursos { _id titulo archivoUrl tipoArchivo nombreAutor estadoValidacion idUsuario }
+        misColecciones { _id nombre esFavoritos recursos }
         preguntas { _id idUsuario resuelta }
       }`,
       {},
@@ -122,11 +136,36 @@ export default function Perfil() {
         setBadgesCount(res.misInsignias?.length ?? 0);
         setCarreras(res.carreras ?? []);
         const uid = String(user?.id ?? '');
-        setMyResourcesCount((res.recursos ?? []).filter((r) => String(r.idUsuario) === uid).length);
+        const allResources = res.recursos ?? [];
+        setMyResourcesCount(allResources.filter((r) => String(r.idUsuario) === uid).length);
         setMySolvedCount((res.preguntas ?? []).filter((p) => String(p.idUsuario) === uid && p.resuelta).length);
+
+        const favIds = new Set<string>();
+        for (const col of res.misColecciones ?? []) {
+          if (col.esFavoritos || col.nombre.toLowerCase() === 'favoritos') {
+            for (const rid of col.recursos ?? []) favIds.add(String(rid));
+          }
+        }
+        setFavoriteResources(allResources.filter((r) => favIds.has(String(r._id))));
       })
       .catch(() => {});
   }, [token, user?.id]);
+
+  async function handleRemoveFavorite(recursoId: string) {
+    if (!token) return;
+    try {
+      await gqlRequest(
+        `mutation QuitarFav($id: ID!) {
+          guardarRecursoEnColeccion(recursoId: $id, nombreColeccion: "Favoritos", esFavoritos: true) { _id recursos }
+        }`,
+        { id: recursoId },
+        token,
+      );
+      setFavoriteResources((prev) => prev.filter((r) => r._id !== recursoId));
+    } catch {
+      // Silenciar
+    }
+  }
 
   const onChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((f) => ({
@@ -457,6 +496,58 @@ export default function Perfil() {
               </button>
             </div>
           </form>
+
+          {/* Sección de Favoritos en Perfil */}
+          <section className="card" aria-label="Mis recursos favoritos">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <h2 className="card__title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <Bookmark size={18} fill="currentColor" aria-hidden="true" />
+                <span>Mis favoritos ({favoriteResources.length})</span>
+              </h2>
+            </div>
+            {favoriteResources.length === 0 ? (
+              <p className="empty">Aún no has marcado recursos como favoritos. Marca la banderita en el Módulo 3 para verlos aquí.</p>
+            ) : (
+              <div className="skeleton-stack">
+                {favoriteResources.map((fav) => (
+                  <div key={fav._id} className="td-item">
+                    <div className="td-item__head">
+                      <div>
+                        <strong>{fav.titulo}</strong>
+                        <div className="td-item__meta">
+                          <span>Por {fav.nombreAutor || 'Estudiante'}</span>
+                          <span>· {fav.tipoArchivo.replace('application/', '').replace('image/', '').toUpperCase()}</span>
+                          <span>· {fav.estadoValidacion === 'REVISADO_DOCENTE' ? 'Validado' : 'Pendiente'}</span>
+                        </div>
+                      </div>
+                      <div className="row">
+                        {fav.archivoUrl && !fav.archivoUrl.includes('kolab.local') && (
+                          <a
+                            href={fav.archivoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn--primary btn--sm"
+                          >
+                            <ExternalLink size={14} aria-hidden="true" />
+                            <span>Abrir</span>
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn--ghost btn--sm btn--fav-active"
+                          onClick={() => handleRemoveFavorite(fav._id)}
+                          title="Quitar de favoritos"
+                        >
+                          <Bookmark size={14} fill="currentColor" aria-hidden="true" />
+                          <span>Quitar</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       </div>
 

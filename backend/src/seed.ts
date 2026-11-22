@@ -29,11 +29,11 @@ async function seed() {
   }
 
   // 2. Carrera
-  let carrera = await db.collection('carreras').findOne({ nombre: 'Ciencias Naturales' });
+  let carrera = await db.collection('carreras').findOne({ nombre: 'Fundamentos de IA' });
   if (!carrera) {
     const resCarrera = await db.collection('carreras').insertOne({
-      nombre: 'Ciencias Naturales',
-      descripcion: 'Carrera de prueba para Kolab',
+      nombre: 'Fundamentos de IA',
+      descripcion: 'Formación académica en Fundamentos de Inteligencia Artificial y Ciencia de Datos.',
       cuatrimestres: ['1', '2'],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -42,11 +42,11 @@ async function seed() {
   }
 
   // 3. Asignatura
-  let asignatura = await db.collection('asignaturas').findOne({ nombre: 'Biología Marina' });
+  let asignatura = await db.collection('asignaturas').findOne({ nombre: 'Fundamentos de IA' });
   if (!asignatura) {
     const resAsig = await db.collection('asignaturas').insertOne({
-      nombre: 'Biología Marina',
-      descripcion: 'Estudio de ecosistemas y fauna acuática',
+      nombre: 'Fundamentos de IA',
+      descripcion: 'Principios de inteligencia artificial, agentes inteligentes, búsqueda y aprendizaje automático.',
       cuatrimestre: '1',
       idCarrera: carrera._id,
       createdAt: new Date(),
@@ -55,17 +55,40 @@ async function seed() {
     asignatura = { _id: resAsig.insertedId };
   }
 
-  // 4. Tema: Animales Acuáticos
-  let tema = await db.collection('temas').findOne({ titulo: 'Animales Acuáticos' });
+  // 4. Temas de Fundamentos de IA
+  let tema = await db.collection('temas').findOne({ titulo: 'Fundamentos de IA' });
   if (!tema) {
     const resTema = await db.collection('temas').insertOne({
-      titulo: 'Animales Acuáticos',
-      descripcion: 'Clasificación y características de los animales que viven en el agua.',
+      titulo: 'Fundamentos de IA',
+      descripcion: 'Introducción a la inteligencia artificial, agentes racionales y algoritmos de aprendizaje.',
       idAsignatura: asignatura._id,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
     tema = { _id: resTema.insertedId };
+  }
+
+  const extraTemas = [
+    {
+      titulo: 'Aprendizaje Supervisado y KNN',
+      descripcion: 'Clasificación, regresión, vecinos más cercanos (KNN) y métricas de evaluación.',
+    },
+    {
+      titulo: 'Redes Neuronales y Deep Learning',
+      descripcion: 'Perceptrón multicapa, retropropagación, funciones de activación y modelos profundos.',
+    },
+  ];
+  for (const t of extraTemas) {
+    const exists = await db.collection('temas').findOne({ titulo: t.titulo, idAsignatura: asignatura._id });
+    if (!exists) {
+      await db.collection('temas').insertOne({
+        titulo: t.titulo,
+        descripcion: t.descripcion,
+        idAsignatura: asignatura._id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
   }
 
   // 5. Recurso autorizado (Revisado por docente)
@@ -75,18 +98,18 @@ async function seed() {
 
   if (!recursoExistente) {
     await db.collection('recursos').insertOne({
-      titulo: 'Guía Oficial: Animales Acuáticos',
-      descripcion: 'Resumen autorizado sobre peces, mamíferos marinos y adaptaciones acuáticas.',
-      archivoUrl: 'https://kolab.edu/recursos/animales-acuaticos.pdf',
+      titulo: 'Guía Oficial: Fundamentos de IA',
+      descripcion: 'Resumen autorizado sobre agentes inteligentes, aprendizaje automático (KNN) y redes neuronales.',
+      archivoUrl: 'https://kolab.edu/recursos/fundamentos-ia.pdf',
       tipoArchivo: 'application/pdf',
       tamanoBytes: 250000,
       contenidoTextoExtraido:
-        'Los animales acuáticos son aquellos que viven en el agua dulce o salada durante toda o la mayor parte de su vida. Se dividen en vertebrados (peces con branquias, mamíferos marinos como delfines y ballenas que respiran por pulmones, tortugas marinas) e invertebrados (medusas, pulpos, crustáceos y corales). Sus principales adaptaciones incluyen aletas para nadar, cuerpo hidrodinámico y branquias o pulmones adaptados al medio acuático.',
+        'Los Fundamentos de Inteligencia Artificial estudian el diseño de agentes inteligentes capaces de percibir su entorno y actuar racionalmente para maximizar su desempeño. Sus áreas principales comprenden búsqueda heurística, representación del conocimiento, aprendizaje automático supervisado (como K-Nearest Neighbors o KNN, árboles de decisión y regresión), aprendizaje no supervisado (clustering), aprendizaje por refuerzo y redes neuronales artificiales.',
       idUsuario: docente._id,
       coautores: [],
       idTema: tema._id,
       idAsignatura: asignatura._id,
-      palabrasClave: ['animales acuaticos', 'biologia', 'ecosistemas'],
+      palabrasClave: ['Fundamentos de IA', 'Inteligencia Artificial', 'Machine Learning'],
       estadoValidacion: 'REVISADO_DOCENTE',
       esMaterialOficial: true,
       versiones: [],
