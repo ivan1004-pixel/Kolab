@@ -1,12 +1,38 @@
-import { ChangeEvent, ClipboardEvent, FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, ClipboardEvent, FormEvent, KeyboardEvent, MutableRefObject, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useGoogleLogin } from '@react-oauth/google';
+import { TokenResponse, useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import Logo from '../components/Logo';
 
 type AuthMode = 'login' | 'register' | 'verify' | 'forgot' | 'reset';
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || '';
+
+function GoogleLoginHandler({
+  onSuccess,
+  onError,
+  triggerRef,
+}: {
+  onSuccess: (tokenResponse: Omit<TokenResponse, 'error' | 'error_description' | 'error_uri'>) => void;
+  onError: () => void;
+  triggerRef: MutableRefObject<(() => void) | null>;
+}) {
+  const handleGooglePopup = useGoogleLogin({
+    onSuccess,
+    onError,
+  });
+
+  useEffect(() => {
+    triggerRef.current = handleGooglePopup;
+    return () => {
+      triggerRef.current = null;
+    };
+  }, [handleGooglePopup, triggerRef]);
+
+  return null;
+}
 
 export default function Login() {
   const { user, login, loginWithGoogle, register, verifyEmail } = useAuth();
@@ -34,32 +60,33 @@ export default function Login() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleGooglePopup = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      if (!tokenResponse.access_token) {
-        setError('Google no devolvió un token válido.');
+  const googlePopupRef = useRef<(() => void) | null>(null);
+
+  async function handleGoogleSuccess(
+    tokenResponse: Omit<TokenResponse, 'error' | 'error_description' | 'error_uri'>,
+  ) {
+    if (!tokenResponse.access_token) {
+      setError('Google no devolvió un token válido.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      const gRes = await loginWithGoogle(tokenResponse.access_token);
+      if (gRes.requiresVerification) {
+        setForm((f) => ({ ...f, email: gRes.correo || f.email }));
+        setOtpDigits(Array(8).fill(''));
+        setSuccess(gRes.message || 'Te enviamos tu código de 8 dígitos por correo.');
+        setMode('verify');
         return;
       }
-      setError('');
-      setLoading(true);
-      try {
-        const gRes = await loginWithGoogle(tokenResponse.access_token);
-        if (gRes.requiresVerification) {
-          setForm((f) => ({ ...f, email: gRes.correo || f.email }));
-          setOtpDigits(Array(8).fill(''));
-          setSuccess(gRes.message || 'Te enviamos tu código de 8 dígitos por correo.');
-          setMode('verify');
-          return;
-        }
-        navigate((location.state as any)?.from?.pathname ?? '/', { replace: true });
-      } catch (err: any) {
-        setError(err.message || 'No se pudo iniciar sesión con Google.');
-      } finally {
-        setLoading(false);
-      }
-    },
-    onError: () => setError('No se pudo completar el inicio de sesión con Google.'),
-  });
+      navigate((location.state as any)?.from?.pathname ?? '/', { replace: true });
+    } catch (err: any) {
+      setError(err.message || 'No se pudo iniciar sesión con Google.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     const urlToken = searchParams.get('token');
@@ -109,11 +136,11 @@ export default function Login() {
   }
 
   function triggerGoogleLogin() {
-    if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) {
+    if (!GOOGLE_CLIENT_ID || !googlePopupRef.current) {
       setError('Falta configurar VITE_GOOGLE_CLIENT_ID en frontend/.env.');
       return;
     }
-    handleGooglePopup();
+    googlePopupRef.current();
   }
 
   async function onSubmit(e: FormEvent) {
@@ -212,6 +239,13 @@ export default function Login() {
 
   return (
     <div className="klogin-root">
+      {GOOGLE_CLIENT_ID && (
+        <GoogleLoginHandler
+          onSuccess={handleGoogleSuccess}
+          onError={() => setError('No se pudo completar el inicio de sesión con Google.')}
+          triggerRef={googlePopupRef}
+        />
+      )}
       {/* ==================== PANEL IZQUIERDO / MÓVIL ==================== */}
       <section className="klogin-left" data-purpose="login-form-section">
         <div>

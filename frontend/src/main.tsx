@@ -7,21 +7,27 @@ import './styles/index.css';
 import App from './App';
 import { AuthProvider } from './context/AuthContext';
 
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || '';
+
+const appTree = (
+  <BrowserRouter
+    future={{
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    }}
+  >
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  </BrowserRouter>
+);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <GoogleOAuthProvider clientId={googleClientId}>
-      <BrowserRouter
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
-      >
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </BrowserRouter>
-    </GoogleOAuthProvider>
+    {googleClientId ? (
+      <GoogleOAuthProvider clientId={googleClientId}>{appTree}</GoogleOAuthProvider>
+    ) : (
+      appTree
+    )}
   </StrictMode>,
 );
