@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { getModelToken } from '@nestjs/mongoose';
@@ -67,6 +67,32 @@ describe('AuthService', () => {
         aceptoPrivacidad: false,
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('debe rechazar el registro de DOCENTE si el correo no termina en @utvtol.edu.mx', async () => {
+    await expect(
+      service.register({
+        nombre: 'Luis',
+        apellidos: 'Pérez',
+        correo: 'luis@gmail.com',
+        contrasena: 'Password123!',
+        rol: 'DOCENTE' as any,
+        aceptoPrivacidad: true,
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('debe rechazar el registro público como ADMINISTRADOR', async () => {
+    await expect(
+      service.register({
+        nombre: 'Admin',
+        apellidos: 'Intruso',
+        correo: 'intruso@gmail.com',
+        contrasena: 'Password123!',
+        rol: 'ADMINISTRADOR' as any,
+        aceptoPrivacidad: true,
+      }),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('debe validar existencia MX y enviar correo de verificación sin enviar bienvenida aún', async () => {

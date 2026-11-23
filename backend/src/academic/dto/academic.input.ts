@@ -18,6 +18,23 @@ export class CreateCarreraInput {
 }
 
 @InputType()
+export class UpdateCarreraInput {
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  descripcion?: string;
+
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  cuatrimestres?: string[];
+}
+
+@InputType()
 export class CreateAsignaturaInput {
   @Field()
   @IsString()
@@ -36,6 +53,29 @@ export class CreateAsignaturaInput {
   @Field(() => ID)
   @IsString()
   idCarrera: string;
+}
+
+@InputType()
+export class UpdateAsignaturaInput {
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  descripcion?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  cuatrimestre?: string;
+
+  @Field(() => ID, { nullable: true })
+  @IsOptional()
+  @IsString()
+  idCarrera?: string;
 }
 
 @InputType()

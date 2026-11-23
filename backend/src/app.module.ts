@@ -28,7 +28,7 @@ import { UsersModule } from './users/users.module';
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 60,
+        limit: process.env.NODE_ENV === 'production' ? 180 : 600,
       },
     ]),
     MongooseModule.forRootAsync({

@@ -44,6 +44,7 @@ interface RegisterPayload {
   correo: string;
   contrasena: string;
   idCarrera?: string;
+  rol?: 'ESTUDIANTE' | 'DOCENTE';
   aceptoPrivacidad?: boolean;
 }
 
@@ -213,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { requiresVerification: false, correo: res.correo };
   }, [persist]);
 
-  const register = useCallback(async ({ nombre, apellidos, correo, contrasena, idCarrera, aceptoPrivacidad = true }: RegisterPayload) => {
+  const register = useCallback(async ({ nombre, apellidos, correo, contrasena, idCarrera, rol, aceptoPrivacidad = true }: RegisterPayload) => {
     assertNoScriptInjection({ nombre, apellidos, correo }, 'registro');
 
     if (USE_MOCK) {
@@ -239,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           correo: correo.trim(),
           contrasena,
           ...(idCarrera ? { idCarrera } : {}),
+          ...(rol ? { rol } : {}),
           aceptoPrivacidad,
         },
       },

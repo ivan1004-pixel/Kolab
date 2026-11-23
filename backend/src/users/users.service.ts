@@ -1,12 +1,16 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleInit,
   Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as bcrypt from 'bcrypt';
 import { Model, Types } from 'mongoose';
+import { RolUsuario } from '../common/enums/kolab.enums';
 import { ModerationService } from '../moderation/moderation.service';
 import {
   AdminCreateUsuarioInput,
@@ -17,12 +21,53 @@ import {
 import { Usuario, UsuarioDocument } from './schemas/usuario.schema';
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectModel(Usuario.name)
     private readonly usuarioModel: Model<UsuarioDocument>,
     @Optional() private readonly moderationService?: ModerationService,
   ) {}
+
+  private getSuperadminEmail(): string {
+    return (process.env.SUPERADMIN_EMAIL || 'administrador@gmail.com')
+      .trim()
+      .toLowerCase();
+  }
+
+  async onModuleInit(): Promise<void> {
+    const correo = this.getSuperadminEmail();
+    const password = process.env.SUPERADMIN_PASSWORD || 'administrador';
+
+    const existing = await this.usuarioModel.findOne({ correo }).exec();
+    if (!existing) {
+      const contrasenaHash = await bcrypt.hash(password, 10);
+      await this.usuarioModel.create({
+        nombre: 'Super',
+        apellidos: 'Administrador',
+        correo,
+        contrasenaHash,
+        rol: RolUsuario.ADMINISTRADOR,
+        emailVerified: true,
+        aceptoPrivacidad: true,
+        isActive: true,
+      });
+      this.logger.log(`Cuenta Superadmin inicializada: ${correo}`);
+      return;
+    }
+
+    if (
+      existing.rol !== RolUsuario.ADMINISTRADOR ||
+      !existing.isActive ||
+      !existing.emailVerified
+    ) {
+      existing.rol = RolUsuario.ADMINISTRADOR;
+      existing.isActive = true;
+      existing.emailVerified = true;
+      await existing.save();
+    }
+  }
 
   async findById(id: string): Promise<UsuarioDocument> {
     const user = await this.usuarioModel
@@ -134,6 +179,32 @@ export class UsersService {
     const prev = await this.usuarioModel.findById(id).exec();
     if (!prev) throw new NotFoundException('Usuario no encontrado');
 
+    if (prev.correo === this.getSuperadminEmail()) {
+      if (input.rol && input.rol !== RolUsuario.ADMINISTRADOR) {
+        throw new ForbiddenException(
+          'No se puede degradar el rol de la cuenta Superadmin principal.',
+        );
+      }
+      if (input.isActive === false) {
+        throw new ForbiddenException(
+          'No se puede desactivar la cuenta Superadmin principal.',
+        );
+      }
+    }
+
+    if (adminId && id === adminId) {
+      if (input.rol && input.rol !== prev.rol) {
+        throw new ForbiddenException(
+          'No puedes cambiar tu propio rol de administrador.',
+        );
+      }
+      if (input.isActive === false) {
+        throw new ForbiddenException(
+          'No puedes desactivar tu propia cuenta desde el panel.',
+        );
+      }
+    }
+
     const updated = await this.usuarioModel
       .findByIdAndUpdate(id, { $set: input }, { new: true })
       .exec();
@@ -164,6 +235,16 @@ export class UsersService {
 
   async adminDeleteUsuario(id: string, adminId?: string): Promise<boolean> {
     const user = await this.findById(id);
+    if (user.correo === this.getSuperadminEmail()) {
+      throw new ForbiddenException(
+        'No se puede dar de baja la cuenta Superadmin principal.',
+      );
+    }
+    if (adminId && id === adminId) {
+      throw new ForbiddenException(
+        'No puedes dar de baja tu propia cuenta desde el panel.',
+      );
+    }
     user.isActive = false;
     user.deletedAt = new Date();
     user.tokenVersion += 1;

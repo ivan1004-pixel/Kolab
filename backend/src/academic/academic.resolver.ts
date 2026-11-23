@@ -14,6 +14,8 @@ import {
   CreateCalendarioEventoInput,
   CreateCarreraInput,
   CreateTemaInput,
+  UpdateAsignaturaInput,
+  UpdateCarreraInput,
 } from './dto/academic.input';
 import {
   Asignatura,
@@ -38,6 +40,25 @@ export class AcademicResolver {
     return this.academicService.createCarrera(input);
   }
 
+  @Mutation(() => Carrera, { description: 'RF-32: Actualizar carrera (Admin)' })
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles(RolUsuario.ADMINISTRADOR)
+  async actualizarCarrera(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: UpdateCarreraInput,
+  ): Promise<Carrera> {
+    return this.academicService.updateCarrera(id, input);
+  }
+
+  @Mutation(() => Boolean, { description: 'RNF-18: Eliminar carrera controlada (Admin)' })
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles(RolUsuario.ADMINISTRADOR)
+  async eliminarCarrera(
+    @Args('id', { type: () => ID }) id: string,
+  ): Promise<boolean> {
+    return this.academicService.deleteCarrera(id);
+  }
+
   @Query(() => [Asignatura])
   async asignaturas(
     @Args('idCarrera', { type: () => ID, nullable: true }) idCarrera?: string,
@@ -52,6 +73,16 @@ export class AcademicResolver {
     @Args('input') input: CreateAsignaturaInput,
   ): Promise<Asignatura> {
     return this.academicService.createAsignatura(input);
+  }
+
+  @Mutation(() => Asignatura, { description: 'RF-32: Actualizar asignatura (Admin)' })
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles(RolUsuario.ADMINISTRADOR)
+  async actualizarAsignatura(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: UpdateAsignaturaInput,
+  ): Promise<Asignatura> {
+    return this.academicService.updateAsignatura(id, input);
   }
 
   @Mutation(() => Boolean, { description: 'RNF-18: Eliminar asignatura controlada' })

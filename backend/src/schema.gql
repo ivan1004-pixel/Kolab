@@ -249,6 +249,12 @@ type Mutation {
   """Aceptar tutoría entre pares o duelo"""
   aceptarTutoriaODuelo(solicitudId: ID!): SolicitudTutoria!
 
+  """RF-32: Actualizar asignatura (Admin)"""
+  actualizarAsignatura(id: ID!, input: UpdateAsignaturaInput!): Asignatura!
+
+  """RF-32: Actualizar carrera (Admin)"""
+  actualizarCarrera(id: ID!, input: UpdateCarreraInput!): Carrera!
+
   """RF-51: Editar perfil del usuario"""
   actualizarPerfil(input: UpdatePerfilInput!): Usuario!
 
@@ -314,6 +320,9 @@ type Mutation {
 
   """RNF-18: Eliminar asignatura controlada"""
   eliminarAsignatura(id: ID!): Boolean!
+
+  """RNF-18: Eliminar carrera controlada (Admin)"""
+  eliminarCarrera(id: ID!): Boolean!
 
   """RF-54: Eliminar cuenta y baja de datos personales"""
   eliminarMiCuenta: Boolean!
@@ -589,6 +598,7 @@ input RegisterInput {
   correo: String!
   idCarrera: ID
   nombre: String!
+  rol: RolUsuario
 }
 
 type RegisterResponse {
@@ -671,6 +681,19 @@ enum TipoNotificacion {
   REVISION_PENDIENTE
   SISTEMA
   VALIDACION_RECURSO
+}
+
+input UpdateAsignaturaInput {
+  cuatrimestre: String
+  descripcion: String
+  idCarrera: ID
+  nombre: String
+}
+
+input UpdateCarreraInput {
+  cuatrimestres: [String!]
+  descripcion: String
+  nombre: String
 }
 
 input UpdatePerfilInput {

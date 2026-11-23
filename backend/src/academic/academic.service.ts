@@ -14,6 +14,8 @@ import {
   CreateCalendarioEventoInput,
   CreateCarreraInput,
   CreateTemaInput,
+  UpdateAsignaturaInput,
+  UpdateCarreraInput,
 } from './dto/academic.input';
 import {
   Asignatura,
@@ -49,6 +51,41 @@ export class AcademicService {
     return this.carreraModel.find().sort({ nombre: 1 }).exec();
   }
 
+  async updateCarrera(
+    id: string,
+    input: UpdateCarreraInput,
+  ): Promise<CarreraDocument> {
+    const updateData: Record<string, unknown> = {};
+    if (input.nombre !== undefined) updateData.nombre = input.nombre.trim();
+    if (input.descripcion !== undefined) {
+      updateData.descripcion = input.descripcion.trim();
+    }
+    if (input.cuatrimestres !== undefined) {
+      updateData.cuatrimestres = input.cuatrimestres;
+    }
+
+    const updated = await this.carreraModel
+      .findByIdAndUpdate(id, { $set: updateData }, { new: true })
+      .exec();
+    if (!updated) throw new NotFoundException('Carrera no encontrada');
+    return updated;
+  }
+
+  async deleteCarrera(id: string): Promise<boolean> {
+    const objId = new Types.ObjectId(id);
+    const asignaturasCount = await this.asignaturaModel
+      .countDocuments({ idCarrera: objId })
+      .exec();
+    if (asignaturasCount > 0) {
+      throw new BadRequestException(
+        'No se puede eliminar la carrera porque tiene asignaturas asociadas. Elimina o reasigna sus asignaturas primero.',
+      );
+    }
+    const res = await this.carreraModel.findByIdAndDelete(id).exec();
+    if (!res) throw new NotFoundException('Carrera no encontrada');
+    return true;
+  }
+
   async createAsignatura(
     input: CreateAsignaturaInput,
   ): Promise<AsignaturaDocument> {
@@ -65,6 +102,31 @@ export class AcademicService {
       ? { idCarrera: new Types.ObjectId(idCarrera) }
       : {};
     return this.asignaturaModel.find(filter).sort({ nombre: 1 }).exec();
+  }
+
+  async updateAsignatura(
+    id: string,
+    input: UpdateAsignaturaInput,
+  ): Promise<AsignaturaDocument> {
+    const updateData: Record<string, unknown> = {};
+    if (input.nombre !== undefined) updateData.nombre = input.nombre.trim();
+    if (input.descripcion !== undefined) {
+      updateData.descripcion = input.descripcion.trim();
+    }
+    if (input.cuatrimestre !== undefined) {
+      updateData.cuatrimestre = input.cuatrimestre.trim();
+    }
+    if (input.idCarrera !== undefined) {
+      const carrera = await this.carreraModel.findById(input.idCarrera).exec();
+      if (!carrera) throw new NotFoundException('Carrera no encontrada');
+      updateData.idCarrera = new Types.ObjectId(input.idCarrera);
+    }
+
+    const updated = await this.asignaturaModel
+      .findByIdAndUpdate(id, { $set: updateData }, { new: true })
+      .exec();
+    if (!updated) throw new NotFoundException('Asignatura no encontrada');
+    return updated;
   }
 
   async deleteAsignatura(id: string): Promise<boolean> {

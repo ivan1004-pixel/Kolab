@@ -67,15 +67,35 @@ interface ColeccionItem {
   esFavoritos: boolean;
 }
 
+interface CarreraItem {
+  _id: string;
+  nombre: string;
+}
+
 interface AsignaturaItem {
   _id: string;
   nombre: string;
+  cuatrimestre?: string;
+  idCarrera?: string;
 }
 
 interface TemaItem {
   _id: string;
   titulo: string;
   idAsignatura: string;
+}
+
+function parseSemesterNumber(raw?: string): number {
+  if (!raw) return Number.MAX_SAFE_INTEGER;
+  const match = raw.match(/\d+/);
+  return match ? parseInt(match[0], 10) : Number.MAX_SAFE_INTEGER - 1;
+}
+
+function normalizeSemesterKey(raw?: string): string {
+  const trimmed = raw?.trim();
+  if (!trimmed) return 'Sin semestre asignado';
+  if (/^\d+$/.test(trimmed)) return `${trimmed}° Semestre`;
+  return trimmed;
 }
 
 interface UploadModalState {
@@ -126,6 +146,7 @@ export default function Recursos() {
   const [items, setItems] = useState<RecursoItem[]>([]);
   const [colecciones, setColecciones] = useState<ColeccionItem[]>([]);
   const [papelera, setPapelera] = useState<RecursoItem[]>([]);
+  const [carreras, setCarreras] = useState<CarreraItem[]>([]);
   const [asignaturas, setAsignaturas] = useState<AsignaturaItem[]>([]);
   const [temas, setTemas] = useState<TemaItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,6 +191,8 @@ export default function Recursos() {
   const [esOficial, setEsOficial] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const [formCareerId, setFormCareerId] = useState('TODAS');
+  const [formSemester, setFormSemester] = useState('TODOS');
   const [formSubjectId, setFormSubjectId] = useState('');
   const [formTopicId, setFormTopicId] = useState('');
 
@@ -248,6 +271,7 @@ export default function Recursos() {
         recursos: RecursoItem[];
         misColecciones: ColeccionItem[];
         miPapelera: RecursoItem[];
+        carreras: CarreraItem[];
         asignaturas: AsignaturaItem[];
         temas: TemaItem[];
       }>(
@@ -261,7 +285,8 @@ export default function Recursos() {
           }
           misColecciones { _id nombre recursos esFavoritos }
           miPapelera { _id titulo tipoArchivo eliminadoEn idTema idAsignatura createdAt }
-          asignaturas { _id nombre }
+          carreras { _id nombre }
+          asignaturas { _id nombre cuatrimestre idCarrera }
           temas { _id titulo idAsignatura }
         }`,
         {},
@@ -270,6 +295,7 @@ export default function Recursos() {
       setItems(data.recursos ?? []);
       setColecciones(data.misColecciones ?? []);
       setPapelera(data.miPapelera ?? []);
+      setCarreras(data.carreras ?? []);
       setAsignaturas(data.asignaturas ?? []);
       setTemas(data.temas ?? []);
       if (data.asignaturas?.length && !formSubjectId) {
@@ -291,6 +317,55 @@ export default function Recursos() {
 
   const subjectMap = useMemo(() => new Map(asignaturas.map((a) => [a._id, a.nombre])), [asignaturas]);
   const topicMap = useMemo(() => new Map(temas.map((t) => [t._id, t.titulo])), [temas]);
+
+  const formCoursesByCareer = useMemo(
+    () => (formCareerId === 'TODAS' ? asignaturas : asignaturas.filter((a) => a.idCarrera === formCareerId)),
+    [asignaturas, formCareerId],
+  );
+
+  const formSemesters = useMemo(() => {
+    const keys = Array.from(new Set(formCoursesByCareer.map((a) => normalizeSemesterKey(a.cuatrimestre))));
+    return keys.sort((a, b) => parseSemesterNumber(a) - parseSemesterNumber(b) || a.localeCompare(b));
+  }, [formCoursesByCareer]);
+
+  const formFilteredSubjects = useMemo(
+    () =>
+      formSemester === 'TODOS'
+        ? formCoursesByCareer
+        : formCoursesByCareer.filter((a) => normalizeSemesterKey(a.cuatrimestre) === formSemester),
+    [formCoursesByCareer, formSemester],
+  );
+
+  const formFilteredTopics = useMemo(
+    () => (formSubjectId ? temas.filter((t) => t.idAsignatura === formSubjectId) : []),
+    [temas, formSubjectId],
+  );
+
+  useEffect(() => {
+    if (formSemester !== 'TODOS' && !formSemesters.includes(formSemester)) {
+      setFormSemester('TODOS');
+    }
+  }, [formSemesters, formSemester]);
+
+  useEffect(() => {
+    if (formFilteredSubjects.length === 0) {
+      if (formSubjectId !== '') setFormSubjectId('');
+      return;
+    }
+    if (!formFilteredSubjects.some((s) => s._id === formSubjectId)) {
+      setFormSubjectId(formFilteredSubjects[0]._id);
+    }
+  }, [formFilteredSubjects, formSubjectId]);
+
+  useEffect(() => {
+    if (formFilteredTopics.length === 0) {
+      if (formTopicId !== '') setFormTopicId('');
+      return;
+    }
+    if (!formFilteredTopics.some((t) => t._id === formTopicId)) {
+      setFormTopicId(formFilteredTopics[0]._id);
+    }
+  }, [formFilteredTopics, formTopicId]);
 
   const myContributions = useMemo(
     () => items.filter((x) => String(x.idUsuario) === String(user?.id)),
@@ -1070,10 +1145,42 @@ export default function Recursos() {
                   </div>
 
                   <div className="field">
+                    <label htmlFor="res-career">Carrera</label>
+                    <select
+                      id="res-career"
+                      value={formCareerId}
+                      onChange={(e) => {
+                        setFormCareerId(e.target.value);
+                        setFormSemester('TODOS');
+                      }}
+                    >
+                      <option value="TODAS">Todas las carreras</option>
+                      {carreras.map((c) => (
+                        <option key={c._id} value={c._id}>{c.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="res-semester">Semestre / Cuatrimestre</label>
+                    <select
+                      id="res-semester"
+                      value={formSemester}
+                      onChange={(e) => setFormSemester(e.target.value)}
+                      disabled={formSemesters.length === 0}
+                    >
+                      <option value="TODOS">Todos los semestres</option>
+                      {formSemesters.map((sem) => (
+                        <option key={sem} value={sem}>{sem}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="field">
                     <label htmlFor="res-subj">Asignatura</label>
                     <select id="res-subj" value={formSubjectId} onChange={(e) => setFormSubjectId(e.target.value)}>
-                      {asignaturas.length === 0 && <option value="">Sin asignaturas</option>}
-                      {asignaturas.map((a) => (
+                      {formFilteredSubjects.length === 0 && <option value="">Sin asignaturas disponibles</option>}
+                      {formFilteredSubjects.map((a) => (
                         <option key={a._id} value={a._id}>{a.nombre}</option>
                       ))}
                     </select>
@@ -1082,8 +1189,8 @@ export default function Recursos() {
                   <div className="field">
                     <label htmlFor="res-topic">Tema</label>
                     <select id="res-topic" value={formTopicId} onChange={(e) => setFormTopicId(e.target.value)} required>
-                      {temas.length === 0 && <option value="">Sin temas registrados</option>}
-                      {temas.map((t) => (
+                      {formFilteredTopics.length === 0 && <option value="">Sin temas para esta asignatura</option>}
+                      {formFilteredTopics.map((t) => (
                         <option key={t._id} value={t._id}>{t.titulo}</option>
                       ))}
                     </select>

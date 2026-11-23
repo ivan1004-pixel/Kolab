@@ -6,6 +6,7 @@ import { MODULES } from '../data/modules';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import Skeleton, { CardListSkeleton, RowListSkeleton } from '../components/Skeleton';
+import AdminDashboard from './AdminDashboard';
 import DocenteDashboard from './DocenteDashboard';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -72,8 +73,8 @@ interface NotificacionReciente {
 export default function Dashboard() {
   const { user, token, refreshUser } = useAuth();
 
-  // Opción A: DOCENTE entra directo al Panel Docente; ADMIN puede alternar entre vista Docente y Estudiante
-  const [adminView, setAdminView] = useState<'docente' | 'estudiante'>('docente');
+  // DOCENTE entra directo al Panel Docente; ADMIN entra al Panel Admin y puede alternar vistas
+  const [adminView, setAdminView] = useState<'admin' | 'docente' | 'estudiante'>('admin');
 
   const [badgesCount, setBadgesCount] = useState(user?.insignias ?? 0);
   const [retosCount, setRetosCount] = useState(user?.retos ?? 0);
@@ -177,18 +178,29 @@ export default function Dashboard() {
     return <DocenteDashboard />;
   }
 
-  if (user?.rol === 'admin' && adminView === 'docente') {
+  if (user?.rol === 'admin' && adminView !== 'estudiante') {
     return (
       <div className="td-wrap">
         <div className="td-role-switch" role="tablist" aria-label="Cambiar vista de panel">
-          <button type="button" className="is-active" onClick={() => setAdminView('docente')}>
+          <button
+            type="button"
+            className={adminView === 'admin' ? 'is-active' : ''}
+            onClick={() => setAdminView('admin')}
+          >
+            Panel Admin
+          </button>
+          <button
+            type="button"
+            className={adminView === 'docente' ? 'is-active' : ''}
+            onClick={() => setAdminView('docente')}
+          >
             Panel Docente
           </button>
           <button type="button" onClick={() => setAdminView('estudiante')}>
             Vista Estudiante
           </button>
         </div>
-        <DocenteDashboard />
+        {adminView === 'admin' ? <AdminDashboard /> : <DocenteDashboard />}
       </div>
     );
   }
@@ -239,6 +251,9 @@ export default function Dashboard() {
     <div className="dashboard">
       {user?.rol === 'admin' && (
         <div className="td-role-switch" role="tablist" aria-label="Cambiar vista de panel">
+          <button type="button" onClick={() => setAdminView('admin')}>
+            Panel Admin
+          </button>
           <button type="button" onClick={() => setAdminView('docente')}>
             Panel Docente
           </button>

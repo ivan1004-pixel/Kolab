@@ -42,7 +42,7 @@
   }
 
   &:hover,
-  &:focus-within {
+  &:has(:focus-visible) {
     width: 260px;
     box-shadow: 14px 0 36px rgb(12 62 33 / 0.24);
 
@@ -117,7 +117,7 @@
 }
 
 .shell:has(.sidebar:hover) .main,
-.shell:has(.sidebar:focus-within) .main {
+.shell:has(.sidebar:has(:focus-visible)) .main {
   margin-left: 260px;
 }
 
@@ -716,7 +716,7 @@
   }
 
   .shell:has(.sidebar:hover) .main,
-  .shell:has(.sidebar:focus-within) .main {
+  .shell:has(.sidebar:has(:focus-visible)) .main {
     margin-left: 0 !important;
   }
 

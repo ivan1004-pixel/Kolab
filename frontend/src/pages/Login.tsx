@@ -52,6 +52,7 @@ export default function Login() {
     apellidos: '',
     email: '',
     password: '',
+    rol: 'ESTUDIANTE' as 'ESTUDIANTE' | 'DOCENTE',
     aceptoPrivacidad: true,
     token: '',
     nuevaContrasena: '',
@@ -126,9 +127,11 @@ export default function Login() {
 
   if (user) return <Navigate to="/" replace />;
 
-  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { name, type, checked, value } = e.target;
-    setForm((f) => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
+  const onChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const target = e.target;
+    const { name, value } = target;
+    const isCheckbox = target instanceof HTMLInputElement && target.type === 'checkbox';
+    setForm((f) => ({ ...f, [name]: isCheckbox ? target.checked : value }));
   };
 
   function switchMode(nextMode: AuthMode) {
@@ -163,6 +166,9 @@ export default function Login() {
         if (!form.nombre.trim() || !form.apellidos.trim() || !form.email.trim() || !form.password) {
           throw new Error('Completa todos tus datos para registrarte');
         }
+        if (form.rol === 'DOCENTE' && !form.email.trim().toLowerCase().endsWith('@utvtol.edu.mx')) {
+          throw new Error('Para registrarte como Maestro / Docente debes usar tu correo institucional (@utvtol.edu.mx).');
+        }
         if (!form.aceptoPrivacidad) {
           throw new Error('Debes aceptar el aviso de privacidad');
         }
@@ -172,6 +178,7 @@ export default function Login() {
           apellidos: form.apellidos.trim(),
           correo: form.email.trim(),
           contrasena: form.password,
+          rol: form.rol,
           aceptoPrivacidad: form.aceptoPrivacidad,
         });
         setSuccess(res.message);
@@ -370,30 +377,51 @@ export default function Login() {
           {/* Formulario Principal */}
           <form className="klogin-form" onSubmit={onSubmit} noValidate>
             {mode === 'register' && (
-              <div className="klogin-name-grid">
-                <div className="klogin-field">
-                  <label htmlFor="nombre">Nombre</label>
-                  <input
-                    className="klogin-input klogin-input--plain"
-                    id="nombre"
-                    name="nombre"
-                    value={form.nombre}
-                    onChange={onChange}
-                    placeholder="Nombre"
-                  />
+              <>
+                <div className="klogin-name-grid">
+                  <div className="klogin-field">
+                    <label htmlFor="nombre">Nombre</label>
+                    <input
+                      className="klogin-input klogin-input--plain"
+                      id="nombre"
+                      name="nombre"
+                      value={form.nombre}
+                      onChange={onChange}
+                      placeholder="Nombre"
+                    />
+                  </div>
+                  <div className="klogin-field">
+                    <label htmlFor="apellidos">Apellidos</label>
+                    <input
+                      className="klogin-input klogin-input--plain"
+                      id="apellidos"
+                      name="apellidos"
+                      value={form.apellidos}
+                      onChange={onChange}
+                      placeholder="Apellidos"
+                    />
+                  </div>
                 </div>
+
                 <div className="klogin-field">
-                  <label htmlFor="apellidos">Apellidos</label>
-                  <input
+                  <label htmlFor="rol">Tipo de rol</label>
+                  <select
                     className="klogin-input klogin-input--plain"
-                    id="apellidos"
-                    name="apellidos"
-                    value={form.apellidos}
+                    id="rol"
+                    name="rol"
+                    value={form.rol}
                     onChange={onChange}
-                    placeholder="Apellidos"
-                  />
+                  >
+                    <option value="ESTUDIANTE">Estudiante</option>
+                    <option value="DOCENTE">Maestro / Docente</option>
+                  </select>
+                  {form.rol === 'DOCENTE' && (
+                    <small style={{ display: 'block', marginTop: '0.3rem', color: '#4b6a62', fontSize: '0.78rem' }}>
+                      Requiere correo institucional terminado en @utvtol.edu.mx
+                    </small>
+                  )}
                 </div>
-              </div>
+              </>
             )}
 
             {(mode === 'login' || mode === 'register' || mode === 'forgot') && (
@@ -414,7 +442,7 @@ export default function Login() {
                     autoComplete="email"
                     value={form.email}
                     onChange={onChange}
-                    placeholder="nombre@tucorreo.com"
+                    placeholder={mode === 'register' && form.rol === 'DOCENTE' ? 'nombre@utvtol.edu.mx' : 'nombre@tucorreo.com'}
                   />
                 </div>
               </div>

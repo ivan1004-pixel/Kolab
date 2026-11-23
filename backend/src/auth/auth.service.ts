@@ -58,6 +58,18 @@ export class AuthService {
     }
 
     const correo = input.correo.trim().toLowerCase();
+    const rol = input.rol ?? RolUsuario.ESTUDIANTE;
+    if (rol === RolUsuario.ADMINISTRADOR) {
+      throw new ForbiddenException(
+        'No está permitido registrarse como Administrador. Un administrador debe otorgar este rol.',
+      );
+    }
+    if (rol === RolUsuario.DOCENTE && !correo.endsWith('@utvtol.edu.mx')) {
+      throw new BadRequestException(
+        'Para registrarte como Maestro / Docente debes usar tu correo institucional (@utvtol.edu.mx).',
+      );
+    }
+
     const existing = await this.usuarioModel.findOne({ correo }).exec();
     if (existing) {
       throw new BadRequestException('El correo ya se encuentra registrado.');
@@ -80,7 +92,7 @@ export class AuthService {
       apellidos: input.apellidos.trim(),
       correo,
       contrasenaHash,
-      rol: RolUsuario.ESTUDIANTE,
+      rol,
       idCarrera: input.idCarrera
         ? new Types.ObjectId(input.idCarrera)
         : undefined,

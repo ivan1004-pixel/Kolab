@@ -2,11 +2,13 @@ import { Field, ID, InputType } from '@nestjs/graphql';
 import {
   IsBoolean,
   IsEmail,
+  IsEnum,
   IsOptional,
   IsString,
   Matches,
   MinLength,
 } from 'class-validator';
+import { RolUsuario } from '../../common/enums/kolab.enums';
 
 @InputType()
 export class RegisterInput {
@@ -34,6 +36,11 @@ export class RegisterInput {
   @Field(() => ID, { nullable: true })
   @IsOptional()
   idCarrera?: string;
+
+  @Field(() => RolUsuario, { nullable: true })
+  @IsOptional()
+  @IsEnum(RolUsuario, { message: 'El rol seleccionado no es válido' })
+  rol?: RolUsuario;
 
   @Field()
   @IsBoolean()
