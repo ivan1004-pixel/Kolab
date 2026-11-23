@@ -568,20 +568,22 @@ export default function Curricular() {
                 <Pencil size={14} aria-hidden="true" />
                 <span>Editar carrera</span>
               </button>
-              <button
-                type="button"
-                className="btn btn--danger btn--sm"
-                onClick={() =>
-                  setConfirmDelete({
-                    kind: 'career',
-                    id: selectedCareerId,
-                    name: careerNameMap.get(selectedCareerId) ?? 'esta carrera',
-                  })
-                }
-              >
-                <Trash2 size={14} aria-hidden="true" />
-                <span>Eliminar carrera</span>
-              </button>
+              {(careerCourseCountMap.get(selectedCareerId) ?? 0) === 0 && (
+                <button
+                  type="button"
+                  className="btn btn--danger btn--sm"
+                  onClick={() =>
+                    setConfirmDelete({
+                      kind: 'career',
+                      id: selectedCareerId,
+                      name: careerNameMap.get(selectedCareerId) ?? 'esta carrera',
+                    })
+                  }
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                  <span>Eliminar carrera</span>
+                </button>
+              )}
             </div>
           )}
         </section>

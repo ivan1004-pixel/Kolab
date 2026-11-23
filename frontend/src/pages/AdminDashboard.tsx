@@ -42,6 +42,16 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const SUPERADMIN_EMAIL = 'administrador@gmail.com';
+const PREV_ROLES_KEY = 'kolab.admin.prevRoles';
+
+function readPrevRoles(): Record<string, 'ESTUDIANTE' | 'DOCENTE'> {
+  try {
+    const raw = localStorage.getItem(PREV_ROLES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
 
 export default function AdminDashboard() {
   const { user, token } = useAuth();
@@ -51,6 +61,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'TODOS' | 'ESTUDIANTE' | 'DOCENTE' | 'ADMINISTRADOR'>('TODOS');
+  const [previousRoles, setPreviousRoles] = useState<Record<string, 'ESTUDIANTE' | 'DOCENTE'>>(readPrevRoles);
   const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const [form, setForm] = useState({
@@ -82,7 +93,7 @@ export default function AdminDashboard() {
         {},
         token,
       );
-      setUsuarios((data.usuarios ?? []).filter((u) => u.isActive !== false));
+      setUsuarios(data.usuarios ?? []);
       setReportes(data.reportes ?? []);
       setAsignaturas(data.asignaturas ?? []);
     } catch (err: any) {
@@ -97,12 +108,13 @@ export default function AdminDashboard() {
   }, [loadData]);
 
   const counts = useMemo(() => {
-    const estudiantes = usuarios.filter((u) => u.rol === 'ESTUDIANTE').length;
-    const docentes = usuarios.filter((u) => u.rol === 'DOCENTE').length;
-    const admins = usuarios.filter((u) => u.rol === 'ADMINISTRADOR').length;
+    const activeUsers = usuarios.filter((u) => u.isActive !== false);
+    const estudiantes = activeUsers.filter((u) => u.rol === 'ESTUDIANTE').length;
+    const docentes = activeUsers.filter((u) => u.rol === 'DOCENTE').length;
+    const admins = activeUsers.filter((u) => u.rol === 'ADMINISTRADOR').length;
     const pendientes = reportes.filter((r) => r.estado === 'PENDIENTE').length;
     return {
-      total: usuarios.length,
+      total: activeUsers.length,
       estudiantes,
       docentes,
       admins,
@@ -134,6 +146,14 @@ export default function AdminDashboard() {
         { id: target._id, input: { rol: newRol } },
         token,
       );
+      if (newRol === 'ADMINISTRADOR' && (target.rol === 'ESTUDIANTE' || target.rol === 'DOCENTE')) {
+        const nextPrev: Record<string, 'ESTUDIANTE' | 'DOCENTE'> = {
+          ...previousRoles,
+          [target._id]: target.rol,
+        };
+        setPreviousRoles(nextPrev);
+        localStorage.setItem(PREV_ROLES_KEY, JSON.stringify(nextPrev));
+      }
       setUsuarios((prev) =>
         prev.map((u) => (u._id === target._id ? { ...u, rol: res.adminActualizarUsuario.rol } : u)),
       );
@@ -146,21 +166,23 @@ export default function AdminDashboard() {
     }
   }
 
-  async function handleDeactivate(target: AdminUserItem) {
+  async function handleReactivate(target: AdminUserItem) {
     if (!token) return;
     setNotice(null);
     try {
       await gqlRequest(
-        `mutation AdminBaja($id: ID!, $input: AdminUpdateUsuarioInput!) {
+        `mutation AdminReactivar($id: ID!, $input: AdminUpdateUsuarioInput!) {
           adminActualizarUsuario(id: $id, input: $input) { _id isActive }
         }`,
-        { id: target._id, input: { isActive: false } },
+        { id: target._id, input: { isActive: true } },
         token,
       );
-      setUsuarios((prev) => prev.filter((u) => u._id !== target._id));
-      setNotice({ type: 'ok', text: `Cuenta ${target.correo} dada de baja.` });
+      setUsuarios((prev) =>
+        prev.map((u) => (u._id === target._id ? { ...u, isActive: true } : u)),
+      );
+      setNotice({ type: 'ok', text: `Cuenta ${target.correo} reactivada correctamente.` });
     } catch (err: any) {
-      setNotice({ type: 'err', text: err.message || 'No se pudo dar de baja la cuenta.' });
+      setNotice({ type: 'err', text: err.message || 'No se pudo reactivar la cuenta.' });
     }
   }
 
@@ -328,6 +350,7 @@ export default function AdminDashboard() {
                         {u.nombre} {u.apellidos}{' '}
                         {isSeedSuperadmin && <span className="chip chip--xp">Superadmin</span>}
                         {!isSeedSuperadmin && isSelf && <span className="chip chip--soft">Tú</span>}
+                        {u.isActive === false && <span className="chip chip--danger">Inactiva</span>}
                       </td>
                       <td>{u.correo}</td>
                       <td>
@@ -351,7 +374,17 @@ export default function AdminDashboard() {
                       </td>
                       <td>
                         <div className="row" style={{ gap: '0.4rem' }}>
-                          {u.rol !== 'ADMINISTRADOR' && (
+                          {u.isActive === false ? (
+                            <button
+                              type="button"
+                              className="btn btn--primary btn--sm"
+                              onClick={() => handleReactivate(u)}
+                            >
+                              Reactivar cuenta
+                            </button>
+                          ) : locked ? (
+                            <span className="muted" style={{ fontSize: '0.84rem' }}>Cuenta protegida</span>
+                          ) : u.rol !== 'ADMINISTRADOR' ? (
                             <button
                               type="button"
                               className="btn btn--ghost btn--sm"
@@ -359,15 +392,15 @@ export default function AdminDashboard() {
                             >
                               Elevar a Admin
                             </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn btn--ghost btn--sm"
+                              onClick={() => handleRoleChange(u, previousRoles[u._id] ?? 'ESTUDIANTE')}
+                            >
+                              Regresar a {ROLE_LABELS[previousRoles[u._id] ?? 'ESTUDIANTE']}
+                            </button>
                           )}
-                          <button
-                            type="button"
-                            className="btn btn--danger btn--sm"
-                            disabled={locked}
-                            onClick={() => handleDeactivate(u)}
-                          >
-                            Dar de baja
-                          </button>
                         </div>
                       </td>
                     </tr>
