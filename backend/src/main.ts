@@ -1,5 +1,6 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import * as dns from 'dns';
 import * as express from 'express';
 import { json, urlencoded } from 'express';
 import * as fs from 'fs';
@@ -8,6 +9,8 @@ import * as path from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  // Evita errores queryTxt EREFUSED en Windows/redes locales al resolver mongodb+srv://
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 

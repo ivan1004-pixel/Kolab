@@ -22,6 +22,19 @@ import { CardListSkeleton } from '../components/Skeleton';
 const MAX_LIKES_PER_USER = 5;
 const ANSWERS_STEP = 3;
 
+function parseSemesterNumber(raw?: string): number {
+  if (!raw) return Number.MAX_SAFE_INTEGER;
+  const match = raw.match(/\d+/);
+  return match ? parseInt(match[0], 10) : Number.MAX_SAFE_INTEGER - 1;
+}
+
+function normalizeSemesterKey(raw?: string): string {
+  const trimmed = raw?.trim();
+  if (!trimmed) return 'Sin semestre asignado';
+  if (/^\d+$/.test(trimmed)) return `${trimmed}° Semestre`;
+  return trimmed;
+}
+
 function formatDateTime(iso?: string): string {
   if (!iso) return '';
   const date = new Date(iso);
@@ -69,9 +82,22 @@ interface PreguntaItem {
   respuestas: RespuestaItem[];
 }
 
+interface CarreraItem {
+  _id: string;
+  nombre: string;
+}
+
+interface AsignaturaItem {
+  _id: string;
+  nombre: string;
+  cuatrimestre?: string;
+  idCarrera?: string;
+}
+
 interface TemaItem {
   _id: string;
   titulo: string;
+  idAsignatura: string;
 }
 
 export default function Foro() {
@@ -80,7 +106,12 @@ export default function Foro() {
   const q = (params.get('q') ?? '').toLowerCase();
 
   const [preguntas, setPreguntas] = useState<PreguntaItem[]>([]);
+  const [carreras, setCarreras] = useState<CarreraItem[]>([]);
+  const [asignaturas, setAsignaturas] = useState<AsignaturaItem[]>([]);
   const [temas, setTemas] = useState<TemaItem[]>([]);
+  const [selectedCareerId, setSelectedCareerId] = useState('TODAS');
+  const [selectedSemester, setSelectedSemester] = useState('TODOS');
+  const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [loading, setLoading] = useState(true);
   const [onlyBank, setOnlyBank] = useState(false);
   const [form, setForm] = useState({
@@ -107,23 +138,25 @@ export default function Foro() {
     try {
       const data = await gqlRequest<{
         preguntas: Array<Omit<PreguntaItem, 'respuestas'>>;
+        carreras: CarreraItem[];
+        asignaturas: AsignaturaItem[];
         temas: TemaItem[];
       }>(
         `query ForoData {
           preguntas {
             _id texto idTema idUsuario nombreAutor fotoAutor resuelta esBancoColaborativo validadaPorDocente votosUtilidad misVotos etiquetas fragmentoRecurso createdAt
           }
-          temas { _id titulo }
+          carreras { _id nombre }
+          asignaturas { _id nombre cuatrimestre idCarrera }
+          temas { _id titulo idAsignatura }
         }`,
         {},
         token,
       );
       const rawPreguntas = data.preguntas ?? [];
-      const temaList = data.temas ?? [];
-      setTemas(temaList);
-      if (temaList.length > 0 && !form.idTema) {
-        setForm((f) => ({ ...f, idTema: temaList[0]._id }));
-      }
+      setCarreras(data.carreras ?? []);
+      setAsignaturas(data.asignaturas ?? []);
+      setTemas(data.temas ?? []);
 
       const respuestasList = await Promise.all(
         rawPreguntas.map((p) =>
@@ -150,7 +183,56 @@ export default function Foro() {
     } finally {
       setLoading(false);
     }
-  }, [token, form.idTema]);
+  }, [token]);
+
+  const coursesByCareer = useMemo(
+    () => (selectedCareerId === 'TODAS' ? asignaturas : asignaturas.filter((a) => a.idCarrera === selectedCareerId)),
+    [asignaturas, selectedCareerId],
+  );
+
+  const availableSemesters = useMemo(() => {
+    const keys = Array.from(new Set(coursesByCareer.map((a) => normalizeSemesterKey(a.cuatrimestre))));
+    return keys.sort((a, b) => parseSemesterNumber(a) - parseSemesterNumber(b) || a.localeCompare(b));
+  }, [coursesByCareer]);
+
+  const filteredSubjects = useMemo(
+    () =>
+      selectedSemester === 'TODOS'
+        ? coursesByCareer
+        : coursesByCareer.filter((a) => normalizeSemesterKey(a.cuatrimestre) === selectedSemester),
+    [coursesByCareer, selectedSemester],
+  );
+
+  const filteredTopics = useMemo(
+    () => (selectedSubjectId ? temas.filter((t) => t.idAsignatura === selectedSubjectId) : []),
+    [temas, selectedSubjectId],
+  );
+
+  useEffect(() => {
+    if (selectedSemester !== 'TODOS' && !availableSemesters.includes(selectedSemester)) {
+      setSelectedSemester('TODOS');
+    }
+  }, [availableSemesters, selectedSemester]);
+
+  useEffect(() => {
+    if (filteredSubjects.length === 0) {
+      if (selectedSubjectId !== '') setSelectedSubjectId('');
+      return;
+    }
+    if (!filteredSubjects.some((s) => s._id === selectedSubjectId)) {
+      setSelectedSubjectId(filteredSubjects[0]._id);
+    }
+  }, [filteredSubjects, selectedSubjectId]);
+
+  useEffect(() => {
+    if (filteredTopics.length === 0) {
+      if (form.idTema !== '') setForm((f) => ({ ...f, idTema: '' }));
+      return;
+    }
+    if (!filteredTopics.some((t) => t._id === form.idTema)) {
+      setForm((f) => ({ ...f, idTema: filteredTopics[0]._id }));
+    }
+  }, [filteredTopics, form.idTema]);
 
   useEffect(() => {
     loadForo();
@@ -385,14 +467,59 @@ export default function Foro() {
       {showForm && (
         <form className="card" onSubmit={onSubmit} noValidate>
           <h2 className="card__title">Nueva pregunta</h2>
-          <div className="field">
-            <label htmlFor="idTema">Tema</label>
-            <select id="idTema" name="idTema" value={form.idTema} onChange={onChange}>
-              {temas.length === 0 && <option value="">Sin temas disponibles</option>}
-              {temas.map((t) => (
-                <option key={t._id} value={t._id}>{t.titulo}</option>
-              ))}
-            </select>
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor="foro-career">Carrera</label>
+              <select
+                id="foro-career"
+                value={selectedCareerId}
+                onChange={(e) => {
+                  setSelectedCareerId(e.target.value);
+                  setSelectedSemester('TODOS');
+                }}
+              >
+                <option value="TODAS">Todas las carreras</option>
+                {carreras.map((c) => (
+                  <option key={c._id} value={c._id}>{c.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="foro-semester">Semestre / Cuatrimestre</label>
+              <select
+                id="foro-semester"
+                value={selectedSemester}
+                onChange={(e) => setSelectedSemester(e.target.value)}
+                disabled={availableSemesters.length === 0}
+              >
+                <option value="TODOS">Todos los semestres</option>
+                {availableSemesters.map((sem) => (
+                  <option key={sem} value={sem}>{sem}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="foro-subject">Asignatura</label>
+              <select
+                id="foro-subject"
+                value={selectedSubjectId}
+                onChange={(e) => setSelectedSubjectId(e.target.value)}
+              >
+                {filteredSubjects.length === 0 && <option value="">Sin asignaturas disponibles</option>}
+                {filteredSubjects.map((a) => (
+                  <option key={a._id} value={a._id}>{a.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="idTema">Tema</label>
+              <select id="idTema" name="idTema" value={form.idTema} onChange={onChange}>
+                {filteredTopics.length === 0 && <option value="">Sin temas para esta asignatura</option>}
+                {filteredTopics.map((t) => (
+                  <option key={t._id} value={t._id}>{t.titulo}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="field">
             <label htmlFor="texto">Pregunta</label>
