@@ -1583,3 +1583,43 @@
     white-space: normal;
   }
 }
+
+/* Encabezados unificados de los módulos 3 y 5 al 8 */
+.module-banner {
+  min-height: 152px;
+  padding: 1.25rem 1.5rem;
+  align-items: center;
+}
+
+.module-banner .banner-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.module-banner .banner-title {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+  line-height: 1.2;
+}
+
+.module-banner .banner-subtitle {
+  max-width: 760px;
+}
+
+.module-banner-olive {
+  background: linear-gradient(125deg, #365314 0%, #4d7c0f 52%, #84a91d 100%);
+  box-shadow: 0 8px 24px rgba(77, 124, 15, 0.2);
+}
+
+@media (max-width: 640px) {
+  .module-banner {
+    min-height: 138px;
+    padding: 1.1rem 1.15rem;
+    align-items: flex-start;
+  }
+
+  .module-banner .banner-title { font-size: 1.35rem; }
+  .module-banner .banner-subtitle { font-size: 0.86rem; }
+}

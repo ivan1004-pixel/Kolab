@@ -11,6 +11,7 @@ import {
   UsersRound,
   Handshake,
   Radar,
+  LogOut,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -155,6 +156,11 @@ export default function Layout() {
             </svg>
           </button>
 
+          <div className="topbar__hero">
+            <strong>KOLAB</strong>
+            <span>Espacio académico</span>
+          </div>
+
           <span className="topbar__spacer" />
 
           <button
@@ -202,10 +208,13 @@ export default function Layout() {
 
           <button
             type="button"
-            className="btn btn--ghost btn--sm"
+            className="topbar__logout"
             onClick={logout}
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
           >
-            Salir
+            <LogOut size={18} aria-hidden="true" />
+            <span>Cerrar sesión</span>
           </button>
         </div>
 

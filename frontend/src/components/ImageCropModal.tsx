@@ -8,7 +8,6 @@ interface ImageCropModalProps {
 
 export default function ImageCropModal({ src, onCancel, onConfirm }: ImageCropModalProps) {
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const [useCrop, setUseCrop] = useState(true);
   const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
   const [circle, setCircle] = useState({ cx: 120, cy: 120, r: 75 });
 
@@ -101,10 +100,7 @@ export default function ImageCropModal({ src, onCancel, onConfirm }: ImageCropMo
   }, [onCancel]);
 
   function handleConfirm() {
-    if (!useCrop || !imgRef.current || imgSize.width === 0 || imgSize.height === 0) {
-      onConfirm(src);
-      return;
-    }
+    if (!imgRef.current || imgSize.width === 0 || imgSize.height === 0) return;
 
     const img = imgRef.current;
     const scaleX = img.naturalWidth / imgSize.width;
@@ -119,10 +115,7 @@ export default function ImageCropModal({ src, onCancel, onConfirm }: ImageCropMo
     canvas.width = outSize;
     canvas.height = outSize;
     const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      onConfirm(src);
-      return;
-    }
+    if (!ctx) return;
 
     ctx.beginPath();
     ctx.arc(outSize / 2, outSize / 2, outSize / 2, 0, Math.PI * 2);
@@ -142,14 +135,7 @@ export default function ImageCropModal({ src, onCancel, onConfirm }: ImageCropMo
           <button type="button" className="notice-close" onClick={onCancel} aria-label="Cerrar">×</button>
         </div>
 
-        <label className="crop-toggle">
-          <input
-            type="checkbox"
-            checked={useCrop}
-            onChange={(e) => setUseCrop(e.target.checked)}
-          />
-          <span>Usar formato de recorte circular</span>
-        </label>
+        <p className="crop-modal__hint">Ajusta la imagen dentro del círculo para confirmar tu foto de perfil.</p>
 
         <div className="crop-stage" onPointerMove={onPointerMove} onPointerUp={stopDrag} onPointerCancel={stopDrag}>
           <img
@@ -161,7 +147,7 @@ export default function ImageCropModal({ src, onCancel, onConfirm }: ImageCropMo
             draggable={false}
           />
 
-          {useCrop && imgSize.width > 0 && (
+          {imgSize.width > 0 && (
             <div
               className="crop-circle"
               style={{
@@ -184,7 +170,7 @@ export default function ImageCropModal({ src, onCancel, onConfirm }: ImageCropMo
           )}
         </div>
 
-        {useCrop && imgSize.width > 0 && (
+        {imgSize.width > 0 && (
           <div className="crop-slider-row">
             <label htmlFor="crop-radius">Tamaño del círculo</label>
             <input
@@ -202,8 +188,8 @@ export default function ImageCropModal({ src, onCancel, onConfirm }: ImageCropMo
           <button type="button" className="btn btn--ghost" onClick={onCancel}>
             Cancelar
           </button>
-          <button type="button" className="btn btn--primary" onClick={handleConfirm}>
-            {useCrop ? 'Aplicar recorte' : 'Usar imagen completa'}
+          <button type="button" className="btn btn--primary" onClick={handleConfirm} disabled={imgSize.width === 0 || imgSize.height === 0}>
+            Confirmar foto
           </button>
         </div>
       </div>

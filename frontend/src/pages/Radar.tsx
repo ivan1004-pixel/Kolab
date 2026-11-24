@@ -139,12 +139,11 @@ export default function Radar() {
 
   return (
     <div className="module8-wrap">
-      <section className="module-banner module-banner-teal" aria-label="Encabezado del Módulo 8">
+      <section className="module-banner module-banner-teal" aria-label="Encabezado de radar y PWA">
         <div className="banner-deco-circle banner-deco-1" aria-hidden="true" />
         <div className="banner-deco-circle banner-deco-2" aria-hidden="true" />
 
         <div className="banner-content">
-          <span className="banner-pill">Módulo 8</span>
           <h1 className="banner-title">Radar de dificultades e infraestructura PWA</h1>
           <p className="banner-subtitle">Dónde se atoran los estudiantes y acceso sin conexión</p>
         </div>

@@ -934,8 +934,15 @@ export default function Recursos() {
   }
 
   return (
-    <div className="kolab-module">
-      <h1 className="perfil-page-title">Repositorio de recursos</h1>
+    <div className="kolab-module module3-page">
+      <section className="module-banner module-banner-olive" aria-label="Encabezado del repositorio de recursos">
+        <div className="banner-deco-circle banner-deco-1" aria-hidden="true" />
+        <div className="banner-deco-circle banner-deco-2" aria-hidden="true" />
+        <div className="banner-content">
+          <h1 className="banner-title">Repositorio de recursos y validación docente</h1>
+          <p className="banner-subtitle">Comparte, busca y consulta materiales revisados por la comunidad académica</p>
+        </div>
+      </section>
 
       {/* Navegación de los 3 submódulos */}
       <nav className="td-tabs" aria-label="Submódulos de recursos">

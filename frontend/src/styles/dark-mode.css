@@ -27,29 +27,29 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --bosque: #0c3d20;
-  --verde: #36a461;
-  --verde-hover: #28834d;
-  --menta: #0c3d20;
-  --tinta: #e8f3e6;
-  --blanco: #153f29;
-  --texto-suave: #b5c9ba;
-  --borde: #315b40;
+  --bosque: #0b1d14;
+  --verde: #43b873;
+  --verde-hover: #31965d;
+  --menta: #0c1711;
+  --tinta: #edf5ef;
+  --blanco: #17271f;
+  --texto-suave: #afc2b5;
+  --borde: #344b3d;
 
-  --shadow: 0 10px 30px rgb(0 0 0 / 0.25);
+  --shadow: 0 14px 34px rgb(0 0 0 / 0.32);
 }
 
 /* Fondo general */
 :root[data-theme="dark"] body {
-  background: #0c3d20;
-  color: #e8f3e6;
+  background: #0b1510;
+  color: #edf5ef;
 }
 
 /* Barra superior */
 :root[data-theme="dark"] .topbar {
-  background: rgb(12 61 32 / 0.96);
-  border-bottom: 1px solid #315b40;
-  color: #e8f3e6;
+  background: rgb(15 29 21 / 0.96);
+  border-bottom: 1px solid #344b3d;
+  color: #edf5ef;
 }
 
 :root[data-theme="dark"] .theme-toggle {
@@ -60,8 +60,8 @@
 
 /* Barra de búsqueda */
 :root[data-theme="dark"] .search input {
-  background: #174a2c;
-  border-color: #315b40;
+  background: #1b3024;
+  border-color: #344b3d;
   color: #ffffff;
 }
 
@@ -76,9 +76,9 @@
 
 :root[data-theme="dark"] .card,
 :root[data-theme="dark"] .module-card {
-  background: #153f29;
-  color: #e8f3e6;
-  border: 1px solid #315b40;
+  background: #17271f;
+  color: #edf5ef;
+  border: 1px solid #344b3d;
 }
 
 :root[data-theme="dark"] .card__title,
@@ -124,13 +124,13 @@
 
 /* Botones */
 :root[data-theme="dark"] .btn--ghost {
-  background: #174a2c;
-  color: #e8f3e6;
-  border-color: #477451;
+  background: #1b3024;
+  color: #edf5ef;
+  border-color: #476452;
 }
 
 :root[data-theme="dark"] .btn--ghost:hover {
-  background: #205b36;
+  background: #254a34;
 }
 
 /* Tablas */
@@ -235,9 +235,9 @@ body,
    ========================================= */
 
 :root[data-theme="dark"] .km-tab {
-  background: #174a2c;
-  color: #e8f3e6;
-  border-color: #477451;
+  background: #1b3024;
+  color: #edf5ef;
+  border-color: #476452;
 }
 
 :root[data-theme="dark"] .km-tab.active {
@@ -266,7 +266,7 @@ body,
 }
 
 :root[data-theme="dark"] .km-course-icon {
-  background: #205b36;
+  background: #254a34;
   color: #b7f7ce;
 }
 
@@ -281,9 +281,9 @@ body,
 }
 
 :root[data-theme="dark"] .km-filter-panel {
-  background: #153f29;
-  color: #e8f3e6;
-  border: 1px solid #315b40;
+  background: #17271f;
+  color: #edf5ef;
+  border: 1px solid #344b3d;
 }
 
 :root[data-theme="dark"] .km-note {
@@ -296,7 +296,7 @@ body,
 }
 
 :root[data-theme="dark"] .km-file-icon {
-  background: #205b36;
+  background: #254a34;
   color: #b7f7ce;
 }
 
@@ -311,22 +311,22 @@ body,
 
 :root[data-theme="dark"] {
   /* Colores compartidos entre los módulos */
-  --kolab-white: #153f29;
-  --kolab-ink: #e8f3e6;
-  --kolab-muted: #b5c9ba;
-  --kolab-mint: #174a2c;
-  --kolab-mint-soft: #205b36;
-  --kolab-border: #315b40;
+  --kolab-white: #17271f;
+  --kolab-ink: #edf5ef;
+  --kolab-muted: #afc2b5;
+  --kolab-mint: #1b3024;
+  --kolab-mint-soft: #254a34;
+  --kolab-border: #344b3d;
 
-  --kolab-indigo-soft: #30345d;
-  --kolab-indigo-border: #51598a;
+  --kolab-indigo-soft: #252b49;
+  --kolab-indigo-border: #4b5684;
 }
 
 /* Tarjetas generales de los módulos */
 :root[data-theme="dark"] .kolab-card {
-  background: #153f29;
-  color: #e8f3e6;
-  border-color: #315b40;
+  background: #17271f;
+  color: #edf5ef;
+  border-color: #344b3d;
 }
 
 /* Títulos y textos */
@@ -359,9 +359,9 @@ body,
 :root[data-theme="dark"] .member-row,
 :root[data-theme="dark"] .m7-tutor-row,
 :root[data-theme="dark"] .m7-mod-row {
-  background: #153f29;
-  color: #e8f3e6;
-  border-color: #315b40;
+  background: #17271f;
+  color: #edf5ef;
+  border-color: #344b3d;
 }
 
 /* Preguntas frecuentes y elementos seleccionables */
@@ -376,9 +376,9 @@ body,
 :root[data-theme="dark"] .kolab-module input,
 :root[data-theme="dark"] .kolab-module select,
 :root[data-theme="dark"] .kolab-module textarea {
-  background: #174a2c;
-  color: #e8f3e6;
-  border-color: #477451;
+  background: #1b3024;
+  color: #edf5ef;
+  border-color: #476452;
 }
 
 /* Encabezados de tablas */
@@ -391,4 +391,339 @@ body,
 :root[data-theme="dark"] .kolab-module hr,
 :root[data-theme="dark"] .kolab-card hr {
   border-color: #315b40;
+}
+
+
+/* =====================================================
+   MODULOS 5 A 8 - CONTRASTE Y PALETA OSCURA CONSISTENTE
+   ===================================================== */
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap) {
+  color: #edf5ef;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap)
+  :is(.kolab-card, .card, .td-item, .group-item, .member-row, .m7-tutor-row, .m7-mod-row, .faq-row, .faq-card) {
+  background-color: #17271f;
+  color: #edf5ef;
+  border-color: #344b3d;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap)
+  :is(h1, h2, h3, h4, p, label, small, strong, li, td, th, .card-title, .muted, .empty, .td-item__meta, .banner-subtitle) {
+  color: #e5f0e8;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap)
+  :is(.kolab-muted, .muted, .empty, .td-item__meta, .banner-subtitle) {
+  color: #afc2b5;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap)
+  :is(input, select, textarea, .duel-select, .composer-input) {
+  background: #1b3024;
+  color: #f4faf5;
+  border-color: #476452;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap)
+  :is(input, textarea)::placeholder {
+  color: #a9bdb0;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap) .chip--soft {
+  background: #204b32;
+  color: #c7f4d4;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap) .chip--xp {
+  background: #4b3b1c;
+  color: #ffe6a8;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap) .btn-banner-action,
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap) .btn-banner-action * {
+  color: #173321;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap) .td-notice {
+  background: #1b3024;
+  color: #edf5ef;
+  border-color: #3c5947;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap) .td-notice--err {
+  background: #3a2024;
+  color: #ffd9de;
+  border-color: #8e4652;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap) .td-notice--ok {
+  background: #173a29;
+  color: #c8f4d5;
+  border-color: #34724b;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap) .form-error {
+  color: #ffb8c1;
+}
+
+:root[data-theme="dark"] :is(.module5-page, .module6-wrap, .module7-wrap, .module8-wrap) .form-ok {
+  color: #a8efbd;
+}
+
+:root[data-theme="dark"] .profile-quick-card {
+  background: linear-gradient(135deg, #17271f, #1b3024);
+  color: #edf5ef;
+  border-color: #344b3d;
+}
+
+:root[data-theme="dark"] .profile-quick-card__copy small,
+:root[data-theme="dark"] .profile-history-toolbar {
+  color: #afc2b5;
+}
+
+:root[data-theme="dark"] .profile-quick-modal {
+  background: #17271f;
+  color: #edf5ef;
+  border-color: #344b3d;
+}
+
+:root[data-theme="dark"] .profile-quick-modal__head h2,
+:root[data-theme="dark"] .profile-favorite-item__copy strong {
+  color: #edf5ef;
+}
+
+:root[data-theme="dark"] .profile-favorite-item {
+  background: #1b3024;
+  border-color: #344b3d;
+  color: #edf5ef;
+}
+
+:root[data-theme="dark"] .profile-favorite-item__copy small {
+  color: #afc2b5;
+}
+
+:root[data-theme="dark"] .profile-quick-modal__close {
+  background: #1b3024;
+  color: #edf5ef;
+  border-color: #476452;
+}
+
+:root[data-theme="dark"] .crop-modal.card {
+  background: #17271f;
+  color: #edf5ef;
+  border-color: #344b3d;
+}
+
+:root[data-theme="dark"] .crop-modal__hint,
+:root[data-theme="dark"] .crop-slider-row {
+  color: #afc2b5;
+}
+
+:root[data-theme="dark"] .topbar__hero { color: #edf5ef; }
+:root[data-theme="dark"] .topbar__hero span { color: #afc2b5; }
+:root[data-theme="dark"] .topbar__logout { background: #1b3024; border-color: #476452; color: #ffb8c1; }
+:root[data-theme="dark"] .topbar__logout:hover { background: #3a2024; border-color: #8e4652; }
+
+
+/* Colores semánticos para tarjetas, alertas y estados en fondos oscuros */
+:root[data-theme="dark"] .quiz-feedback.is-good { background: #173d2b; color: #c7f4d4; }
+:root[data-theme="dark"] .quiz-feedback.is-warn { background: #453719; color: #ffe6a8; }
+:root[data-theme="dark"] .role-leader,
+:root[data-theme="dark"] .challenge-xp-pill,
+:root[data-theme="dark"] .status-pending,
+:root[data-theme="dark"] .severity-mid { background: #493a1b; color: #ffe6a8; }
+:root[data-theme="dark"] .role-collab,
+:root[data-theme="dark"] .status-progress { background: #282e4d; color: #d8ddff; }
+:root[data-theme="dark"] .role-member,
+:root[data-theme="dark"] .status-mint,
+:root[data-theme="dark"] .severity-low { background: #173d2b; color: #c7f4d4; }
+:root[data-theme="dark"] .challenge-item { background: #1b3024; border-color: #3c5947; color: #edf5ef; }
+:root[data-theme="dark"] .challenge-item.is-done { background: #173d2b; border-color: #34724b; }
+:root[data-theme="dark"] .status-rejected { background: #303b36; color: #d9e5dd; }
+:root[data-theme="dark"] .status-danger,
+:root[data-theme="dark"] .severity-high { background: #49252c; color: #ffd5dc; }
+:root[data-theme="dark"] .pwa-box { background: #1b3024; color: #edf5ef; }
+:root[data-theme="dark"] .badge-locked { background: #3c4841; color: #e5eee8; }
+:root[data-theme="dark"] .td-notice { background: #1b3024; color: #edf5ef; border-color: #3c5947; }
+:root[data-theme="dark"] .td-notice--ok { background: #173d2b; color: #c7f4d4; border-color: #34724b; }
+:root[data-theme="dark"] .td-notice--err { background: #49252c; color: #ffd5dc; border-color: #8e4652; }
+:root[data-theme="dark"] .notice-close { color: #e5f0e8; }
+
+/* =====================================================
+   Ajustes de contraste: notificaciones y acciones
+   visibles en modo oscuro
+   ===================================================== */
+:root[data-theme="dark"] .notif-panel {
+  background: #17271f;
+  border-color: #3c5947;
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.42);
+  color: #edf5ef;
+}
+
+:root[data-theme="dark"] .notif-panel__head {
+  background: #17271f;
+  border-bottom-color: #344b3d;
+}
+
+:root[data-theme="dark"] .notif-panel__title-row,
+:root[data-theme="dark"] .notif-panel__title-row strong {
+  color: #edf5ef;
+}
+
+:root[data-theme="dark"] .notif-panel__count {
+  background: #285438;
+  color: #d7f7df;
+}
+
+:root[data-theme="dark"] .notif-panel__clear {
+  color: #83dfa5;
+}
+
+:root[data-theme="dark"] .notif-panel__clear:hover,
+:root[data-theme="dark"] .notif-panel__clear:focus-visible {
+  background: #254a34;
+  color: #c7f4d4;
+}
+
+:root[data-theme="dark"] .notif-panel__empty {
+  color: #c0d0c5;
+}
+
+:root[data-theme="dark"] .notif-item,
+:root[data-theme="dark"] .notif-item:visited {
+  background: #17271f;
+  color: #edf5ef;
+  border-bottom-color: #344b3d;
+}
+
+:root[data-theme="dark"] .notif-item:hover,
+:root[data-theme="dark"] .notif-item:focus-visible {
+  background: #223b2c;
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .notif-item--unread {
+  background: #1b3827;
+}
+
+:root[data-theme="dark"] .notif-item__tag {
+  color: #83dfa5;
+}
+
+:root[data-theme="dark"] .notif-item__time,
+:root[data-theme="dark"] .notif-item__msg {
+  color: #c0d0c5;
+}
+
+:root[data-theme="dark"] .notif-item__title {
+  color: #f1f7f2;
+}
+
+:root[data-theme="dark"] .notif-item:focus-visible,
+:root[data-theme="dark"] .notif-panel__clear:focus-visible {
+  outline: 2px solid #83dfa5;
+  outline-offset: -2px;
+}
+
+/* Módulo 5: mantener legible el botón Enviar y sus estados. */
+:root[data-theme="dark"] .module5-page .btn-indigo,
+:root[data-theme="dark"] .module5-page .btn-indigo:visited,
+:root[data-theme="dark"] .module5-page .btn-indigo span,
+:root[data-theme="dark"] .module5-page .btn-indigo svg {
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .module5-page .btn-indigo {
+  background: #5148d8;
+  border-color: #5148d8;
+}
+
+:root[data-theme="dark"] .module5-page .btn-indigo:hover:not(:disabled) {
+  background: #6259ed;
+  border-color: #6259ed;
+}
+
+:root[data-theme="dark"] .module5-page .btn-indigo:disabled {
+  background: #39356f;
+  color: #d9d7ff;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+/* Módulo 8: acción de instalación del encabezado Radar/PWA. */
+:root[data-theme="dark"] .module8-wrap .module-banner .btn-banner-action,
+:root[data-theme="dark"] .module8-wrap .module-banner .btn-banner-action span,
+:root[data-theme="dark"] .module8-wrap .module-banner .btn-banner-action svg {
+  background-color: #f4fff7;
+  color: #123b25;
+}
+
+:root[data-theme="dark"] .module8-wrap .module-banner .btn-banner-action:hover,
+:root[data-theme="dark"] .module8-wrap .module-banner .btn-banner-action:focus-visible {
+  background-color: #d9f7e3;
+  color: #0b2d1a;
+}
+
+:root[data-theme="dark"] .module8-wrap .btn-outline-green {
+  background: #1b3024;
+  color: #b9f3cb;
+  border-color: #58b879;
+}
+
+:root[data-theme="dark"] .module8-wrap .btn-outline-green:hover,
+:root[data-theme="dark"] .module8-wrap .btn-outline-green:focus-visible {
+  background: #285438;
+  color: #e5ffec;
+}
+
+/* =========================================
+   COMUNIDADES Y TUTORÍAS - BOTONES DEL HEADER
+   ========================================= */
+
+:root[data-theme="dark"] :is(.module6-wrap, .module7-wrap) .module-banner .btn-banner-action,
+:root[data-theme="dark"] :is(.module6-wrap, .module7-wrap) .module-banner .btn-banner-action span,
+:root[data-theme="dark"] :is(.module6-wrap, .module7-wrap) .module-banner .btn-banner-action svg {
+  color: #123b25;
+}
+
+:root[data-theme="dark"] :is(.module6-wrap, .module7-wrap) .module-banner .btn-banner-action {
+  background-color: #f4fff7;
+  border-color: #d5efdc;
+}
+
+:root[data-theme="dark"] :is(.module6-wrap, .module7-wrap) .module-banner .btn-banner-action:hover,
+:root[data-theme="dark"] :is(.module6-wrap, .module7-wrap) .module-banner .btn-banner-action:focus-visible {
+  background-color: #d9f7e3;
+  color: #0b2d1a;
+}
+
+:root[data-theme="dark"] :is(.module6-wrap, .module7-wrap) .module-banner .btn-banner-action:active {
+  background-color: #c7efd5;
+}
+
+
+/* =========================================
+   MÓDULO 3 - RECURSOS
+   TEXTO DEL HEADER EN MODO OSCURO
+   ========================================= */
+
+:root[data-theme="dark"] .module3-page .module-banner .banner-title {
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .module3-page .module-banner .banner-subtitle {
+  color: #f1f7e9;
+}
+
+/* Módulo 7 - Tutorías: botón Enviar solicitud */
+:root[data-theme="dark"] .module7-wrap .duel-form .btn-crimson,
+:root[data-theme="dark"] .module7-wrap .duel-form .btn-crimson * {
+  color: #ffffff;
+}
+
+:root[data-theme="dark"] .module7-wrap .duel-form .btn-crimson:hover,
+:root[data-theme="dark"] .module7-wrap .duel-form .btn-crimson:focus-visible,
+:root[data-theme="dark"] .module7-wrap .duel-form .btn-crimson:active {
+  color: #ffffff;
 }

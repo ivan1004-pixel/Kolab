@@ -222,7 +222,7 @@ export default function Curricular() {
 
   return (
     <>
-      <ModuleBanner module={moduleInfo}><span className="chip chip--soft">Módulo 2</span></ModuleBanner>
+      <ModuleBanner module={moduleInfo} />
       <div className="kolab-module">
         <section className="km-toolbar">
           <div>

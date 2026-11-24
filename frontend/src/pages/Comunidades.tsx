@@ -226,12 +226,11 @@ export default function Comunidades() {
 
   return (
     <div className="module6-wrap">
-      <section className="module-banner module-banner-orange" aria-label="Encabezado del Módulo 6">
+      <section className="module-banner module-banner-orange" aria-label="Encabezado de comunidades">
         <div className="banner-deco-circle banner-deco-1" aria-hidden="true" />
         <div className="banner-deco-circle banner-deco-2" aria-hidden="true" />
 
         <div className="banner-content">
-          <span className="banner-pill">Módulo 6</span>
           <h1 className="banner-title">Comunidades, retos y gamificación</h1>
           <p className="banner-subtitle">Estudia en equipo, gana XP e insignias</p>
         </div>

@@ -11,7 +11,6 @@ import {
   FileSearch,
   FileText,
   Flag,
-  History,
   Send,
   Sparkles,
   ThumbsDown,
@@ -21,7 +20,7 @@ import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
 import { toFriendlyError } from '../utils/friendlyError';
-import { downloadCsv, escapeHtml, exportHtmlToPdf } from '../utils/exportUtils';
+import { escapeHtml, exportHtmlToPdf } from '../utils/exportUtils';
 import ReportModal from '../components/ReportModal';
 import Skeleton, { RowListSkeleton } from '../components/Skeleton';
 
@@ -98,7 +97,6 @@ export default function Asistente() {
   const { token } = useAuth();
   const [temas, setTemas] = useState<TemaItem[]>([]);
   const [recursos, setRecursos] = useState<RecursoOpcion[]>([]);
-  const [historial, setHistorial] = useState<IntentoItem[]>([]);
   const [loadingInit, setLoadingInit] = useState(!USE_MOCK && Boolean(token));
 
   const [selectedTemaId, setSelectedTemaId] = useState('');
@@ -146,17 +144,11 @@ export default function Asistente() {
       const data = await gqlRequest<{
         temas: TemaItem[];
         recursos: RecursoOpcion[];
-        miHistorialCuestionarios: IntentoItem[];
       }>(
         `query AsistenteInit {
           temas { _id titulo }
           recursos {
             _id titulo descripcion archivoUrl tipoArchivo idTema estadoValidacion esMaterialOficial
-          }
-          miHistorialCuestionarios {
-            _id idTema tituloCuestionario aciertos totalReactivos calificacion
-            retroalimentacion conceptosPorReforzar createdAt
-            recursosRecomendados { idRecurso titulo motivo archivoUrl }
           }
         }`,
         {},
@@ -166,7 +158,6 @@ export default function Asistente() {
       const recursoList = data.recursos ?? [];
       setTemas(temaList);
       setRecursos(recursoList);
-      setHistorial(data.miHistorialCuestionarios ?? []);
       if (temaList.length > 0 && !selectedTemaId) {
         setSelectedTemaId(temaList[0]._id);
       }
@@ -422,50 +413,12 @@ export default function Asistente() {
       );
       const intento = res.responderCuestionario;
       setEvaluationResult(intento);
-      setHistorial((prev) => [
-        intento,
-        ...prev.filter((item) => item._id !== intento._id),
-      ]);
       setStatusOk('Autoevaluación calificada y guardada en tu historial.');
     } catch (err: any) {
       setSecurityError(toFriendlyError(err, 'No se pudo calificar el cuestionario.'));
     } finally {
       setGradingQuiz(false);
     }
-  }
-
-  function handleExportHistoryCsv() {
-    downloadCsv(
-      `kolab-historial-autoevaluaciones-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Fecha', 'Cuestionario / Tema', 'Aciertos', 'Total', 'Calificación (%)', 'Conceptos por reforzar', 'Recursos recomendados'],
-      historial.map((h) => [
-        new Date(h.createdAt).toLocaleDateString('es-MX'),
-        h.tituloCuestionario || temaMap.get(h.idTema) || h.idTema,
-        h.aciertos,
-        h.totalReactivos,
-        Math.round(h.calificacion),
-        (h.conceptosPorReforzar || []).join(' | ') || 'Ninguno',
-        (h.recursosRecomendados || []).map((r) => r.titulo).join(' | ') || 'Ninguno',
-      ]),
-    );
-  }
-
-  function handleExportHistoryPdf() {
-    const rows = historial
-      .map(
-        (h) => `<tr>
-          <td>${new Date(h.createdAt).toLocaleDateString('es-MX')}</td>
-          <td>${escapeHtml(h.tituloCuestionario || temaMap.get(h.idTema) || h.idTema)}</td>
-          <td>${h.aciertos}/${h.totalReactivos}</td>
-          <td><strong>${Math.round(h.calificacion)}%</strong></td>
-          <td>${escapeHtml((h.conceptosPorReforzar || []).join(', ') || '—')}</td>
-        </tr>`,
-      )
-      .join('');
-    exportHtmlToPdf(
-      'Historial de Autoevaluaciones',
-      `<table><thead><tr><th>Fecha</th><th>Cuestionario / Tema</th><th>Aciertos</th><th>Calificación</th><th>Conceptos a reforzar</th></tr></thead><tbody>${rows}</tbody></table>`,
-    );
   }
 
   const totalReactivos = activeQuiz?.reactivos.length ?? 0;
@@ -1039,84 +992,6 @@ export default function Asistente() {
           )}
         </section>
       </div>
-
-      {/* ==================== TARJETA 3: HISTORIAL DE AUTOEVALUACIONES ==================== */}
-      <section className="kolab-card" aria-label="Historial de autoevaluaciones">
-        <header className="card-header-row">
-          <h2 className="card-title inline-icon-row">
-            <History size={20} aria-hidden="true" />
-            <span>Mi historial de autoevaluaciones</span>
-          </h2>
-          <div className="row">
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={handleExportHistoryCsv}
-              disabled={historial.length === 0}
-            >
-              <FileDown size={14} aria-hidden="true" />
-              <span>Descargar CSV</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn--ghost btn--sm"
-              onClick={handleExportHistoryPdf}
-              disabled={historial.length === 0}
-            >
-              <FileDown size={14} aria-hidden="true" />
-              <span>Exportar PDF</span>
-            </button>
-          </div>
-        </header>
-        {loadingInit ? (
-          <RowListSkeleton count={3} />
-        ) : historial.length === 0 ? (
-          <p className="empty">Aún no has completado cuestionarios de autoevaluación.</p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Cuestionario / Tema</th>
-                  <th>Aciertos</th>
-                  <th>Calificación</th>
-                  <th>Conceptos a reforzar</th>
-                  <th>Recursos recomendados</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historial.map((h) => (
-                  <tr key={h._id}>
-                    <td>
-                      {new Date(h.createdAt).toLocaleString('es-MX', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td>{h.tituloCuestionario || temaMap.get(h.idTema) || 'Tema'}</td>
-                    <td>{h.aciertos}/{h.totalReactivos}</td>
-                    <td>
-                      <span className={`chip ${h.calificacion >= 70 ? 'chip--soft' : 'chip--xp'}`}>
-                        {Math.round(h.calificacion)}%
-                      </span>
-                    </td>
-                    <td>{h.conceptosPorReforzar?.join(', ') || 'Sin pendientes'}</td>
-                    <td>
-                      {h.recursosRecomendados && h.recursosRecomendados.length > 0
-                        ? h.recursosRecomendados.map((r) => r.titulo).join(', ')
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
 
       <ReportModal
         open={Boolean(reportTarget)}

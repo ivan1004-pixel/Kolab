@@ -11,7 +11,6 @@ export default function ModuleBanner({ module, children }: ModuleBannerProps) {
   return (
     <header className={`banner ${module.ink ? 'banner--ink' : ''}`} style={style}>
       <div>
-        <p className="banner__kicker">Módulo {module.id}</p>
         <h1>{module.name}</h1>
         <p className="banner__desc">{module.desc}</p>
       </div>

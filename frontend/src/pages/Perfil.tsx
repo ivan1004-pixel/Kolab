@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   ExternalLink,
   Flame,
+  FileDown,
+  History,
   Mail,
   ShieldCheck,
   Sliders,
@@ -14,11 +16,13 @@ import {
   Trophy,
   Upload,
   UserPlus,
+  X,
   Zap,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { USE_MOCK, gqlRequest } from '../services/api';
 import { assertNoScriptInjection } from '../utils/inputSecurity';
+import { downloadCsv, escapeHtml, exportHtmlToPdf } from '../utils/exportUtils';
 import ImageCropModal from '../components/ImageCropModal';
 import Skeleton, { RowListSkeleton } from '../components/Skeleton';
 
@@ -60,6 +64,19 @@ interface FavoritoRecursoItem {
   estadoValidacion: string;
 }
 
+interface IntentoItem {
+  _id: string;
+  idTema: string;
+  tituloCuestionario?: string;
+  aciertos: number;
+  totalReactivos: number;
+  calificacion: number;
+  retroalimentacion: string;
+  conceptosPorReforzar: string[];
+  recursosRecomendados?: Array<{ idRecurso: string; titulo: string; motivo: string; archivoUrl?: string }>;
+  createdAt: string;
+}
+
 interface AuditLogItem {
   _id: string;
   accion: string;
@@ -89,6 +106,10 @@ export default function Perfil() {
   const [myResourcesCount, setMyResourcesCount] = useState(0);
   const [mySolvedCount, setMySolvedCount] = useState(0);
   const [favoriteResources, setFavoriteResources] = useState<FavoritoRecursoItem[]>([]);
+  const [assessmentHistory, setAssessmentHistory] = useState<IntentoItem[]>([]);
+  const [topics, setTopics] = useState<Array<{ _id: string; titulo: string }>>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [profilePanel, setProfilePanel] = useState<'favorites' | 'history' | null>(null);
   const [pendingCropSrc, setPendingCropSrc] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
@@ -114,13 +135,19 @@ export default function Perfil() {
   }, [user?.nombre, user?.apellidos, user?.foto_url, user?.idCarrera, user?.cuatrimestre, user?.grupo, user?.preferencias]);
 
   useEffect(() => {
-    if (USE_MOCK || !token) return;
+    if (USE_MOCK || !token) {
+      setHistoryLoading(false);
+      return;
+    }
+    setHistoryLoading(true);
     gqlRequest<{
       misInsignias: Array<{ _id: string }>;
       carreras: CarreraOption[];
       recursos: Array<FavoritoRecursoItem & { idUsuario: string }>;
       misColecciones: Array<{ _id: string; nombre: string; esFavoritos: boolean; recursos: string[] }>;
       preguntas: Array<{ _id: string; idUsuario: string; resuelta: boolean }>;
+      temas: Array<{ _id: string; titulo: string }>;
+      miHistorialCuestionarios: IntentoItem[];
     }>(
       `query PerfilStats {
         misInsignias { _id }
@@ -128,6 +155,12 @@ export default function Perfil() {
         recursos { _id titulo archivoUrl tipoArchivo nombreAutor estadoValidacion idUsuario }
         misColecciones { _id nombre esFavoritos recursos }
         preguntas { _id idUsuario resuelta }
+        temas { _id titulo }
+        miHistorialCuestionarios {
+          _id idTema tituloCuestionario aciertos totalReactivos calificacion
+          retroalimentacion conceptosPorReforzar createdAt
+          recursosRecomendados { idRecurso titulo motivo archivoUrl }
+        }
       }`,
       {},
       token,
@@ -135,6 +168,8 @@ export default function Perfil() {
       .then((res) => {
         setBadgesCount(res.misInsignias?.length ?? 0);
         setCarreras(res.carreras ?? []);
+        setTopics(res.temas ?? []);
+        setAssessmentHistory(res.miHistorialCuestionarios ?? []);
         const uid = String(user?.id ?? '');
         const allResources = res.recursos ?? [];
         setMyResourcesCount(allResources.filter((r) => String(r.idUsuario) === uid).length);
@@ -148,7 +183,8 @@ export default function Perfil() {
         }
         setFavoriteResources(allResources.filter((r) => favIds.has(String(r._id))));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false));
   }, [token, user?.id]);
 
   async function handleRemoveFavorite(recursoId: string) {
@@ -166,6 +202,47 @@ export default function Perfil() {
       // Silenciar
     }
   }
+
+  const topicMap = new Map(topics.map((topic) => [topic._id, topic.titulo]));
+
+  function handleExportHistoryCsv() {
+    downloadCsv(
+      `kolab-historial-autoevaluaciones-${new Date().toISOString().slice(0, 10)}.csv`,
+      ['Fecha', 'Cuestionario / Tema', 'Aciertos', 'Total', 'Calificación (%)', 'Conceptos por reforzar', 'Recursos recomendados'],
+      assessmentHistory.map((item) => [
+        new Date(item.createdAt).toLocaleDateString('es-MX'),
+        item.tituloCuestionario || topicMap.get(item.idTema) || item.idTema,
+        item.aciertos,
+        item.totalReactivos,
+        Math.round(item.calificacion),
+        (item.conceptosPorReforzar || []).join(' | ') || 'Ninguno',
+        (item.recursosRecomendados || []).map((resource) => resource.titulo).join(' | ') || 'Ninguno',
+      ]),
+    );
+  }
+
+  function handleExportHistoryPdf() {
+    const rows = assessmentHistory.map((item) => `<tr>
+      <td>${new Date(item.createdAt).toLocaleDateString('es-MX')}</td>
+      <td>${escapeHtml(item.tituloCuestionario || topicMap.get(item.idTema) || item.idTema)}</td>
+      <td>${item.aciertos}/${item.totalReactivos}</td>
+      <td><strong>${Math.round(item.calificacion)}%</strong></td>
+      <td>${escapeHtml((item.conceptosPorReforzar || []).join(', ') || '—')}</td>
+    </tr>`).join('');
+    exportHtmlToPdf(
+      'Historial de Autoevaluaciones',
+      `<table><thead><tr><th>Fecha</th><th>Cuestionario / Tema</th><th>Aciertos</th><th>Calificación</th><th>Conceptos a reforzar</th></tr></thead><tbody>${rows}</tbody></table>`,
+    );
+  }
+
+  useEffect(() => {
+    if (!profilePanel) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setProfilePanel(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [profilePanel]);
 
   const onChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((f) => ({
@@ -497,56 +574,23 @@ export default function Perfil() {
             </div>
           </form>
 
-          {/* Sección de Favoritos en Perfil */}
-          <section className="card" aria-label="Mis recursos favoritos">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <h2 className="card__title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <Bookmark size={18} fill="currentColor" aria-hidden="true" />
-                <span>Mis favoritos ({favoriteResources.length})</span>
-              </h2>
-            </div>
-            {favoriteResources.length === 0 ? (
-              <p className="empty">Aún no has marcado recursos como favoritos. Marca la banderita en el Módulo 3 para verlos aquí.</p>
-            ) : (
-              <div className="skeleton-stack">
-                {favoriteResources.map((fav) => (
-                  <div key={fav._id} className="td-item">
-                    <div className="td-item__head">
-                      <div>
-                        <strong>{fav.titulo}</strong>
-                        <div className="td-item__meta">
-                          <span>Por {fav.nombreAutor || 'Estudiante'}</span>
-                          <span>· {fav.tipoArchivo.replace('application/', '').replace('image/', '').toUpperCase()}</span>
-                          <span>· {fav.estadoValidacion === 'REVISADO_DOCENTE' ? 'Validado' : 'Pendiente'}</span>
-                        </div>
-                      </div>
-                      <div className="row">
-                        {fav.archivoUrl && !fav.archivoUrl.includes('kolab.local') && (
-                          <a
-                            href={fav.archivoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn--primary btn--sm"
-                          >
-                            <ExternalLink size={14} aria-hidden="true" />
-                            <span>Abrir</span>
-                          </a>
-                        )}
-                        <button
-                          type="button"
-                          className="btn btn--ghost btn--sm btn--fav-active"
-                          onClick={() => handleRemoveFavorite(fav._id)}
-                          title="Quitar de favoritos"
-                        >
-                          <Bookmark size={14} fill="currentColor" aria-hidden="true" />
-                          <span>Quitar</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <section className="profile-quick-actions" aria-label="Biblioteca personal">
+            <button type="button" className="profile-quick-card profile-quick-card--favorites" onClick={() => setProfilePanel('favorites')}>
+              <span className="profile-quick-card__icon"><Bookmark size={22} fill="currentColor" aria-hidden="true" /></span>
+              <span className="profile-quick-card__copy">
+                <strong>Mis favoritos</strong>
+                <small>Recursos que guardaste para consultar después</small>
+              </span>
+              <span className="profile-quick-card__count">{favoriteResources.length}</span>
+            </button>
+            <button type="button" className="profile-quick-card profile-quick-card--history" onClick={() => setProfilePanel('history')}>
+              <span className="profile-quick-card__icon"><History size={22} aria-hidden="true" /></span>
+              <span className="profile-quick-card__copy">
+                <strong>Historial de autoevaluaciones</strong>
+                <small>Consulta tus resultados y tu progreso</small>
+              </span>
+              <span className="profile-quick-card__count">{assessmentHistory.length}</span>
+            </button>
           </section>
         </div>
       </div>
@@ -555,6 +599,90 @@ export default function Perfil() {
         <div className="skeleton-stack">
           <Cuentas />
           <AdminIaYBitacora />
+        </div>
+      )}
+
+      {profilePanel && (
+        <div className="profile-quick-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setProfilePanel(null);
+        }}>
+          <section className="profile-quick-modal" role="dialog" aria-modal="true" aria-labelledby="profile-quick-title">
+            <header className="profile-quick-modal__head">
+              <div>
+                <p className="profile-quick-modal__eyebrow">Mi espacio personal</p>
+                <h2 id="profile-quick-title">
+                  {profilePanel === 'favorites' ? 'Mis favoritos' : 'Historial de autoevaluaciones'}
+                </h2>
+              </div>
+              <button type="button" className="profile-quick-modal__close" onClick={() => setProfilePanel(null)} aria-label="Cerrar ventana">
+                <X size={20} />
+              </button>
+            </header>
+
+            {profilePanel === 'favorites' ? (
+              favoriteResources.length === 0 ? (
+                <p className="empty">Aún no has marcado recursos como favoritos. Marca la banderita en el Repositorio de recursos para verlos aquí.</p>
+              ) : (
+                <div className="profile-quick-modal__list">
+                  {favoriteResources.map((fav) => (
+                    <article key={fav._id} className="profile-favorite-item">
+                      <div className="profile-favorite-item__copy">
+                        <strong>{fav.titulo}</strong>
+                        <small>Por {fav.nombreAutor || 'Estudiante'} · {fav.tipoArchivo.replace('application/', '').replace('image/', '').toUpperCase()} · {fav.estadoValidacion === 'REVISADO_DOCENTE' ? 'Validado' : 'Pendiente'}</small>
+                      </div>
+                      <div className="row">
+                        {fav.archivoUrl && !fav.archivoUrl.includes('kolab.local') && (
+                          <a href={fav.archivoUrl} target="_blank" rel="noopener noreferrer" className="btn btn--primary btn--sm">
+                            <ExternalLink size={14} aria-hidden="true" /><span>Abrir</span>
+                          </a>
+                        )}
+                        <button type="button" className="btn btn--ghost btn--sm" onClick={() => handleRemoveFavorite(fav._id)} title="Quitar de favoritos">
+                          <Bookmark size={14} fill="currentColor" aria-hidden="true" /><span>Quitar</span>
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )
+            ) : (
+              <>
+                <div className="profile-history-toolbar">
+                  <span>{assessmentHistory.length} evaluaciones registradas</span>
+                  <div className="row">
+                    <button type="button" className="btn btn--ghost btn--sm" onClick={handleExportHistoryCsv} disabled={assessmentHistory.length === 0}>
+                      <FileDown size={14} aria-hidden="true" /><span>CSV</span>
+                    </button>
+                    <button type="button" className="btn btn--ghost btn--sm" onClick={handleExportHistoryPdf} disabled={assessmentHistory.length === 0}>
+                      <FileDown size={14} aria-hidden="true" /><span>PDF</span>
+                    </button>
+                  </div>
+                </div>
+                {historyLoading ? (
+                  <RowListSkeleton count={3} />
+                ) : assessmentHistory.length === 0 ? (
+                  <p className="empty">Aún no has completado cuestionarios de autoevaluación.</p>
+                ) : (
+                  <div className="table-wrap profile-history-table">
+                    <table>
+                      <thead><tr><th>Fecha</th><th>Cuestionario / Tema</th><th>Aciertos</th><th>Calificación</th><th>Conceptos a reforzar</th><th>Recursos recomendados</th></tr></thead>
+                      <tbody>
+                        {assessmentHistory.map((item) => (
+                          <tr key={item._id}>
+                            <td>{new Date(item.createdAt).toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                            <td>{item.tituloCuestionario || topicMap.get(item.idTema) || 'Tema'}</td>
+                            <td>{item.aciertos}/{item.totalReactivos}</td>
+                            <td><span className={`chip ${item.calificacion >= 70 ? 'chip--soft' : 'chip--xp'}`}>{Math.round(item.calificacion)}%</span></td>
+                            <td>{item.conceptosPorReforzar?.join(', ') || 'Sin pendientes'}</td>
+                            <td>{item.recursosRecomendados?.length ? item.recursosRecomendados.map((resource) => resource.titulo).join(', ') : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
         </div>
       )}
 

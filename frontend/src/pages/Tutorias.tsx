@@ -159,12 +159,11 @@ export default function Tutorias() {
 
   return (
     <div className="module7-wrap">
-      <section className="module-banner module-banner-crimson" aria-label="Encabezado del Módulo 7">
+      <section className="module-banner module-banner-crimson" aria-label="Encabezado de tutorías">
         <div className="banner-deco-circle banner-deco-1" aria-hidden="true" />
         <div className="banner-deco-circle banner-deco-2" aria-hidden="true" />
 
         <div className="banner-content">
-          <span className="banner-pill">Módulo 7</span>
           <h1 className="banner-title">Tutorías, duelos y moderación</h1>
           <p className="banner-subtitle">Ayuda entre pares, retos 1 a 1 y comunidad segura</p>
         </div>
